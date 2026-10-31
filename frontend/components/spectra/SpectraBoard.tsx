@@ -2,7 +2,8 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, CalendarPlus, CheckCircle2, HelpCircle, Search, TriangleAlert, XCircle } from "lucide-react";
+import { ArrowRight, CalendarPlus, CheckCircle2, HelpCircle, Info, Search, TriangleAlert, XCircle } from "lucide-react";
+import { askedText, cleanReason, placedText } from "@/lib/reason";
 import { BookingRequest, DayOfWeek, Explanation } from "@/lib/types";
 import { useApp } from "@/lib/appContext";
 import { ApiError, VenueBoard, describeError, explainBooking, fetchBookings, fetchVenueBoard, scheduleManualEvent } from "@/lib/api";
@@ -114,7 +115,10 @@ function Decisions() {
                       : `asked ${(b.windows || []).map((w) => `${w.day} P${w.from_period}-P${w.to_period}`).join(" or ")}`}
                     {b.requested_room && b.requested_room !== b.assigned_room && <span className="text-ink-400"> · wished {b.requested_room}</span>}
                   </p>
-                  <p className="text-sm text-ink-600 mt-2 line-clamp-2">{b.reason}</p>
+                  {b.status === "alternative_offered" && (
+                    <p className="text-sm mt-2 text-lagoon-900"><strong>Asked:</strong> {askedText(b.windows)} <ArrowRight className="inline w-3.5 h-3.5 mx-1" /> <strong>Offered:</strong> {b.day} {periodRange(b.start_period, b.end_period)} in {b.assigned_room}</p>
+                  )}
+                  <p className="text-sm text-ink-600 mt-2 line-clamp-2">{cleanReason(b.reason)}</p>
                 </Card>
               </button>
             </motion.li>
@@ -125,9 +129,15 @@ function Decisions() {
         {open && (
           <>
             <Chip tone={(STATUS_STYLE[open.status] || STATUS_STYLE.pending).tone}>{(STATUS_STYLE[open.status] || STATUS_STYLE.pending).label}</Chip>
+            {(open.status === "approved" || open.status === "alternative_offered") && (
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="rounded-xl bg-paper p-3"><Eyebrow className="text-ink-400">Asked for</Eyebrow><p className="text-sm font-semibold mt-1">{askedText(open.windows)}</p>{open.requested_room && <p className="text-xs text-ink-600 mt-1">Room wish: {open.requested_room}</p>}</div>
+                <div className={cn("rounded-xl p-3", open.status === "alternative_offered" ? "bg-lagoon-50" : "bg-mangrove-50")}><Eyebrow className="text-ink-400">{open.status === "alternative_offered" ? "Offered instead" : "Booked"}</Eyebrow><p className="text-sm font-semibold mt-1">{placedText({ day: open.day, start_period: open.start_period, end_period: open.end_period, room_id: open.assigned_room || "" })}</p></div>
+              </div>
+            )}
             <div className="rounded-2xl bg-lagoon-50 p-4 space-y-2">
               <Eyebrow>The reasoning</Eyebrow>
-              <p className="text-sm">{open.reason}</p>
+              <p className="text-sm">{cleanReason(open.reason)}</p>
               {open.displaced_class && <p className="text-sm text-saffron-600">Week 7 only: class {open.displaced_class} was moved to another legal slot.</p>}
             </div>
             {open.status !== "pending" && (
@@ -155,6 +165,7 @@ function Board() {
   const [day, setDay] = useState<DayOfWeek>("THU");
   const [onlyEvents, setOnlyEvents] = useState(true);
   const [hover, setHover] = useState<string | null>(null);
+  const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
 
   useEffect(() => { fetchVenueBoard().then(setData).catch((e) => setError(describeError(e))); }, []);
   if (error) return <p className="text-sm text-sunrise-600">{error}</p>;
@@ -193,8 +204,18 @@ function Board() {
           ))}
           {data.closures.filter((c) => c.day === day && rowOf(c.room_id) > 1).map((c, i) => {
             const ps = [...c.periods].sort((a, b) => a - b);
-            return <div key={"cl" + i} style={{ gridColumn: `${colOf(ps[0])} / ${colOf(ps[ps.length - 1]) + 1}`, gridRow: rowOf(c.room_id) }} title={`Closed: ${c.reason}`}
-              className="z-[2] rounded-[5px] bg-[repeating-linear-gradient(135deg,var(--color-line)_0_5px,transparent_5px_10px)] border border-line-strong/60 flex items-center justify-center text-[9px] font-mono text-ink-600">closed</div>;
+            const why = c.reason || "No reason was recorded";
+            const show = (el: HTMLElement) => { const r = el.getBoundingClientRect(); setTip({ x: r.left + r.width / 2, y: r.top, text: why }); };
+            return <div key={"cl" + i} style={{ gridColumn: `${colOf(ps[0])} / ${colOf(ps[ps.length - 1]) + 1}`, gridRow: rowOf(c.room_id) }}
+              className="z-[2] rounded-[5px] bg-[repeating-linear-gradient(135deg,var(--color-line-strong)_0_4px,transparent_4px_9px)] border border-line-strong flex items-center justify-center">
+              <span className="inline-flex items-center gap-1 rounded-md bg-raised border border-line-strong px-1.5 py-0.5 shadow-sm">
+                <span className="text-[10px] font-semibold text-ink-900 leading-none">Closed</span>
+                <button type="button" aria-label={`Why is ${c.room_id} closed? ${why}`} onMouseEnter={(e) => show(e.currentTarget)} onMouseLeave={() => setTip(null)}
+                  onFocus={(e) => show(e.currentTarget)} onBlur={() => setTip(null)} className="text-lagoon-700 hover:text-lagoon-900 cursor-help">
+                  <Info className="w-3.5 h-3.5" />
+                </button>
+              </span>
+            </div>;
           })}
           {data.classes.filter((c) => c.day === day && rowOf(c.room_id) > 1).map((c) => (
             <div key={c.session_id} style={{ gridColumn: `${colOf(c.start)} / ${colOf(c.end) + 1}`, gridRow: rowOf(c.room_id) }}
@@ -209,20 +230,27 @@ function Board() {
               <motion.div key={e.id} layout style={{ gridColumn: `${colOf(e.start)} / ${colOf(e.end) + 1}`, gridRow: rowOf(e.room_id) }}
                 onMouseEnter={() => setHover(e.id)} onMouseLeave={() => setHover(null)}
                 initial={{ scaleX: 0.6, opacity: 0 }} animate={{ scaleX: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 300, damping: 26 }}
-                title={`${e.title} · ${e.requester} · ${periodRange(e.start, e.end)}${e.status !== "approved" ? ` · ${e.status.replace(/_/g, " ")}` : ""}`}
-                className={cn("z-[3] origin-left rounded-[6px] px-2 flex items-center overflow-hidden text-[11px] font-semibold text-raised shadow-card cursor-default", tone.bar, e.status !== "approved" && e.source === "spectra" && "opacity-80", hover === e.id && "ring-2 ring-ink-900/30")}>
-                <span className="truncate">{e.title}</span>
+                title={`${e.title} · ${e.requester} · ${periodRange(e.start, e.end)}${e.status === "pending_approval" ? " · pending: not confirmed until an Admin approves" : e.status !== "approved" ? ` · ${e.status.replace(/_/g, " ")}` : ""}`}
+                className={cn("z-[3] origin-left rounded-[6px] px-2 flex items-center overflow-hidden text-[11px] font-semibold text-raised shadow-card cursor-default", tone.bar,
+                  e.status === "alternative_offered" && "opacity-80", e.status === "pending_approval" && "opacity-60 outline-2 outline-dashed -outline-offset-2 outline-ink-900/60", hover === e.id && "ring-2 ring-ink-900/30")}>
+                <span className="truncate">{e.status === "pending_approval" ? "Pending · " : ""}{e.title}</span>
               </motion.div>
             );
           })}
         </div>
         {rooms.length === 0 && <p className="text-sm text-ink-600 py-4 text-center">No rooms to show.</p>}
       </Card>
+      {tip && (
+        <div role="tooltip" style={{ left: tip.x, top: tip.y }} className="fixed z-[80] -translate-x-1/2 -translate-y-full -mt-2 max-w-[260px] rounded-xl bg-ink-900 text-raised text-xs leading-snug px-3 py-2 shadow-pop pointer-events-none">
+          <span className="font-semibold">Why it is closed: </span>{tip.text}
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-4 text-xs text-ink-600">
         {Object.entries(CATEGORY_LABEL).map(([k, v]) => <span key={k} className="flex items-center gap-1.5"><span className={cn("w-3 h-3 rounded-sm", TONES[CATEGORY_TONE[k]].bar)} />{v}</span>)}
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-stone-50 border border-stone-500/30" />Regular class</span>
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-saffron-50 border border-saffron-500/60" />Class moved for Week 7</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[repeating-linear-gradient(135deg,var(--color-line)_0_3px,transparent_3px_6px)] border border-line-strong" />Closed</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-[repeating-linear-gradient(135deg,var(--color-line-strong)_0_2px,transparent_2px_5px)] border border-line-strong" />Closed (hover the <Info className="inline w-3 h-3" /> for why)</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-plum-500/60 outline-1 outline-dashed outline-ink-900/60" />Pending an approver</span>
       </div>
     </div>
   );

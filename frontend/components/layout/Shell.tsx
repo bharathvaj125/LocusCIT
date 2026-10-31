@@ -149,7 +149,7 @@ export function Shell({ user, dashboard, nav, onNav, onSwitch, onSignOut, onSear
           <button onClick={() => setMobile(true)} aria-label="Open menu" className="lg:hidden p-2 -ml-2 rounded-lg text-ink-600 hover:bg-sunk cursor-pointer"><Menu className="w-5 h-5" /></button>
           <button onClick={onSearch}
             className="flex items-center gap-2.5 h-10 px-3.5 rounded-xl bg-raised border border-line hover:border-line-strong text-ink-400 text-sm min-w-0 w-full max-w-[360px] cursor-pointer">
-            <Search className="w-4 h-4 shrink-0" /><span className="truncate">Search groups, faculty, rooms, screens</span><span className="ml-auto hidden sm:block"><Kbd>Ctrl K</Kbd></span>
+            <Search className="w-4 h-4 shrink-0" /><span className="truncate">Search groups, faculty, rooms, screens</span><span className="ml-auto hidden sm:flex shrink-0 items-center"><Kbd>Ctrl K</Kbd></span>
           </button>
           <div className="flex-1" />
           <div className="hidden md:block"><Seal hard={dashboard?.sessions_scheduled ? dashboard.hard_violation_count : null} soft={dashboard?.soft_total} /></div>

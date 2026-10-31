@@ -203,9 +203,22 @@ def exams_list(group: str | None = None):
     return ok({"exams": rows, "revision": WS.revision})
 
 
-def _fest_week():
+OFFICIAL_STATUSES = ("approved", "alternative_offered", "rejected")
+
+
+def _official_decision(d):
+    """Only the three statuses the validator knows ever reach schedule.json. An internal workflow status (for example
+    a negotiation that is still open) is never exported as an approval: it resolves to a rejection with a reason."""
     keys = ("request_id", "status", "day", "start_period", "end_period", "room_id", "reason")
-    return {"bookings": [{k: v for k, v in d.items() if k in keys} for d in WS.bookings["decisions"]],
+    out = {k: v for k, v in d.items() if k in keys}
+    if out.get("status") not in OFFICIAL_STATUSES:
+        out = {"request_id": out.get("request_id"), "status": "rejected",
+               "reason": f"Unresolved ({out.get('status')}) at export time; not scheduled"}
+    return out
+
+
+def _fest_week():
+    return {"bookings": [_official_decision(d) for d in WS.bookings["decisions"]],
             "session_overrides": WS.bookings["overrides"]}
 
 
@@ -240,6 +253,8 @@ def _can_see_request(user, r):
 
 @router.get("/bookings")
 def bookings_list(user=Depends(current_user)):
+    from .api_negotiation import expire_due
+    expire_due()
     reqs = {r["id"]: r for r in WS.dataset["booking_requests"] if _can_see_request(user, r)}
     decisions = {d["request_id"]: d for d in (WS.bookings or {}).get("decisions", [])}
     rows = [{"request": r, "decision": decisions.get(r["id"])} for r in reqs.values()]

@@ -380,6 +380,41 @@ export async function decideSubmission(
   return request(`/api/bookings/${encodeURIComponent(id)}/decision`, { method: "POST", body: { action, reason } });
 }
 
+export interface SlotOption { room_id: string; day: DayOfWeek; start_period: number; end_period: number; kind: "inside_window" | "alternative" }
+export interface SuggestResult { outcome: "approved" | "alternative_offered" | "rejected"; reason: string; effective_category: string; options: SlotOption[]; message: string }
+
+export async function suggestBooking(draft: DraftSubmission): Promise<SuggestResult> {
+  return request("/api/bookings/suggest", { method: "POST", body: draft });
+}
+
+export type NegotiationStatus = "awaiting_response" | "accepted" | "declined" | "expired" | "withdrawn" | "failed_revalidation";
+type Slot = { room_id: string; day: DayOfWeek; start_period: number; end_period: number };
+export interface Negotiation {
+  id: string; status: NegotiationStatus; applied: boolean; seconds_left: number; created_at: number; expires_at: number;
+  b_slot: Slot; a_from: Slot; a_to: Slot; problems?: string[];
+  holder: { id: string; title: string | null; requester: string | null };
+  requester: { id: string; title: string | null; requester: string | null };
+  can_respond: boolean; can_withdraw: boolean;
+}
+export interface NegotiationOption { available: boolean; message?: string; holder?: { id: string; title: string; requester: string };
+  b_slot?: Slot; a_from?: Slot; a_to?: Slot; default_deadline_seconds?: number }
+
+export async function fetchNegotiationOptions(id: string): Promise<NegotiationOption> {
+  return request(`/api/bookings/${encodeURIComponent(id)}/negotiation-options`);
+}
+export async function startNegotiation(id: string, deadlineSeconds?: number): Promise<Negotiation> {
+  return request(`/api/bookings/${encodeURIComponent(id)}/negotiate`, { method: "POST", body: deadlineSeconds ? { deadline_seconds: deadlineSeconds } : {} });
+}
+export async function fetchNegotiations(): Promise<{ negotiations: Negotiation[]; default_deadline_seconds: number }> {
+  return request("/api/negotiations");
+}
+export async function respondToNegotiation(id: string, accept: boolean): Promise<Negotiation> {
+  return request(`/api/negotiations/${encodeURIComponent(id)}/respond`, { method: "POST", body: { accept } });
+}
+export async function withdrawNegotiation(id: string): Promise<Negotiation> {
+  return request(`/api/negotiations/${encodeURIComponent(id)}/withdraw`, { method: "POST" });
+}
+
 export async function respondToAlternative(id: string, accept: boolean): Promise<Submission> {
   return request(`/api/bookings/${encodeURIComponent(id)}/respond`, { method: "POST", body: { accept } });
 }

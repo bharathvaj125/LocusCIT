@@ -9,3 +9,7 @@
 | Runtime LLM | Optional (Anthropic API). Off by default; the deterministic parser is the primary path |
 | Backend host | Needs at least 1-2 dedicated vCPUs and always on (CP-SAT); free tiers are too slow or sleep |
 | Team name | LocusCIT |
+| Several acceptable windows | A request is placed in the free slot that takes the fewest options from the requests still to be decided (ties: requested room, then earliest). A second pass lets a request move within its own windows so a later one fits. Priority order is never changed, so nobody ends up worse off |
+| Alternatives | An alternative also avoids the last free slot of a later request |
+| Move offers | Voluntary and optional, between two app bookings. The holder's approved booking is untouched until the holder agrees and a different approver approves the other request; a no, a timeout (default 5 min) or a stale offer changes nothing and never cancels anyone |
+| Export | Only `approved`, `alternative_offered`, `rejected` are written; any other internal status resolves to a rejection with a reason |

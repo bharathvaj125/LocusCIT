@@ -16,7 +16,8 @@ sample disruption approved by a second Admin.
 | Sample disruption: sessions moved | 12 (equals the proven lower bound for this timetable) |
 | Sample disruption: hard violations | 0 |
 | Self-approval | blocked (403); second Admin approves (200) |
-| Automated backend tests | 37 passing (`python -m pytest -q tests`, about 25 s) |
+| Automated backend tests | 63 passing (`python -m pytest -q tests`, about 2 min) |
+| Spectra decisions after the flexible-slot change | identical on the deployed timetable: 0 hard violations, booking score 67/70, 0 priority inversions |
 
 ## Timings on the free Render instance (about 0.1 CPU, 512 MB)
 | Step | Wall time |
@@ -30,6 +31,13 @@ sample disruption approved by a second Admin.
 
 The solver was tuned for small hosts (presolve off, optimiser limited to the 6 best-fitting rooms per slot, one worker).
 The free instance sleeps after 15 minutes idle; the first request then takes about a minute (use an uptime pinger).
+
+## Flexible allocation and move offers (tests/test_flexible_allocation.py, tests/test_negotiation.py)
+Two flexible requests both placed; a flexible request steps aside for a fixed one; a swap pass frees a slot without
+lowering anyone; an alternative never takes a later request's last slot; higher priority and earlier submission win;
+role cap holds; cancelled never approved; approved bookings are never silently overwritten; offers: accept needs a fresh
+check and an approver, decline and timeout keep the holder, a stolen slot blocks the swap, one holder cannot be offered
+twice, cancelling closes the offer, nobody approves their own request, internal statuses never reach the export.
 
 ## Still to measure
 Several simultaneous judges, and the frontend flows end to end.

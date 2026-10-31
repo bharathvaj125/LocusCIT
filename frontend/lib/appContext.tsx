@@ -29,6 +29,7 @@ export function AppProvider({ user, children }: { user: SessionUser; children: R
   const [revision, setRevision] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const datasetRef = useRef<string | null>(null);
+  const retryRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const refresh = useCallback(async () => {
     try {
@@ -44,13 +45,18 @@ export function AppProvider({ user, children }: { user: SessionUser; children: R
       }
     } catch (e) {
       setError(describeError(e));
+      // nothing loaded yet (for example the free server is still waking up): try again soon, not in 15 s
+      if (!datasetRef.current) {
+        clearTimeout(retryRef.current);
+        retryRef.current = setTimeout(refresh, 4000);
+      }
     }
   }, []);
 
   useEffect(() => {
     refresh();
     const t = setInterval(refresh, 15000);
-    return () => clearInterval(t);
+    return () => { clearInterval(t); clearTimeout(retryRef.current); };
   }, [refresh]);
 
   // a reset or import can keep the same dataset id but change sessions; reload reference on every revision bump

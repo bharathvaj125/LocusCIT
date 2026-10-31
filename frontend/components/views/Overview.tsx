@@ -21,7 +21,7 @@ function ago(ts: number) {
 }
 
 export function Overview({ onNav }: { onNav: (n: NavRouteId) => void }) {
-  const { user, dashboard: d, revision } = useApp();
+  const { user, dashboard: d, revision, error: loadError, refresh } = useApp();
   const p = usePipeline();
   const [audit, setAudit] = useState<Array<{ at: number; actor: string; action: string; detail: string }>>([]);
   const isAdmin = user.role === "admin";
@@ -120,6 +120,13 @@ export function Overview({ onNav }: { onNav: (n: NavRouteId) => void }) {
           )}
         </Card>
       </motion.div>
+
+      {!d && loadError && (
+        <motion.div variants={item} role="alert" className="rounded-xl bg-sunrise-50 text-sunrise-600 px-4 py-3 text-sm flex flex-wrap items-center gap-3">
+          <span>{loadError} Retrying automatically.</span>
+          <button onClick={() => refresh()} className="font-semibold underline cursor-pointer">Try again now</button>
+        </motion.div>
+      )}
 
       {/* metrics */}
       <motion.div variants={item} className="grid grid-cols-2 lg:grid-cols-4 gap-4">

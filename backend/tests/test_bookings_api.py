@@ -117,3 +117,45 @@ def test_ai_layer_is_optional_and_cannot_override(client, club, ready, monkeypat
              "follow_up": "Which day?", "duration_periods": None}
     ai.merge_into_draft(draft, {"attendance": 7, "day": "THU", "start_hour_24": 18, "end_hour_24": 20, "needs": ["stage"]})
     assert draft["attendance"] == 100 and draft["windows"] == [{"day": "THU", "from_period": 10, "to_period": 11}]
+
+
+def test_invalid_input_is_explained_in_plain_words(client, club, ready):
+    r = submit(client, club, duration_periods=19)
+    assert r.status_code == 422
+    msg = r.json()["errors"][0]["message"]
+    assert "Hours must be at most 13" in msg and "detail" not in r.json()
+    r = submit(client, club, duration_periods=3, windows=[{"day": "TUE", "from_period": 10, "to_period": 11}])
+    assert "holds only 2 period(s), but the event needs 3" in r.json()["errors"][0]["message"]
+    r = submit(client, club, requested_room="XX-9")
+    assert "'XX-9' is not a room at CIT" in r.json()["errors"][0]["message"]
+    r = client.post("/api/bookings/submit", json={"title": "x"}, headers=club)
+    assert r.status_code == 422 and "is required" in r.json()["errors"][0]["message"]
+
+
+def test_unknown_room_in_text_is_named_not_ignored(client, club, ready):
+    d = client.post("/api/bookings/parse", headers=club,
+                    json={"text": "Need room XYZ-9 on Tuesday 6 to 8 pm for 40 people"}).json()["data"]
+    assert any("'XYZ-9' is not a room at CIT" in w for w in d["warnings"])
+    assert "requested_room" in d["ambiguous_fields"] and d["suggestions"] and d["requested_room"] is None
+    near = client.post("/api/bookings/parse", headers=club, json={"text": "room 101 monday 6 to 8 pm 40 people"}).json()["data"]
+    assert any("CR-101" in w for w in near["warnings"])
+    fine = client.post("/api/bookings/parse", headers=club, json={"text": "CR-101 monday 6 to 8 pm 40 people"}).json()["data"]
+    assert fine["requested_room"] == "CR-101" and fine["warnings"] == []
+
+
+def test_explanation_does_not_repeat_the_status_word(client, admin, ready):
+    e = client.get("/api/explain/booking/BR-09", headers=admin).json()["data"]
+    assert not e["reason"].startswith("Rejected") and "1200" in e["reason"]
+    assert not any(line.startswith("Decision:") for line in e["explanation"])
+
+
+def test_nothing_is_confirmed_until_an_admin_approves(client, club, faculty, admin, ready):
+    s = submit(client, club, title="Needs approval", windows=[{"day": "FRI", "from_period": 2, "to_period": 3}]).json()["data"]["submissions"][0]
+    assert s["status"] == "PENDING_APPROVAL" and s["decided_by"] is None
+    board = client.get("/api/venue-board", headers=faculty).json()["data"]["events"]
+    assert all(e["id"] != s["id"] for e in board)                       # other people do not see an unapproved booking
+    mine = [e for e in client.get("/api/venue-board", headers=admin).json()["data"]["events"] if e["id"] == s["id"]]
+    assert mine and mine[0]["status"] == "pending_approval"            # the approver sees it, marked pending
+    client.post(f"/api/bookings/{s['id']}/decision", headers=admin, json={"action": "approve"})
+    assert any(e["id"] == s["id"] and e["status"] == "approved"
+               for e in client.get("/api/venue-board", headers=faculty).json()["data"]["events"])
