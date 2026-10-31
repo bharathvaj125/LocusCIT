@@ -112,7 +112,7 @@ export function EmptyState({ title, body, action, tone = "lagoon" }: { title: st
 
 /* -------------------------------------------------------------------- Kbd */
 export function Kbd({ children }: { children: React.ReactNode }) {
-  return <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded-md border border-line bg-raised text-ink-400">{children}</kbd>;
+  return <kbd className="inline-flex items-center whitespace-nowrap font-mono text-[10px] leading-none px-1.5 py-1 rounded-md border border-line bg-raised text-ink-400">{children}</kbd>;
 }
 
 /* ---------------------------------------------------------------- CountUp */
