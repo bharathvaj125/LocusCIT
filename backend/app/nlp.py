@@ -82,6 +82,27 @@ def _rooms_regex(data):
     return re.compile(r"(?<![a-z0-9])(" + "|".join(re.escape(i.lower()) for i in ids) + r")(?![a-z0-9])")
 
 
+_COUNT_WORDS = r"(?:people|persons?|log|students?|members?|pax|guests?|seats?|attendees|participants|ghante|hours?|hrs?|pm|am|baje)"
+
+
+def _unknown_rooms(t, data):
+    """Room-looking names in the text that are not rooms at this campus (XYZ-9, CR-999, 'hall 77')."""
+    known = {r["id"].lower() for r in data["rooms"]}
+    numbers = {r["id"].lower().split("-")[-1] for r in data["rooms"] if "-" in r["id"]}
+    found = []
+    for m in re.finditer(r"\b([a-z]{1,6}-\d{1,4}|[a-z]{1,6}-[a-z]{1,4})\b", t):
+        tok = m.group(1)
+        if tok not in known and not re.match(r"(?:to|re|e|co|non|pre|post)-", tok) and tok not in found:
+            found.append(tok)
+    for m in re.finditer(r"\b(?:room|hall|lab|classroom|lh|cr|sh|lhc)\s*(?:no\.?|number|#)?\s*(\d{1,4})\b(?!\s*" + _COUNT_WORDS + r")", t):
+        if m.group(1) not in numbers and m.group(0).strip() not in found:
+            found.append(m.group(0).strip())
+        elif m.group(1) in numbers:
+            ids = [r["id"] for r in data["rooms"] if r["id"].lower().endswith("-" + m.group(1))]
+            found.append(("vague", m.group(0).strip(), ids))
+    return found
+
+
 def _find_days(t, today):
     found, notes, weekend = [], [], []
     for d, rx in DAY_RE.items():
@@ -203,14 +224,10 @@ def parse_booking_text(text, data, now=None, role=None):
     rx_rooms = _rooms_regex(data)
     rm = rx_rooms.search(t.replace("main auditorium", "aud"))
     rooms_by = {r["id"].lower(): r for r in data["rooms"]}
-    mention = re.search(r"\b([a-z]{2,6}-\d{1,2}|lhc-\d|[a-z]+-ws)\b", t)
     if rm:
         room = rooms_by[rm.group(1)]
         draft["requested_room"] = room["id"]
-    elif mention and mention.group(1).upper() not in {r["id"] for r in data["rooms"]} and \
-            re.match(r"(sh|lh|lhc|cr|cs|elec|phy|mech|civil|aud|oat)", mention.group(1)):
-        draft["warnings"].append(f"Room '{mention.group(1).upper()}' does not exist in this campus; "
-                                 "it was ignored and a suitable room will be proposed.")
+    unknown_rooms = [] if rm else _unknown_rooms(t, data)
     types = []
     for rx, ty in [(r"seminar hall|seminar room|\bsh\b", "seminar_hall"), (r"auditorium|\baud\b", "auditorium"),
                    (r"lecture hall|\blh\b", "lecture_hall"), (r"class ?room|\bcr\b", "classroom"),
@@ -353,6 +370,34 @@ def parse_booking_text(text, data, now=None, role=None):
     if draft["attendance"] is None:
         asks.append("How many people are expected?")
         draft["ambiguous_fields"].append("attendance")
+
+    # a room named in the text that does not exist: say so plainly, never silently pick "any room"
+    for v in [u for u in unknown_rooms if isinstance(u, tuple)]:
+        draft["warnings"].append(f"'{v[1].upper()}' is not an exact room name. Did you mean {', '.join(v[2])}? "
+                                 "Choose the room below, or leave it open.")
+        draft["suggestions"] = list(dict.fromkeys(draft["suggestions"] + v[2]))
+        draft["ambiguous_fields"].append("requested_room")
+    unknown_rooms = [u for u in unknown_rooms if not isinstance(u, tuple)]
+    if unknown_rooms:
+        import difflib
+        pool = [r["id"] for r in data["rooms"] if "event" in r["allowed_uses"]]
+        close = []
+        for tok in unknown_rooms:
+            close += difflib.get_close_matches(tok.upper(), pool, n=3, cutoff=0.5)
+        if not close:
+            want = draft["attendance"] or 0
+            fit = [r for r in data["rooms"] if "event" in r["allowed_uses"] and r["capacity"] >= want
+                   and (not draft["room_types"] or r["type"] in draft["room_types"])]
+            close = [r["id"] for r in sorted(fit, key=lambda r: r["capacity"])[:3]]
+        close = list(dict.fromkeys(close))[:4]
+        names = ", ".join(f"'{u.upper()}'" for u in unknown_rooms)
+        one = len(unknown_rooms) == 1
+        draft["warnings"].append(
+            f"{names} {'is' if one else 'are'} not a room at CIT, so {'it was' if one else 'they were'} not used. "
+            "Pick a real room" + (f", for example {', '.join(close)}," if close else "")
+            + " or leave the room open and one will be proposed.")
+        draft["suggestions"] = close
+        draft["ambiguous_fields"].append("requested_room")
 
     # room wish vs needs
     rid = draft["requested_room"]

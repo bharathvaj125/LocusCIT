@@ -145,12 +145,17 @@ def _validate_draft(d: Draft):
         if w.to_period < w.from_period:
             errs.append(f"Window P{w.from_period}-P{w.to_period} ends before it starts")
         elif w.to_period - w.from_period + 1 < d.duration_periods:
-            errs.append(f"Window P{w.from_period}-P{w.to_period} is shorter than {d.duration_periods} period(s)")
+            errs.append(f"The time window {w.day} P{w.from_period}-P{w.to_period} holds only "
+                        f"{w.to_period - w.from_period + 1} period(s), but the event needs {d.duration_periods}. "
+                        "Make the window longer or the event shorter")
     bad = [t for t in d.room_types if t not in types]
     if bad:
         errs.append(f"Unknown room types: {bad}")
     if d.requested_room and d.requested_room not in rooms:
-        errs.append(f"Unknown room {d.requested_room}")
+        import difflib
+        near = difflib.get_close_matches(d.requested_room.upper(), sorted(rooms), n=3, cutoff=0.4)
+        errs.append(f"'{d.requested_room}' is not a room at CIT"
+                    + (f". Did you mean {', '.join(near)}?" if near else ". Choose a room from the list or leave it open"))
     badg = [g for g in d.mandatory_for_groups if g not in groups]
     if badg:
         errs.append(f"Unknown student groups: {badg}")

@@ -1,11 +1,19 @@
 """Spectra week booking decisions: batch, priority-ordered, deterministic placement."""
 import copy
+import re
 from collections import defaultdict
 
 from ..core.official import official_validator
 from .candidates import build_candidates
 
 MAXP = 13
+
+_LEAD = re.compile(r"^(Rejected|Approved|Alternative offered|Fits the rules and can be approved|Only an alternative fits)\.\s+")
+
+
+def plain_reason(text):
+    """The reason without the leading status word, for screens that already show the status next to it."""
+    return _LEAD.sub("", text or "", count=1)
 
 
 class Week:
@@ -133,6 +141,7 @@ class Decider:
         self.overrides = []
         self.placed = {}                            # request id -> (room, day, start, end) of events decided here
         self.reqs = {}                              # request id -> request, for the ones in `placed`
+        self.titles = {}                            # request id -> title, for readable reasons
         self.seen = {}                              # request id -> request, every request decided here
         self.weight = getattr(self.V, "CAT_WEIGHT", {"institute_event": 5, "guest_lecture": 4,
                                                      "department_event": 3, "club_event": 2})
@@ -222,6 +231,14 @@ class Decider:
                 seen.add(x)
                 out.append(x)
         return out
+
+    def label(self, x):
+        """Plain name for whatever occupies a slot: a class or another request with its title."""
+        if x in self.ctx.sessions:
+            return f"class {self.ctx.sessions[x]['course_id']}"
+        r = self.seen.get(x) or next((q for q in self.data["booking_requests"] if q["id"] == x), None)
+        title = self.titles.get(x) or (r and r["title"])
+        return f"{x} ({title})" if title else x
 
     # -- flexible-slot allocation ------------------------------------------------------------------
     def free_slots(self, req):
@@ -420,14 +437,33 @@ class Decider:
             if alt:
                 found = alt[1:]
                 status = "alternative_offered"
+                asked = ", ".join(f"{w['day']} P{w['from_period']}-P{w['to_period']}" for w in req["windows"])
                 if not any(min(w["to_period"], MAXP) - w["from_period"] + 1 >= dur for w in req["windows"]):
-                    why = "the requested window is too short or runs past P13"
+                    why = (f"the requested window ({asked}) is too short for {dur} period(s) or runs past P{MAXP}, "
+                           "the last event period")
                 else:
-                    why = "no suitable room was free in the requested window"
-                    names = sorted({x for x in held})[:4]
+                    why = f"no suitable room was free in the requested window ({asked})"
+                    names = [self.label(x) for x in sorted({x for x in held})[:4]]
                     if names:
-                        why += f" (conflicts with {', '.join(names)})"
-                reason = f"Alternative offered. {note}. It cannot be approved as asked: {why}"
+                        why += f"; it is held by {', '.join(names)}"
+                # what stands between the request and the offered slot: the closer times that are already taken
+                closer = []
+                for r in el:
+                    for d in self.days:
+                        for a in range(1, MAXP - dur + 2):
+                            bl = week.blockers(req, r["id"], d, a, a + dur - 1)
+                            if not bl:
+                                continue
+                            k = (self.harm((r["id"], d, a, a + dur - 1), opts),
+                                 not any(w["day"] == d for w in req["windows"]),
+                                 abs(self.days.index(d) - self.days.index(req["windows"][0]["day"])),
+                                 abs(a - req["windows"][0]["from_period"]), self.room_pref(req, r))
+                            if k < alt[0]:
+                                closer += [self.label(x) for kind, x in bl if kind in ("event", "class")]
+                closer = list(dict.fromkeys(closer))[:3]
+                reason = (f"Alternative offered. {note}. It cannot be approved as asked: {why}. "
+                          f"Offered instead: {alt[2]} P{alt[3]}-P{alt[4]} in {alt[1]}"
+                          + (f"; the closer times are taken by {', '.join(closer)}" if closer else ""))
             else:
                 status = "rejected"
                 reason = (f"Rejected. {note}. "
@@ -447,6 +483,7 @@ class Decider:
 
     def place_existing(self, decision, req):
         """Register an already-decided event (approved or alternative) in the week view."""
+        self.titles[req["id"]] = req["title"]
         if decision.get("status") in ("approved", "alternative_offered") and decision.get("room_id"):
             self.week.add_event(req, decision["room_id"], decision["day"], decision["start_period"],
                                 decision["end_period"])

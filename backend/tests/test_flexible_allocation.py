@@ -146,3 +146,15 @@ def test_existing_decisions_are_not_overwritten_by_suggestions():
     assert dec["status"] == "approved"
     assert opts and all(not (o["day"] == "MON" and o["room_id"] == "OAT" and o["start_period"] in (9, 10)) for o in opts)
     assert opts[0]["kind"] == "inside_window"
+
+
+def test_alternative_reason_names_the_earlier_request_it_conflicts_with():
+    a = req("A", [win("MON", 9, 10)], 1)
+    b = req("B", [win("MON", 9, 10)], 2)
+    _, by = run([a, b])
+    reason = by["B"]["reason"]
+    assert by["B"]["status"] == "alternative_offered"
+    assert "MON P9-P10" in reason and "A (A)" in reason and "Offered instead: MON P" in reason
+    long_stay = req("C", [win("TUE", 13, 14)], 1)
+    _, by2 = run([long_stay])
+    assert "last event period" in by2["C"]["reason"] and "TUE P13-P14" in by2["C"]["reason"]

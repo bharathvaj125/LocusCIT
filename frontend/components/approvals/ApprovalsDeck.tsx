@@ -8,6 +8,8 @@ import { useApp } from "@/lib/appContext";
 import { cancelSubmission, decideSubmission, describeError, fetchBookings, fetchFacultyRequests, fetchNegotiationOptions, fetchNegotiations, fetchProposals, Negotiation, NegotiationOption, respondToAlternative, respondToNegotiation, startNegotiation, withdrawNegotiation } from "@/lib/api";
 import { CATEGORY_LABEL, CATEGORY_TONE } from "@/lib/dept";
 import { periodRange } from "@/lib/uiConfig";
+import { askedText, cleanReason, placedText } from "@/lib/reason";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/lib/toast";
 import { Button, Card, Chip, EmptyState, Eyebrow, PageTitle, Skeleton, statusTone } from "@/components/ui/primitives";
 
@@ -127,7 +129,13 @@ export function ApprovalsDeck({ onOpenChanges }: { onOpenChanges: () => void }) 
                     <span className="inline-flex items-center gap-1.5 rounded-lg bg-paper px-3 py-1.5"><Clock className="w-4 h-4 text-lagoon-700" />{slotText(s)}</span>
                     <span className="inline-flex items-center gap-1.5 rounded-lg bg-paper px-3 py-1.5"><Users className="w-4 h-4 text-plum-500" />{s.request.attendance} people</span>
                   </div>
-                  <p className="text-sm text-ink-600"><strong className="text-ink-900">Rules engine:</strong> {s.proposed.reason}</p>
+                  {s.placement && s.proposed.status !== "approved" && (
+                    <div className="grid gap-2 sm:grid-cols-2 text-sm">
+                      <div className="rounded-xl bg-paper px-3 py-2"><Eyebrow className="text-ink-400">Asked for</Eyebrow><p className="font-semibold mt-0.5">{askedText(s.request.windows)}</p></div>
+                      <div className="rounded-xl bg-lagoon-50 px-3 py-2"><Eyebrow className="text-ink-400">Engine offers instead</Eyebrow><p className="font-semibold mt-0.5">{placedText(s.placement)}</p></div>
+                    </div>
+                  )}
+                  <p className="text-sm text-ink-600"><strong className="text-ink-900">Rules engine:</strong> {cleanReason(s.proposed.reason)}</p>
                   {offerFor(s)?.status === "accepted" && <p className="text-sm rounded-xl bg-lagoon-50 text-lagoon-900 px-3 py-2">Approving this also moves <strong>{offerFor(s)!.holder.title}</strong> from {slotOf(offerFor(s)!.a_from)} to {slotOf(offerFor(s)!.a_to)}, as its owner agreed. Both are re-checked first.</p>}
                   <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-line">
                     <input value={reasons[s.id] || ""} onChange={(e) => setReasons({ ...reasons, [s.id]: e.target.value })} placeholder="Reason, shown to the requester (optional)" aria-label="Reason"
@@ -180,18 +188,22 @@ export function ApprovalsDeck({ onOpenChanges }: { onOpenChanges: () => void }) 
       {needsReview.length > 0 && (
         <section className="space-y-3">
           <h2 className="font-display text-2xl font-semibold">Needs another look</h2>
-          {needsReview.map((s) => <Card key={s.id} className="p-4 bg-saffron-50 border-saffron-500/40"><p className="font-semibold">{s.title} <span className="font-mono text-xs text-ink-400">{s.id}</span></p><p className="text-sm text-ink-600 mt-1">{s.decision_reason}</p></Card>)}
+          {needsReview.map((s) => <Card key={s.id} className="p-4 bg-saffron-50 border-saffron-500/40"><p className="font-semibold">{s.title} <span className="font-mono text-xs text-ink-400">{s.id}</span></p><p className="text-sm text-ink-600 mt-1">{cleanReason(s.decision_reason)}</p></Card>)}
         </section>
       )}
 
-      <section className="space-y-3">
+      {user.role !== "admin" && <section className="space-y-3">
         <h2 className="font-display text-2xl font-semibold">My requests <Chip tone="stone">{mine.length}</Chip></h2>
         {subs && mine.length === 0 && <EmptyState tone="saffron" title="You have not requested anything yet" body="Open the Assistant and describe an event in plain English or Hinglish." />}
         {mine.map((s) => (
           <Card key={s.id} className="p-4 space-y-1.5">
             <div className="flex flex-wrap items-center justify-between gap-2"><p className="font-semibold">{s.title} <span className="font-mono text-xs text-ink-400">{s.id}</span></p><Chip tone={statusTone(s.status)} dot>{nice(s.status)}</Chip></div>
-            <p className="text-sm text-ink-600">{slotText(s)}</p>
-            <p className="text-sm text-ink-600"><strong className="text-ink-900">Reason:</strong> {s.decision_reason}{s.decided_by && <> (decided by {s.decided_by})</>}</p>
+            <div className="grid gap-2 sm:grid-cols-2 text-sm">
+              <div className="rounded-xl bg-paper px-3 py-2"><Eyebrow className="text-ink-400">You asked for</Eyebrow><p className="font-semibold mt-0.5">{askedText(s.request.windows)}</p></div>
+              {s.placement && <div className={cn("rounded-xl px-3 py-2", s.proposed.status === "approved" ? "bg-mangrove-50" : "bg-lagoon-50")}><Eyebrow className="text-ink-400">{s.status === "APPROVED" ? "Booked" : s.proposed.status === "approved" ? "Proposed slot" : "Offered instead"}</Eyebrow><p className="font-semibold mt-0.5">{placedText(s.placement)}</p></div>}
+            </div>
+            {(s.status === "PENDING_APPROVAL" || s.status === "PENDING_NEGOTIATION") && <p className="text-sm font-semibold text-lagoon-900">Pending: not confirmed until an Admin approves it. Nothing is booked yet.</p>}
+            <p className="text-sm text-ink-600"><strong className="text-ink-900">Reason:</strong> {cleanReason(s.decision_reason)}{s.decided_by && <> (decided by {s.decided_by})</>}</p>
             {s.status === "PENDING_NEGOTIATION" && offerFor(s) && <p className="text-sm text-lagoon-900 bg-lagoon-50 rounded-xl px-3 py-2">Asked {offerFor(s)!.holder.requester} to move. {offerFor(s)!.status === "awaiting_response" ? `${clock(left(offerFor(s)!))} left to answer.` : OFFER_NOTE[offerFor(s)!.status]} Their booking stays as it is meanwhile.</p>}
             {opts[s.id] && (opts[s.id].available && opts[s.id].holder && opts[s.id].b_slot && opts[s.id].a_to
               ? <div className="rounded-xl bg-lagoon-50 px-3 py-2 text-sm space-y-2">
@@ -209,7 +221,7 @@ export function ApprovalsDeck({ onOpenChanges }: { onOpenChanges: () => void }) 
             </div>
           </Card>
         ))}
-      </section>
+      </section>}
 
       {(user.role === "faculty" || user.role === "department_coordinator") && (
         <section className="space-y-3">

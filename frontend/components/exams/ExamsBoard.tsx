@@ -16,6 +16,7 @@ export function ExamsBoard() {
   const [state, setState] = useState<{ loading: boolean; error: string | null; empty: boolean }>({ loading: true, error: null, empty: false });
   const [group, setGroup] = useState("all");
   const [q, setQ] = useState("");
+  const [venue, setVenue] = useState("all");
   const [open, setOpen] = useState<ExamSession | null>(null);
 
   useEffect(() => {
@@ -31,11 +32,28 @@ export function ExamsBoard() {
 
   const days = (ref?.calendar.exam_week.days || []) as DayOfWeek[];
   const slots = ref?.calendar.exam_week.sessions || [];
+  const venues = useMemo(() => {
+    const m = new Map<string, string>();
+    exams.forEach((e) => e.room_details.forEach((r) => m.set(r.id, r.name)));
+    return Array.from(m, ([id, name]) => ({ id, name })).sort((a, b) => a.id.localeCompare(b.id));
+  }, [exams]);
   const filtered = useMemo(() => exams.filter((e) => {
     if (group !== "all" && !e.groups.includes(group)) return false;
-    if (q.trim()) { const s = q.toLowerCase(); if (![e.course_title, e.course_id, e.exam_id].some((x) => x.toLowerCase().includes(s))) return false; }
+    if (venue !== "all" && !e.rooms.includes(venue)) return false;
+    if (q.trim()) {
+      const s = q.trim().toLowerCase();
+      const hay = [e.course_title, e.course_id, e.exam_id, e.day, e.slot, ...e.rooms, ...e.room_details.map((r) => r.name), ...e.groups];
+      if (!hay.some((x) => x.toLowerCase().includes(s))) return false;
+    }
     return true;
-  }), [exams, group, q]);
+  }), [exams, group, venue, q]);
+  // when the search or the venue filter names a room, list what sits in it day by day
+  const venueFocus = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    const hit = venue !== "all" ? venue : venues.find((v) => s && (v.id.toLowerCase() === s || v.name.toLowerCase() === s))?.id;
+    if (!hit) return null;
+    return { id: hit, name: venues.find((v) => v.id === hit)?.name || "", rows: exams.filter((e) => e.rooms.includes(hit)).sort((a, b) => days.indexOf(a.day) - days.indexOf(b.day) || a.slot.localeCompare(b.slot)) };
+  }, [q, venue, venues, exams, days]);
 
   return (
     <div className="space-y-6">
@@ -49,9 +67,14 @@ export function ExamsBoard() {
       <Card className="p-3 flex flex-wrap items-center gap-3">
         <div className="relative">
           <Search className="w-4 h-4 text-ink-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a paper" aria-label="Find a paper"
-            className="h-10 pl-9 pr-3 rounded-xl bg-paper border border-line text-sm w-56" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search a paper or a venue (CS101, LH-1…)" aria-label="Search by paper or venue"
+            className="h-10 pl-9 pr-3 rounded-xl bg-paper border border-line text-sm w-72 max-w-full" />
         </div>
+        <select value={venue} onChange={(e) => setVenue(e.target.value)} aria-label="Filter by venue"
+          className="h-10 px-3 rounded-xl bg-paper border border-line text-sm font-semibold cursor-pointer">
+          <option value="all">All venues</option>
+          {venues.map((v) => <option key={v.id} value={v.id}>{v.id} · {v.name}</option>)}
+        </select>
         <select value={group} onChange={(e) => setGroup(e.target.value)} aria-label="Filter by student group"
           className="h-10 px-3 rounded-xl bg-paper border border-line text-sm font-semibold cursor-pointer">
           <option value="all">All student groups</option>
@@ -59,6 +82,17 @@ export function ExamsBoard() {
         </select>
         <span className="ml-auto text-sm text-ink-600">Showing <strong className="text-ink-900">{filtered.length}</strong> paper{filtered.length === 1 ? "" : "s"}</span>
       </Card>
+
+      {venueFocus && !state.loading && (
+        <Card className="p-4 space-y-2" role="status">
+          <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-lagoon-700" /><p className="font-semibold">{venueFocus.id} <span className="text-ink-400 font-normal">{venueFocus.name}</span></p><Chip tone="stone">{venueFocus.rows.length} paper{venueFocus.rows.length === 1 ? "" : "s"}</Chip></div>
+          {venueFocus.rows.length === 0 ? <p className="text-sm text-ink-600">No exam is held in this room.</p> : (
+            <ul className="grid sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
+              {venueFocus.rows.map((e) => <li key={e.exam_id} className="flex gap-2"><span className="font-mono text-xs text-lagoon-700 w-24 shrink-0">{e.day} {e.slot} {e.time_range}</span><span className="truncate"><strong>{e.course_id}</strong> {e.course_title}</span></li>)}
+            </ul>
+          )}
+        </Card>
+      )}
 
       {state.loading && <div className="grid grid-cols-3 gap-3">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-40" />)}</div>}
       {state.error && <p className="text-sm text-sunrise-600">{state.error}</p>}

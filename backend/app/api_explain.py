@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 from .api import fail, ok
 from .auth import current_user
 from .core.official import official_validator
-from .solver.bookings import Week
+from .solver.bookings import Week, plain_reason
 from .solver.candidates import Eligibility, build_candidates
 from .state import WS
 
@@ -135,11 +135,12 @@ def explain_booking(request_id: str, user=Depends(current_user)):
              f"(priority {order.index(eff) + 1} of {len(order)}; ties go to the earlier submission time)."]
     if req["requested_category"] != eff:
         facts.append("The requested category was ignored in favour of the role cap; a request cannot raise its own priority.")
-    facts.append(f"Decision: {d['status']}. {d['reason']}")
     if d.get("room_id"):
         facts.append(f"Placed in {d['room_id']} on {d['day']} P{d['start_period']}-P{d['end_period']}.")
     if others:
         facts.append("Nearby bookings in the same room and day: " + ", ".join(others) + ".")
-    return ok({"request_id": request_id, "status": d["status"], "reason": d["reason"], "effective_category": eff,
+    return ok({"request_id": request_id, "status": d["status"], "reason": plain_reason(d["reason"]), "effective_category": eff,
+               "asked": req["windows"],
+               "placed": ({k: d[k] for k in ("room_id", "day", "start_period", "end_period")} if d.get("room_id") else None),
                "role_cap": cap, "priority_rank": order.index(eff) + 1, "same_room_neighbours": others,
                "rule_ids": ["H13", "B1-B3"], "explanation": facts})

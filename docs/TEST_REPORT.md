@@ -16,7 +16,7 @@ sample disruption approved by a second Admin.
 | Sample disruption: sessions moved | 12 (equals the proven lower bound for this timetable) |
 | Sample disruption: hard violations | 0 |
 | Self-approval | blocked (403); second Admin approves (200) |
-| Automated backend tests | 58 passing (`python -m pytest -q tests`, about 2 min) |
+| Automated backend tests | 63 passing (`python -m pytest -q tests`, about 2 min) |
 | Spectra decisions after the flexible-slot change | identical on the deployed timetable: 0 hard violations, booking score 67/70, 0 priority inversions |
 
 ## Timings on the free Render instance (about 0.1 CPU, 512 MB)

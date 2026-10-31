@@ -4,7 +4,8 @@ import { NavRoute, RoleConfig } from "./types";
 export const ROLE_CONFIGS: Record<string, RoleConfig> = {
   admin: {
     id: "admin", label: "Admin", badge: "Admin", persona: "Dean's Office",
-    allowedNav: ["overview", "timetable", "exams", "spectra_clash", "approvals", "disruptions", "ai_booking", "exports"],
+    // an Admin decides requests and schedules events directly, so there is no request assistant
+    allowedNav: ["overview", "timetable", "exams", "spectra_clash", "approvals", "disruptions", "exports"],
   },
   department_coordinator: {
     id: "department_coordinator", label: "Department coordinator", badge: "Coordinator", persona: "Department coordinator",
@@ -45,8 +46,11 @@ export const PERIOD_CLOCK: Record<number, string> = {
   10: "18:00", 11: "19:00", 12: "20:00", 13: "21:00",
 };
 
+/** Clock time a period starts at; periods past P13 (outside event hours) continue the same hourly pattern. */
+const clockAt = (p: number) => PERIOD_CLOCK[p] || `${String(21 + (p - 13)).padStart(2, "0")}:00`.replace(/^24:/, "00:");
+
 export function periodRange(start: number, end: number): string {
   const e = end + 1;
-  const endClock = e === 6 ? "13:00" : PERIOD_CLOCK[e] || "22:00";
-  return `${PERIOD_CLOCK[start]}-${endClock}`;
+  const endClock = e === 6 ? "13:00" : clockAt(e);
+  return `${clockAt(start)}-${endClock}`;
 }
