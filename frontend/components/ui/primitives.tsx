@@ -55,9 +55,9 @@ export function Chip({ tone = "lagoon", children, className, dot }: { tone?: Ton
 export function statusTone(status: string): Tone {
   const s = status.toLowerCase();
   if (["approved", "done", "ok", "applied"].includes(s)) return "mangrove";
-  if (["alternative_offered", "alternative offered", "pending", "pending_approval", "computing"].includes(s)) return "lagoon";
-  if (["needs_review", "needs review", "stale", "unknown"].includes(s)) return "saffron";
-  if (["rejected", "infeasible", "error", "invalid", "failed_validation"].includes(s)) return "sunrise";
+  if (["alternative_offered", "alternative offered", "pending", "pending_approval", "pending_negotiation", "awaiting_response", "accepted", "computing"].includes(s)) return "lagoon";
+  if (["needs_review", "needs review", "stale", "unknown", "expired"].includes(s)) return "saffron";
+  if (["rejected", "infeasible", "error", "invalid", "failed_validation", "declined", "failed_revalidation"].includes(s)) return "sunrise";
   return "stone";
 }
 

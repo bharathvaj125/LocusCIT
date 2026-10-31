@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Check, CircleHelp, Plus, Send, ShieldAlert, Trash2, TriangleAlert, Wand2 } from "lucide-react";
 import { DayOfWeek, ServerDraft, ServerProposal, Submission, Window } from "@/lib/types";
 import { useApp } from "@/lib/appContext";
-import { describeError, facultyChangeRequest, fetchFacultyRequest, fetchMySessions, parseBooking, pollUntil, submitBooking } from "@/lib/api";
+import { describeError, facultyChangeRequest, fetchFacultyRequest, fetchMySessions, parseBooking, pollUntil, submitBooking, suggestBooking, SuggestResult } from "@/lib/api";
 import { CATEGORY_LABEL } from "@/lib/dept";
 import { PERIOD_CLOCK, periodRange } from "@/lib/uiConfig";
 import { Button, Card, Chip, Eyebrow, PageTitle, Tabs } from "@/components/ui/primitives";
@@ -46,6 +46,8 @@ function BookingTab({ initialText, onConsumedInitialText }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<Submission[] | null>(null);
+  const [sug, setSug] = useState<SuggestResult | null>(null);
+  const [checking, setChecking] = useState(false);
   const consumed = useRef(false);
   const eventRooms = useMemo(() => (ref?.rooms || []).filter((r) => r.allowed_uses.includes("event")), [ref]);
   const roomTypes = useMemo(() => Array.from(new Set(eventRooms.map((r) => r.type))), [eventRooms]);
@@ -62,18 +64,26 @@ function BookingTab({ initialText, onConsumedInitialText }: Props) {
   }, [initialText]);
 
   const amb = (f: string) => (draft?.ambiguous_fields.includes(f) ? "!border-saffron-500 ring-2 ring-saffron-500/25" : "");
-  const set = <K extends keyof ServerDraft>(k: K, v: ServerDraft[K]) => draft && setDraft({ ...draft, [k]: v });
-  const setWin = (i: number, w: Partial<Window>) => draft && setDraft({ ...draft, windows: draft.windows.map((x, j) => (j === i ? { ...x, ...w } : x)) });
+  const set = <K extends keyof ServerDraft>(k: K, v: ServerDraft[K]) => { setSug(null); if (draft) setDraft({ ...draft, [k]: v }); };
+  const setWin = (i: number, w: Partial<Window>) => { setSug(null); if (draft) setDraft({ ...draft, windows: draft.windows.map((x, j) => (j === i ? { ...x, ...w } : x)) }); };
   const missing: string[] = [];
   if (draft) { if (!draft.attendance) missing.push("headcount"); if (!draft.duration_periods) missing.push("duration"); if (!draft.windows.length) missing.push("day and time"); if (!draft.title) missing.push("title"); }
+
+  const payload = (d: ServerDraft) => ({ title: d.title || "Event", attendance: d.attendance!, duration_periods: d.duration_periods!, windows: d.windows,
+    day_mode: d.day_mode, needs: d.needs, room_types: d.room_types, requested_room: d.requested_room, mandatory_for_groups: d.mandatory_for_groups,
+    requested_category: d.requested_category, raw_text: d.raw_text });
+
+  const check = async () => {
+    if (!draft || missing.length) return;
+    setChecking(true); setError(null);
+    try { setSug(await suggestBooking(payload(draft))); } catch (e) { setError(describeError(e)); setSug(null); } finally { setChecking(false); }
+  };
 
   const submit = async () => {
     if (!draft || missing.length) return;
     setSubmitting(true); setError(null);
     try {
-      setResult(await submitBooking({ title: draft.title || "Event", attendance: draft.attendance!, duration_periods: draft.duration_periods!, windows: draft.windows,
-        day_mode: draft.day_mode, needs: draft.needs, room_types: draft.room_types, requested_room: draft.requested_room, mandatory_for_groups: draft.mandatory_for_groups,
-        requested_category: draft.requested_category, raw_text: draft.raw_text }));
+      setResult(await submitBooking(payload(draft)));
       refresh();
     } catch (e) { setError(describeError(e)); } finally { setSubmitting(false); }
   };
@@ -157,17 +167,29 @@ function BookingTab({ initialText, onConsumedInitialText }: Props) {
                   <div className="flex flex-wrap gap-1.5">{NEEDS.map((n) => <Pill key={n} on={draft.needs.includes(n)} onClick={() => set("needs", draft.needs.includes(n) ? draft.needs.filter((x) => x !== n) : [...draft.needs, n])}>{n.replace(/_/g, " ")}</Pill>)}</div></fieldset>
               </div>
 
+              {sug && (
+                <div className={cn("rounded-xl border p-4 space-y-2", sug.options.some((o) => o.kind === "inside_window") ? "border-mangrove-500/40 bg-mangrove-50" : "border-saffron-500/40 bg-saffron-50")} role="status">
+                  <p className="text-sm font-semibold text-ink-900">{sug.message}</p>
+                  {sug.options.length === 0 && <p className="text-sm text-ink-600">{sug.reason}</p>}
+                  <div className="flex flex-wrap gap-2">{sug.options.map((o) => (
+                    <span key={`${o.room_id}${o.day}${o.start_period}`} className={cn("inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm bg-raised border", o.kind === "inside_window" ? "border-mangrove-500/50" : "border-saffron-500/50")}>
+                      <strong>{o.room_id}</strong> {o.day} {periodRange(o.start_period, o.end_period)}<span className="text-xs text-ink-400">{o.kind === "inside_window" ? "fits your window" : "alternative only"}</span>
+                    </span>))}</div>
+                  <p className="text-xs text-ink-400">Free right now. Nothing is reserved until you submit and an approver decides.</p>
+                </div>
+              )}
+
               {result && (
                 <div className="space-y-2">{result.map((s) => (
                   <div key={s.id} role="status" className={cn("rounded-xl px-4 py-3 text-sm flex gap-3", s.status === "REJECTED" ? "bg-sunrise-50 text-sunrise-600" : "bg-mangrove-50 text-mangrove-600")}>
                     {s.status === "REJECTED" ? <TriangleAlert className="w-5 h-5 shrink-0" /> : <Check className="w-5 h-5 shrink-0" />}
-                    <p><strong>{s.id}</strong> {s.status === "REJECTED" ? `could not be placed: ${s.decision_reason}` : `fits the rules: ${s.placement?.day} ${periodRange(s.placement!.start_period, s.placement!.end_period)} in ${s.placement?.room_id}. It is waiting for an approver.`}</p>
+                    <p><strong>{s.id}</strong> {s.status === "REJECTED" ? `could not be placed: ${s.decision_reason}` : `${s.proposed.status === "approved" ? "fits inside your window" : "only fits as an alternative"}: ${s.placement?.day} ${periodRange(s.placement!.start_period, s.placement!.end_period)} in ${s.placement?.room_id}. It is waiting for an approver; nothing is confirmed yet.`}</p>
                   </div>))}</div>
               )}
 
               <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-line">
                 <p className="text-sm text-ink-600">{missing.length ? <span className="text-saffron-600 font-semibold">Still missing: {missing.join(", ")}</span> : <>Counts as <strong className="text-ink-900">{CATEGORY_LABEL[draft.effective_category || ""] || draft.effective_category}</strong> for your role</>}</p>
-                <div className="flex gap-2"><Button variant="ghost" onClick={() => { setDraft(null); setResult(null); }}>Discard</Button><Button icon={<Send className="w-4 h-4" />} loading={submitting} disabled={missing.length > 0} onClick={submit}>Check the rules and submit</Button></div>
+                <div className="flex gap-2"><Button variant="ghost" onClick={() => { setDraft(null); setResult(null); setSug(null); }}>Discard</Button><Button variant="secondary" loading={checking} disabled={missing.length > 0} onClick={check}>See what fits</Button><Button icon={<Send className="w-4 h-4" />} loading={submitting} disabled={missing.length > 0} onClick={submit}>Check the rules and submit</Button></div>
               </div>
             </Card>
           </motion.div>

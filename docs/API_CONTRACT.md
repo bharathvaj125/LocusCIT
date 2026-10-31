@@ -39,6 +39,12 @@ Optional header `If-Match: <revision>` on writes: a stale value returns 409 `STA
 | `POST /bookings/{id}/decision` | approver | `{action: approve, reject or offer_alternative, reason?}`; never your own request |
 | `POST /bookings/{id}/respond` | requester | `{accept: bool}` for an offered alternative |
 | `POST /bookings/{id}/cancel` | requester / admin | |
+| `POST /bookings/suggest` | any | dry run of a draft: `{outcome, reason, options: [{room_id, day, start_period, end_period, kind: inside_window or alternative}], message}`; changes nothing |
+| `GET /bookings/{id}/negotiation-options` | requester / admin | whether a voluntary move offer is possible for a request that only got an alternative or a rejection |
+| `POST /bookings/{id}/negotiate` | requester | `{deadline_seconds?}` (default `NEGOTIATION_SECONDS`, 300). Creates an offer; the holder's booking is not touched |
+| `GET /negotiations` | party / admin | offers with `status`, `seconds_left`, `can_respond`, `can_withdraw` |
+| `POST /negotiations/{id}/respond` | the holder only | `{accept: bool}`; accept re-validates both bookings, then waits for an approver |
+| `POST /negotiations/{id}/withdraw` | requester / admin | |
 | `POST /events/manual` | any | room and time chosen manually; same hard rules; invalid gives 422 with `rule_ids` and no change |
 | `POST /disruptions/propose` | admin | body is the change file; nothing changes until approval |
 | `GET /proposals`, `GET /proposals/{id}` | admin | moved sessions with old and new slot and reason, `moved_count`, `proven_minimum` |
@@ -50,6 +56,13 @@ Optional header `If-Match: <revision>` on writes: a stale value returns 409 `STA
 | `GET /exports/schedule`, `GET /exports/schedule-after` | admin | official schema, re-validated before returning |
 | `POST /admin/reset` | admin | restores demo data, keeps accounts, bumps `revision` |
 | `POST /admin/dataset/import` | admin | validates structure and that every session has a legal slot |
+
+## Move offers (optional, never exported)
+Offer status: `awaiting_response`, `accepted`, `declined`, `expired`, `withdrawn`, `failed_revalidation`. While an offer is
+open the requester's booking shows `PENDING_NEGOTIATION`; the holder's approved booking is unchanged. Approving the
+requester (normal `/bookings/{id}/decision`, by someone else) applies both changes in one step after a fresh check, or
+changes nothing. These states exist only inside the app: `schedule.json` carries `approved`, `alternative_offered` and
+`rejected` only.
 
 ## Shapes
 Assignment: `{session_id, day, start_period, end_period, room_id, ...}`. Days MON-FRI, periods 1-9 teaching,
