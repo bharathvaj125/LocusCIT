@@ -1,57 +1,57 @@
-# API contract v1 (DRAFT - both owners must agree before breaking changes)
+# API contract v1 (implemented by the backend)
 
-Base URL: `NEXT_PUBLIC_API_BASE_URL`, all routes prefixed `/api`. JSON only.
-Auth: `Authorization: Bearer <token>` from `POST /api/auth/login`. The backend enforces roles; never trust role, requester or approver sent by the client.
+Base URL `NEXT_PUBLIC_API_BASE_URL`, routes under `/api`. Interactive docs: `GET /docs`.
+Auth: `POST /api/auth/login` returns a token; send `Authorization: Bearer <token>`.
+Roles: `admin`, `department_coordinator`, `faculty`, `club`. The backend enforces roles; hiding a button is not security.
 
 ## Envelope
-```json
-{ "success": true, "data": { }, "errors": [] }
-```
-Errors: `success: false`, `errors: [{code, message, details, rule_ids, related_entity_ids}]`.
-Codes: INVALID_INPUT, UNAUTHORIZED, FORBIDDEN, DATASET_MISMATCH, CONSTRAINT_VIOLATION,
-SOLVER_INFEASIBLE, SOLVER_TIMEOUT, AI_UNAVAILABLE, STALE_PROPOSAL, STALE_REVISION.
-Never return HTTP 200 for a failed solve. A timeout (UNKNOWN) is not INFEASIBLE.
+Success: `{"success": true, "data": {...}, "errors": []}`.
+Failure: `{"success": false, "data": null, "errors": [{"code","message","details","rule_ids","related_entity_ids"}]}`.
+Codes: INVALID_INPUT (400/404/409/422), UNAUTHORIZED (401), FORBIDDEN (403), CONSTRAINT_VIOLATION,
+SOLVER_INFEASIBLE, SOLVER_TIMEOUT, STALE_PROPOSAL (409), STALE_REVISION (409).
+A solver timeout is never reported as "impossible".
+Optional header `If-Match: <revision>` on writes: a stale value returns 409 `STALE_REVISION`. After a reset, refresh.
 
-State-changing calls send the current workspace `revision` (JSON field or `If-Match`); stale -> HTTP 409.
-
-## Roles
-`admin`, `department_coordinator`, `faculty`, `club`.
+## Long jobs
+`POST /schedules/generate` returns 202 `{job_id}`. Poll `GET /jobs/{id}` until `status` is `DONE`
+(`phase: "optimising"` means a valid timetable is already available), or one of
+`INFEASIBLE`, `UNKNOWN`, `FAILED_VALIDATION`, `ERROR`, `STALE`.
+`POST /disruptions/propose` and faculty requests return `{proposal_id}`; poll the proposal until it leaves `COMPUTING`.
 
 ## Routes
-| Method / route | Purpose | Who |
+| Route | Who | Notes |
 | --- | --- | --- |
-| GET /api/health | liveness + version | public |
-| POST /api/auth/login | `{username,password}` -> token, role, display name | public |
-| POST /api/admin/dataset/import | upload dataset JSON | admin |
-| POST /api/schedules/generate | generate baseline; 202 + job_id if long | admin |
-| GET /api/jobs/{id} | solver job status | admin |
-| GET /api/schedules?view=group\|faculty\|room&id=... | filtered timetable | authenticated, scoped |
-| GET /api/rooms | rooms, features, utilisation | authenticated |
-| POST /api/exams/generate | generate exam schedule | admin |
-| GET /api/exams | exam schedule | authenticated |
-| GET /api/bookings | requests + decisions | authenticated, role-scoped |
-| POST /api/bookings/parse | English/Hinglish text -> editable draft (AI optional) | authenticated |
-| POST /api/bookings/submit | structured booking, deterministic checks | club/dept/faculty/admin |
-| POST /api/bookings/{id}/decision | approve / reject / offer alternative | approver, not requester |
-| POST /api/bookings/evaluate-batch | evaluate all Spectra requests by priority | admin |
-| POST /api/disruptions/propose | upload change file -> pending repair, no mutation | admin |
-| GET /api/proposals/{id} | moved sessions (old/new), moved count, validation | relevant role |
-| POST /api/proposals/{id}/approve | atomic apply (no self-approval) | admin |
-| POST /api/proposals/{id}/reject | reject proposal | admin |
-| POST /api/faculty/change-request | NL or structured change request | faculty |
-| GET /api/dashboard | counters, approvals, conflicts, utilisation | authenticated |
-| GET /api/exports/schedule | official-schema schedule.json | admin |
-| GET /api/exports/schedule-after | post-disruption schedule_after.json | admin |
-| POST /api/admin/reset | restore clean demo state, keep demo logins | admin |
+| `GET /health` | public | version, dataset id, revision |
+| `POST /auth/login`, `GET /auth/me` | public / any | token, role, faculty_id, department, org |
+| `GET /dashboard` | any | counts, hard and soft totals, exam coverage, booking score, pending approvals, utilisation (role-scoped) |
+| `GET /rooms` | any | rooms with features and utilisation |
+| `GET /schedules?view=group` or `faculty` or `room`, `&id=` | any (scoped) | admin: all; coordinator: own department; faculty: own timetable and groups they teach; club: rooms only |
+| `POST /schedules/generate?time_limit=` | admin | background job |
+| `GET /jobs/{id}` | admin | |
+| `POST /exams/generate`, `GET /exams?group=` | admin / any | 41 exams, multi-room |
+| `POST /bookings/evaluate-batch` | admin | decides all 25 Spectra requests; returns score and session overrides |
+| `GET /bookings` | any (scoped) | dataset requests with decisions, plus `submitted` bookings |
+| `POST /bookings/parse` | any | `{text}` returns an editable draft with `assumptions`, `ambiguous_fields`, `follow_up`, `security_flags` |
+| `POST /bookings/submit` | any | structured draft; role and category come from the token, never from the body |
+| `POST /bookings/{id}/decision` | approver | `{action: approve, reject or offer_alternative, reason?}`; never your own request |
+| `POST /bookings/{id}/respond` | requester | `{accept: bool}` for an offered alternative |
+| `POST /bookings/{id}/cancel` | requester / admin | |
+| `POST /events/manual` | any | room and time chosen manually; same hard rules; invalid gives 422 with `rule_ids` and no change |
+| `POST /disruptions/propose` | admin | body is the change file; nothing changes until approval |
+| `GET /proposals`, `GET /proposals/{id}` | admin | moved sessions with old and new slot and reason, `moved_count`, `proven_minimum` |
+| `POST /proposals/{id}/approve`, `/reject` | admin | approve is blocked for the requester (403) and for stale proposals (409) |
+| `GET /faculty/my-sessions` | faculty / coordinator | |
+| `POST /faculty/change-request` | faculty / coordinator | `{text}` or `{kind, session_id, avoid_slots, allow_slots, days, periods}`; may answer `NEEDS_INFO` |
+| `GET /faculty/change-requests` and `/{id}` | requester / admin | |
+| `GET /explain/session/{id}`, `GET /explain/booking/{id}` | any (booking: own only) | facts and rule ids |
+| `GET /exports/schedule`, `GET /exports/schedule-after` | admin | official schema, re-validated before returning |
+| `POST /admin/reset` | admin | restores demo data, keeps accounts, bumps `revision` |
+| `POST /admin/dataset/import` | admin | validates structure and that every session has a legal slot |
 
-## Schedule data shape (assignments)
-```json
-{"session_id": "MA101-AB-L1", "day": "MON", "start_period": 2, "room_id": "LH-1"}
-```
-Days `MON..FRI`; periods 1-9 teaching, 10-13 events; `end_period` is inclusive for bookings.
-Official export shape: see `starter_pack/README.md` (`team, dataset_id, sessions, fest_week, exams`).
+## Shapes
+Assignment: `{session_id, day, start_period, end_period, room_id, ...}`. Days MON-FRI, periods 1-9 teaching,
+10-13 events, `end_period` inclusive. Official export shape: see `starter_pack/README.md`.
 
-## Proposal (disruption / faculty change)
-`{proposal_id, status: pending|approved|rejected, base_schedule_version, moved_count, changes: [{session_id, old:{day,start_period,room_id}, new:{...}, reason}], hard_validation_result, diagnostics}`
-
-Field-level response schemas will be added by the backend owner as each endpoint lands.
+Proposal: `{proposal_id, type, status, moved: [{session_id, old: {day, start_period, room_id}, new: {...}, reason}],
+moved_count, lower_bound, proven_minimum, message, diagnostics}`.
+`status` is one of COMPUTING, PENDING, APPROVED, REJECTED, INFEASIBLE, UNKNOWN, STALE, INVALID, ERROR.
