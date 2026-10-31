@@ -61,7 +61,7 @@ function allowedEntities(ref: ReferenceData | null, user: SessionUser): Timetabl
 }
 
 function Workspace({ initialNav, onSession, onSignOut }: { initialNav: NavRouteId; onSession: (s: StoredSession) => void; onSignOut: () => void }) {
-  const { user, ref, dashboard, revision } = useApp();
+  const { user, ref, dashboard, revision, error: loadError, refresh } = useApp();
   const toast = useToast();
   const allowed = ROLE_CONFIGS[user.role].allowedNav;
   const [nav, setNav] = useState<NavRouteId>(allowed.includes(initialNav) ? initialNav : "overview");
@@ -144,7 +144,13 @@ function Workspace({ initialNav, onSession, onSignOut }: { initialNav: NavRouteI
     <>
       <Shell user={user} dashboard={dashboard} nav={nav} onNav={go} onSwitch={switchAccount} onSignOut={onSignOut} onSearch={() => setPalette(true)} switching={switching}>
         {!ref && nav !== "overview" ? (
-          <div className="space-y-4"><div className="flex items-center gap-2 text-sm text-ink-600"><Loader2 className="w-4 h-4 animate-spin" />Loading campus data...</div><Skeleton className="h-64" /></div>
+          <div className="space-y-4" role="status">
+            <div className="flex flex-wrap items-center gap-3 text-sm text-ink-600"><Loader2 className="w-4 h-4 animate-spin" />Loading campus data...
+              {loadError && <button onClick={() => refresh()} className="font-semibold text-lagoon-700 underline cursor-pointer">Try again now</button>}
+            </div>
+            {loadError && <p className="text-sm text-sunrise-600 bg-sunrise-50 rounded-xl px-4 py-3">{loadError} Retrying automatically.</p>}
+            <Skeleton className="h-64" />
+          </div>
         ) : (
           <>
             {nav === "overview" && <Overview onNav={go} />}
