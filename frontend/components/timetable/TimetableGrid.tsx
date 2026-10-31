@@ -92,7 +92,7 @@ export function TimetableGrid({
 
   // Compute daily faculty hours load if pivoted by faculty
   const dailyFacultyLoad = useMemo(() => {
-    const loads: Record<DayOfWeek, number> = { MON: 0, TUE: 0, WED: 0, THU: 0, FRI: 0 };
+    const loads: Record<DayOfWeek, number> = { MON: 0, TUE: 0, WED: 0, THU: 0, FRI: 0, SAT: 0 };
     if (activePivot === "faculty") {
       relevantSessions.forEach(s => {
         loads[s.day] = (loads[s.day] || 0) + s.duration;

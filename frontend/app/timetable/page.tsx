@@ -1,7 +1,7 @@
 "use client";
 
-import HomePage from "../page";
+import { MainDashboardView } from "@/components/views/MainDashboardView";
 
 export default function TimetablePage() {
-  return <HomePage />;
+  return <MainDashboardView initialNav="timetable" />;
 }

@@ -17,7 +17,8 @@ export type NavRouteId =
   | "spectra_clash" 
   | "approvals" 
   | "disruptions" 
-  | "ai_booking";
+  | "ai_booking"
+  | "exports";
 
 export interface NavRoute {
   id: NavRouteId;
@@ -27,15 +28,7 @@ export interface NavRoute {
   badge?: string;
 }
 
-export type DayOfWeek = "MON" | "TUE" | "WED" | "THU" | "FRI";
-
-export interface PeriodInfo {
-  period: number;
-  label: string;
-  timeRange: string;
-  isEvening: boolean;
-  isLunch?: boolean;
-}
+export type DayOfWeek = "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT";
 
 export interface StudentGroup {
   id: string;
@@ -106,12 +99,11 @@ export interface ScheduledSession {
   faculty_name: string;
   faculty_dept: string;
   size: number;
-  duration: number; // 1, 2, or 3
+  duration: number;
   room_types: string[];
   needs_accessible: boolean;
-  basket_slot: string | null; // e.g. "OEB-1"
+  basket_slot: string | null;
   fixed_slot: { day: DayOfWeek; start_period: number } | null;
-  // Assignment
   day: DayOfWeek;
   start_period: number;
   end_period: number;
@@ -120,24 +112,105 @@ export interface ScheduledSession {
   room_capacity: number;
   room_type: string;
   room_accessible: boolean;
-  is_underutilized: boolean; // <40% capacity
-  capacity_ratio: number; // size / room_capacity
+  is_underutilized: boolean;
+  capacity_ratio: number;
 }
 
-export interface DailyFacultyLoad {
-  faculty_id: string;
+export interface ExamSession {
+  exam_id: string;
+  course_id: string;
+  course_title: string;
   day: DayOfWeek;
-  hours: number;
-  max_hours: number;
-  is_warning: boolean;
-  is_violation: boolean;
+  slot: "AM" | "PM";
+  time_range: string;
+  rooms: string[];
+  room_details: Array<{
+    id: string;
+    name: string;
+    capacity: number;
+    effective_seats: number;
+    accessible: boolean;
+  }>;
+  total_effective_seats: number;
+  candidate_count: number;
+  groups: string[];
+  department: string;
 }
 
-export interface HardConstraintAudit {
-  code: string;
-  name: string;
-  status: "pass" | "warn" | "fail";
-  detail: string;
+export interface BookingRequest {
+  id: string;
+  title: string;
+  requester: string;
+  role: RoleType;
+  requested_category: "institute_event" | "guest_lecture" | "department_event" | "club_event";
+  effective_category: "institute_event" | "guest_lecture" | "department_event" | "club_event";
+  attendance: number;
+  duration_periods: number;
+  day: DayOfWeek;
+  start_period: number;
+  end_period: number;
+  room_types: string[];
+  needs: string[];
+  requested_room: string | null;
+  assigned_room: string | null;
+  status: "approved" | "alternative_offered" | "rejected" | "cancelled" | "pending";
+  reason: string;
+  submitted_at: string;
+  raw_text?: string;
+  displaced_class?: string | null;
+}
+
+export interface DisruptionDiff {
+  session_id: string;
+  course_id: string;
+  course_title: string;
+  old: {
+    day: DayOfWeek | "NONE";
+    start_period: number;
+    end_period: number;
+    room_id: string;
+    room_name: string;
+  };
+  new: {
+    day: DayOfWeek;
+    start_period: number;
+    end_period: number;
+    room_id: string;
+    room_name: string;
+  };
+  reason: string;
+  is_moved: boolean;
+}
+
+export interface DisruptionProposal {
+  proposal_id: string;
+  title: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  moved_count: number;
+  lower_bound: number;
+  proven_minimum: boolean;
+  changes: DisruptionDiff[];
+  diagnostics: string;
+  submitted_at: string;
+  approved_by?: string;
+}
+
+export interface ParsedBookingDraft {
+  title: string;
+  day: DayOfWeek;
+  start_period: number;
+  duration_periods: number;
+  end_period: number;
+  attendance: number;
+  requested_category: "institute_event" | "guest_lecture" | "department_event" | "club_event";
+  effective_category: "institute_event" | "guest_lecture" | "department_event" | "club_event";
+  room_types: string[];
+  features: string[];
+  requested_room?: string;
+  ambiguities: string[];
+  assumptions: string[];
+  priority_capped: boolean;
+  original_text: string;
 }
 
 export interface ApiResponse<T> {
@@ -147,5 +220,6 @@ export interface ApiResponse<T> {
     code: string;
     message: string;
     details?: string;
+    rule_ids?: string[];
   }>;
 }

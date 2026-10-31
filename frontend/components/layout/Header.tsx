@@ -20,7 +20,8 @@ import {
   CheckSquare, 
   Wrench, 
   Bot,
-  Radio
+  Radio,
+  Download
 } from "lucide-react";
 
 export type ScenarioType = "default" | "spectra_surge" | "disruption" | "exams";
@@ -86,7 +87,6 @@ export function Header({
     },
   ];
 
-  // Nav icons mapping
   const navIcons: Record<NavRouteId, React.ReactNode> = {
     timetable: <Calendar className="w-3.5 h-3.5" />,
     exams: <GraduationCap className="w-3.5 h-3.5" />,
@@ -94,6 +94,7 @@ export function Header({
     approvals: <CheckSquare className="w-3.5 h-3.5" />,
     disruptions: <Wrench className="w-3.5 h-3.5" />,
     ai_booking: <Bot className="w-3.5 h-3.5" />,
+    exports: <Download className="w-3.5 h-3.5" />,
   };
 
   // Filter allowed navigation links based on current role
