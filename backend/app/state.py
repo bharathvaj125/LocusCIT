@@ -15,6 +15,7 @@ class Workspace:
         self.dataset = load_dataset(SEED)
         self.schedule = None          # sid -> (day, start, room)
         self.schedule_meta = {}
+        self.exams = None             # list of exam assignments
         self.jobs = {}
 
 

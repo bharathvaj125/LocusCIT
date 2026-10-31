@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 
 from .solver.baseline import solve_timetable
+from .solver.exams import solve_exams
 from .solver.export import timetable_export
 from .state import WS, TEAM
 
@@ -101,3 +102,38 @@ def schedules(view: str = Query("group", pattern="^(group|faculty|room)$"), id: 
                          "end_period": st + s["duration"] - 1, "room_id": rid})
     return ok({"view": view, "id": id, "dataset_id": WS.dataset["dataset_id"],
                "revision": WS.revision, "assignments": rows, "meta": WS.schedule_meta})
+
+
+@router.post("/exams/generate")
+def exams_generate(time_limit: float = Query(30, ge=5, le=120)):
+    status, out = solve_exams(WS.dataset, time_limit=time_limit)
+    if out is None:
+        code = "SOLVER_INFEASIBLE" if status == "INFEASIBLE" else "SOLVER_TIMEOUT"
+        return fail(422, code, f"Exam solver returned {status}")
+    sched = timetable_export(TEAM, WS.dataset["dataset_id"], WS.schedule or {}, exams=out)
+    rep = official_validator().run(WS.dataset, sched)
+    exam_v = [v for v in rep["hard_violations"] if v["rule"].startswith("E") or v["where"] == "exams"]
+    if exam_v:
+        return fail(500, "CONSTRAINT_VIOLATION", "Generated exams failed validation",
+                    details=exam_v[:10], rule_ids=sorted({v["rule"] for v in exam_v}))
+    with WS.lock:
+        WS.exams = out
+        WS.revision += 1
+    return ok({"status": status, "count": len(out), "exam_soft_penalty": rep.get("exam_soft_penalty"),
+               "hard_violation_count": 0})
+
+
+@router.get("/exams")
+def exams_list(group: str | None = None):
+    if WS.exams is None:
+        return fail(404, "INVALID_INPUT", "No exam schedule generated yet")
+    info = {e["id"]: e for e in WS.dataset["exams"]}
+    rows = []
+    for x in WS.exams:
+        e = info[x["exam_id"]]
+        if group and group not in e["groups"]:
+            continue
+        rooms = {r["id"]: r for r in WS.dataset["rooms"]}
+        rows.append({**x, "course_ids": e["course_ids"], "groups": e["groups"], "size": e["size"],
+                     "seats": sum(rooms[r]["capacity"] // 2 for r in x["rooms"])})
+    return ok({"exams": rows, "revision": WS.revision})
