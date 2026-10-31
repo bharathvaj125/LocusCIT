@@ -24,8 +24,9 @@ as an editable draft with the assumptions listed. Instructions hidden in user te
 ## 3. AI tools used to build the project
 | Tool | Used for |
 | --- | --- |
-| Claude Code (Anthropic) | Backend: solver modelling (OR-Tools CP-SAT), FastAPI endpoints, parsers, tests, deployment files and documentation, under the owner's direction and review. |
-| _Frontend and other tools_ | **To be completed by the frontend owner before submission** (every coding/design assistant actually used). |
+| Claude Code (Anthropic) | Backend: solver modelling (OR-Tools CP-SAT), FastAPI endpoints, parsers, tests, deployment files and documentation. Frontend: connecting the screens to the real API (login, data layer, approvals, disruptions, assistant, exports) and removing mock data. Always under the team's direction and review. |
+| Figma (MCP connector, driven from the same assistant) | Design tokens, the style guide and the Timetable screen in the Figma file linked from `docs/DESIGN.md`; the visual identity was designed there and then implemented in code. |
+| _Frontend owner's tools_ | **To be completed by the frontend owner before submission** (every coding/design assistant actually used for the original UI). |
 
 ## 4. Prompts
 Prompt files or links are kept in `docs/PROMPTS/`. Add the frontend owner's prompts there before submission.

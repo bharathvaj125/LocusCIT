@@ -106,13 +106,22 @@ def approve(pid: str, user=Depends(require("admin"))):
                         details=hard[:10], rule_ids=sorted({v["rule"] for v in hard}))
         if WS.baseline is None:
             WS.baseline = dict(WS.schedule)
+            # keep the official baseline export (and the dataset it belongs to) exactly as it was before any change
+            if WS.bookings is not None and WS.exams is not None:
+                keys = ("request_id", "status", "day", "start_period", "end_period", "room_id", "reason")
+                WS.baseline_export = timetable_export(
+                    TEAM, WS.dataset["dataset_id"], WS.schedule,
+                    fest_week={"bookings": [{k: v for k, v in d.items() if k in keys} for d in WS.bookings["decisions"]],
+                               "session_overrides": WS.bookings["overrides"]},
+                    exams=WS.exams)
+                WS.baseline_dataset = WS.dataset
         WS.dataset = after
         WS.schedule = dict(assign)
         WS.schedule_version += 1
         WS.revision += 1
         WS.applied.append(pid)
-        decisions, overrides, _ = evaluate_bookings(after, WS.schedule)
-        WS.bookings = {"decisions": decisions, "overrides": overrides}
+        from .api_bookings import reconcile_after_timetable_change
+        reconcile_after_timetable_change()
         p.update(status="APPROVED", approved_by=user["username"], approved_at=time.time(),
                  hard_validation_result="0 hard violations")
     return ok(_public(p))

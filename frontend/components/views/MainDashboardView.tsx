@@ -1,211 +1,170 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { AppShell } from "@/components/layout/AppShell";
-import { ScenarioType } from "@/components/layout/Header";
-import { RoleType, NavRouteId, ScheduledSession } from "@/lib/types";
-import { TimetableGrid } from "@/components/timetable/TimetableGrid";
-import { ExamsDeck } from "@/components/exams/ExamsDeck";
-import { SpectraClashMatrix } from "@/components/spectra/SpectraClashMatrix";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Loader2 } from "lucide-react";
+import { Shell } from "@/components/layout/Shell";
+import { CommandPalette, PaletteItem } from "@/components/layout/CommandPalette";
+import { LoginScreen } from "@/components/auth/LoginScreen";
+import { Overview } from "@/components/views/Overview";
+import { TimetableView, TimetableEntities, EveningEvent } from "@/components/timetable/TimetableView";
+import { ExamsBoard } from "@/components/exams/ExamsBoard";
+import { SpectraBoard } from "@/components/spectra/SpectraBoard";
 import { ApprovalsDeck } from "@/components/approvals/ApprovalsDeck";
 import { DisruptionDeck } from "@/components/disruptions/DisruptionDeck";
 import { AiBookingAssistant } from "@/components/assistant/AiBookingAssistant";
 import { ExportsDeck } from "@/components/exports/ExportsDeck";
-import { 
-  fetchTimetable, 
-  resetDemoData, 
-  getLocalWorkspaceRevision, 
-  setLocalWorkspaceRevision 
-} from "@/lib/api";
-import { BASELINE_SESSIONS, ROLE_CONFIGS } from "@/lib/mockData";
-import { 
-  Calendar, 
-  Sparkles, 
-  AlertTriangle, 
-  GraduationCap, 
-  RotateCcw, 
-  CheckCircle2, 
-  Layers, 
-  Clock, 
-  Users, 
-  CheckSquare, 
-  Wrench, 
-  Bot, 
-  Download,
-  ShieldCheck
-} from "lucide-react";
+import { AppProvider, useApp } from "@/lib/appContext";
+import { ToastProvider, useToast } from "@/lib/toast";
+import { ApiError, describeError, fetchBookings, fetchTimetable, login, logout, onUnauthorized } from "@/lib/api";
+import { loadSession, StoredSession } from "@/lib/session";
+import { NavRouteId, ReferenceData, ScheduledSession, SessionUser } from "@/lib/types";
+import { NAV_ROUTES, ROLE_CONFIGS } from "@/lib/uiConfig";
+import { Skeleton } from "@/components/ui/primitives";
 
-interface MainDashboardViewProps {
-  initialNav?: NavRouteId;
-}
+type Pivot = "group" | "faculty" | "room";
 
-export function MainDashboardView({ initialNav = "timetable" }: MainDashboardViewProps) {
-  const [currentScenario, setCurrentScenario] = useState<ScenarioType>("default");
-  const [currentRole, setCurrentRole] = useState<RoleType>("admin");
-  const [activeNav, setActiveNav] = useState<NavRouteId>(initialNav);
-  const [workspaceRevision, setWorkspaceRevision] = useState<number>(1);
-  const [isResetting, setIsResetting] = useState<boolean>(false);
-  const [resetNotification, setResetNotification] = useState<string | null>(null);
-
-  // Timetable State
-  const [activePivot, setActivePivot] = useState<"group" | "faculty" | "room">("group");
-  const [selectedEntityId, setSelectedEntityId] = useState<string>("Y1-A");
-  const [showEvening, setShowEvening] = useState<boolean>(false);
-  const [sessions, setSessions] = useState<ScheduledSession[]>(BASELINE_SESSIONS);
+export function MainDashboardView({ initialNav = "overview" }: { initialNav?: NavRouteId }) {
+  const [session, setSession] = useState<StoredSession | null>(null);
+  const [ready, setReady] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
-    setWorkspaceRevision(getLocalWorkspaceRevision());
+    setSession(loadSession());
+    setReady(true);
+    return onUnauthorized(() => { setSession(null); setNotice("Your session ended. Please sign in again."); });
   }, []);
 
-  // When role changes, if current activeNav is not allowed for the new role, auto-switch to "timetable"
-  useEffect(() => {
-    const roleConfig = ROLE_CONFIGS[currentRole];
-    if (roleConfig && !roleConfig.allowedNav.includes(activeNav)) {
-      setActiveNav("timetable");
-    }
-  }, [currentRole, activeNav]);
+  if (!ready) return <div className="min-h-screen" />;
+  if (!session) return <LoginScreen notice={notice} onSignedIn={(s) => { setNotice(null); setSession(s); }} />;
+  return (
+    <ToastProvider>
+      <AppProvider key={session.user.username} user={session.user}>
+        <Workspace initialNav={initialNav} onSession={setSession} onSignOut={() => { logout(); setSession(null); }} />
+      </AppProvider>
+    </ToastProvider>
+  );
+}
 
-  // Load timetable data for current pivot
-  useEffect(() => {
-    let isMounted = true;
-    async function loadData() {
-      const res = await fetchTimetable(activePivot, selectedEntityId);
-      if (isMounted && res.success) {
-        setSessions(res.data);
-      }
-    }
-    loadData();
-    return () => {
-      isMounted = false;
-    };
-  }, [activePivot, selectedEntityId]);
+function allowedEntities(ref: ReferenceData | null, user: SessionUser): TimetableEntities {
+  if (!ref) return { group: [], faculty: [], room: [] };
+  if (user.role === "admin") return { group: ref.student_groups, faculty: ref.faculty, room: ref.rooms };
+  if (user.role === "club") return { group: [], faculty: [], room: ref.rooms };
+  if (user.role === "faculty") {
+    const taught = new Set(ref.sessions.filter((s) => s.faculty_id === user.faculty_id).flatMap((s) => s.groups));
+    return { group: ref.student_groups.filter((g) => taught.has(g.id)), faculty: ref.faculty.filter((f) => f.id === user.faculty_id), room: ref.rooms };
+  }
+  return {
+    group: ref.student_groups.filter((g) => g.department === user.department || g.department === "COMMON"),
+    faculty: ref.faculty.filter((f) => f.department === user.department),
+    room: ref.rooms,
+  };
+}
 
-  // Handle Admin "Reset Demo Data" trigger
-  const handleReset = async () => {
-    setIsResetting(true);
-    try {
-      const res = await resetDemoData();
-      if (res.success) {
-        setWorkspaceRevision(res.data.revision);
-        setResetNotification(res.data.message);
-        setSessions(BASELINE_SESSIONS);
-        setCurrentScenario("default");
-        setTimeout(() => setResetNotification(null), 4000);
-      }
-    } catch {
-      const nextRev = workspaceRevision + 1;
-      setWorkspaceRevision(nextRev);
-      setLocalWorkspaceRevision(nextRev);
-      setResetNotification(`Demo data restored to Revision #${nextRev}`);
-      setTimeout(() => setResetNotification(null), 4000);
-    } finally {
-      setIsResetting(false);
+function Workspace({ initialNav, onSession, onSignOut }: { initialNav: NavRouteId; onSession: (s: StoredSession) => void; onSignOut: () => void }) {
+  const { user, ref, dashboard, revision } = useApp();
+  const toast = useToast();
+  const allowed = ROLE_CONFIGS[user.role].allowedNav;
+  const [nav, setNav] = useState<NavRouteId>(allowed.includes(initialNav) ? initialNav : "overview");
+  const [switching, setSwitching] = useState(false);
+  const [palette, setPalette] = useState(false);
+  const [assistantText, setAssistantText] = useState<string | null>(null);
+
+  const entities = useMemo(() => allowedEntities(ref, user), [ref, user]);
+  const [pivot, setPivot] = useState<Pivot>(user.role === "club" ? "room" : user.role === "faculty" ? "faculty" : "group");
+  const [selectedId, setSelectedId] = useState("");
+  const [sessions, setSessions] = useState<ScheduledSession[]>([]);
+  const [tt, setTt] = useState<{ loading: boolean; error: string | null; empty: string | null }>({ loading: false, error: null, empty: null });
+  const [events, setEvents] = useState<EveningEvent[]>([]);
+
+  const go = useCallback((n: NavRouteId) => {
+    setNav(n);
+    const href = NAV_ROUTES.find((r) => r.id === n)?.href;
+    if (href && typeof window !== "undefined") window.history.replaceState(null, "", href);
+    window.scrollTo({ top: 0 });
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setPalette((p) => !p); } };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // choose a sensible first entity when reference data arrives or the pivot changes
+  useEffect(() => {
+    const list = entities[pivot] as Array<{ id: string }>;
+    if (!list.length) return;
+    if (!list.some((e) => e.id === selectedId)) {
+      const pref = pivot === "group" ? "Y1-A" : pivot === "room" ? (user.role === "club" ? "AUD" : "LH-1") : "";
+      setSelectedId(list.some((e) => e.id === pref) ? pref : list[0].id);
     }
+  }, [entities, pivot, selectedId, user.role]);
+
+  useEffect(() => {
+    if (nav !== "timetable" || !ref || !selectedId) return;
+    let alive = true;
+    setTt((s) => ({ ...s, loading: true, error: null }));
+    fetchTimetable(pivot, selectedId, ref)
+      .then((rows) => { if (alive) { setSessions(rows); setTt({ loading: false, error: null, empty: null }); } })
+      .catch((e) => {
+        if (!alive) return;
+        setSessions([]);
+        if (e instanceof ApiError && e.status === 404) setTt({ loading: false, error: null, empty: user.role === "admin" ? "No timetable yet. Run step 1 on the Overview page." : "No timetable has been generated yet. An Admin has to do that first." });
+        else setTt({ loading: false, error: describeError(e), empty: null });
+      });
+    return () => { alive = false; };
+  }, [nav, ref, pivot, selectedId, revision, dashboard?.schedule_version, user.role]);
+
+  useEffect(() => {
+    if (nav !== "timetable" || pivot !== "room" || !selectedId) { setEvents([]); return; }
+    fetchBookings().then((b) => {
+      const a: EveningEvent[] = b.requests.filter((r) => r.assigned_room === selectedId && (r.status === "approved" || r.status === "alternative_offered"))
+        .map((r) => ({ id: r.id, title: r.title, day: r.day, start: r.start_period, end: r.end_period, status: r.status }));
+      const c: EveningEvent[] = b.submitted.filter((s) => s.placement?.room_id === selectedId && (s.status === "APPROVED" || s.status === "ALTERNATIVE_OFFERED"))
+        .map((s) => ({ id: s.id, title: s.title, day: s.placement!.day, start: s.placement!.start_period, end: s.placement!.end_period, status: s.status.toLowerCase() }));
+      setEvents([...a, ...c]);
+    }).catch(() => setEvents([]));
+  }, [nav, pivot, selectedId, revision]);
+
+  const switchAccount = async (u: string, p: string) => {
+    setSwitching(true);
+    try { onSession(await login(u, p)); } catch (e) { toast.error(describeError(e)); } finally { setSwitching(false); }
   };
 
+  const items: PaletteItem[] = useMemo(() => {
+    const out: PaletteItem[] = NAV_ROUTES.filter((r) => allowed.includes(r.id)).map((r) => ({ id: "nav-" + r.id, label: r.label, hint: r.description, group: "Go to", run: () => go(r.id) }));
+    const open = (p: Pivot, id: string) => () => { setPivot(p); setSelectedId(id); go("timetable"); };
+    entities.group.forEach((g) => out.push({ id: "g-" + g.id, label: `${g.id}  ${g.name}`, hint: `${g.size} students`, group: "Student groups", run: open("group", g.id) }));
+    entities.faculty.forEach((f) => out.push({ id: "f-" + f.id, label: `${f.name}`, hint: `${f.id} · ${f.department}`, group: "Faculty", run: open("faculty", f.id) }));
+    entities.room.forEach((r) => out.push({ id: "r-" + r.id, label: `${r.id}  ${r.name}`, hint: `${r.type.replace(/_/g, " ")} · ${r.capacity} seats`, group: "Rooms", run: open("room", r.id) }));
+    out.push({ id: "signout", label: "Sign out", group: "Account", run: onSignOut });
+    return out;
+  }, [allowed, entities, go, onSignOut]);
+
   return (
-    <AppShell
-      currentScenario={currentScenario}
-      onScenarioChange={setCurrentScenario}
-      currentRole={currentRole}
-      onRoleChange={setCurrentRole}
-      workspaceRevision={workspaceRevision}
-      onReset={handleReset}
-      isResetting={isResetting}
-      activeNav={activeNav}
-      onNavChange={setActiveNav}
-    >
-      <div className="space-y-4">
-        {/* Reset Success Toast */}
-        {resetNotification && (
-          <div className="p-3 bg-emerald-950/80 border border-emerald-500/50 rounded-[4px] flex items-center justify-between text-xs font-mono text-emerald-200 animate-in fade-in duration-200">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>{resetNotification}</span>
-            </div>
-            <span className="text-[10px] text-emerald-400/80">REVISION VERIFIED</span>
-          </div>
-        )}
-
-        {/* Dynamic Scenario Alert Banner */}
-        <div className="flex flex-wrap items-center justify-between p-3 bg-[#0E1216] border border-white/10 rounded-[4px] gap-3">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-[#161B22] border border-white/10 rounded-[3px]">
-              {currentScenario === "default" && <Calendar className="w-5 h-5 text-cyan-400" />}
-              {currentScenario === "spectra_surge" && <Sparkles className="w-5 h-5 text-amber-400" />}
-              {currentScenario === "disruption" && <AlertTriangle className="w-5 h-5 text-rose-400" />}
-              {currentScenario === "exams" && <GraduationCap className="w-5 h-5 text-emerald-400" />}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="font-mono text-sm font-bold uppercase tracking-wider text-white">
-                  {currentScenario === "default" && "BASELINE TIMETABLE MATRIX // CIT PUBLIC V1 (189 SESSIONS)"}
-                  {currentScenario === "spectra_surge" && "WEEK 7 SPECTRA FEST MATRIX // 25 BOOKING REQUESTS EVALUATED"}
-                  {currentScenario === "disruption" && "CAMPUS DISRUPTION REPAIR PROTOCOL // ACOUSTIC LEAKAGE"}
-                  {currentScenario === "exams" && "MIDSEM EXAMINATION ALLOCATOR // 41 PAPERS (HALVED CAPACITY)"}
-                </h1>
-                <span className="font-mono text-[10px] px-1.5 py-0.2 rounded-[2px] bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
-                  {currentScenario === "default" ? "0 HARD CLASHES" : "CONSTRAINTS SATISFIED"}
-                </span>
+    <>
+      <Shell user={user} dashboard={dashboard} nav={nav} onNav={go} onSwitch={switchAccount} onSignOut={onSignOut} onSearch={() => setPalette(true)} switching={switching}>
+        {!ref && nav !== "overview" ? (
+          <div className="space-y-4"><div className="flex items-center gap-2 text-sm text-ink-600"><Loader2 className="w-4 h-4 animate-spin" />Loading campus data...</div><Skeleton className="h-64" /></div>
+        ) : (
+          <>
+            {nav === "overview" && <Overview onNav={go} />}
+            {nav === "timetable" && (
+              <div className="space-y-3">
+                {tt.error && <p className="text-sm text-sunrise-600 bg-sunrise-50 rounded-xl px-4 py-3" role="alert">{tt.error}</p>}
+                {tt.empty && <p className="text-sm text-saffron-600 bg-saffron-50 rounded-xl px-4 py-3">{tt.empty}</p>}
+                <TimetableView sessions={sessions} loading={tt.loading} entities={entities} pivot={pivot} onPivot={setPivot} selectedId={selectedId} onSelect={setSelectedId} events={events} ref_={ref} />
               </div>
-              <p className="font-mono text-[11px] text-neutral-400 mt-0.5">
-                {currentScenario === "default" && "243 teaching hours per week across 27 campus venues. Monday through Friday."}
-                {currentScenario === "spectra_surge" && "Fest requests prioritized by Institute > Guest > Dept > Club with strict tie-breaking."}
-                {currentScenario === "disruption" && "Atomic change proposal pending admin review. Zero side-effect mutation."}
-                {currentScenario === "exams" && "Hall capacities halved for exam seating. Adjacent department anti-cheat spacing applied."}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 text-xs font-mono">
-            <div className="px-2.5 py-1 bg-[#12161C] border border-white/10 rounded-[3px] text-neutral-300">
-              ROLE: <strong className="text-cyan-400 uppercase">{ROLE_CONFIGS[currentRole]?.badge || currentRole}</strong>
-            </div>
-          </div>
-        </div>
-
-        {/* Dynamic Navigation Views */}
-        {activeNav === "timetable" && (
-          <TimetableGrid
-            sessions={sessions}
-            activePivot={activePivot}
-            onPivotChange={(newPivot) => {
-              setActivePivot(newPivot);
-              if (newPivot === "group") setSelectedEntityId("Y1-A");
-              else if (newPivot === "faculty") setSelectedEntityId("F01");
-              else if (newPivot === "room") setSelectedEntityId("LH-1");
-            }}
-            selectedId={selectedEntityId}
-            onSelectId={setSelectedEntityId}
-            showEvening={showEvening}
-            onToggleEvening={() => setShowEvening(!showEvening)}
-          />
+            )}
+            {nav === "exams" && <ExamsBoard />}
+            {nav === "spectra_clash" && <SpectraBoard />}
+            {nav === "approvals" && <ApprovalsDeck onOpenChanges={() => go("disruptions")} />}
+            {nav === "disruptions" && <DisruptionDeck />}
+            {nav === "ai_booking" && <AiBookingAssistant initialText={assistantText} onConsumedInitialText={() => setAssistantText(null)} />}
+            {nav === "exports" && <ExportsDeck />}
+          </>
         )}
-
-        {activeNav === "exams" && (
-          <ExamsDeck />
-        )}
-
-        {activeNav === "spectra_clash" && (
-          <SpectraClashMatrix currentRole={currentRole} />
-        )}
-
-        {activeNav === "approvals" && (
-          <ApprovalsDeck currentRole={currentRole} />
-        )}
-
-        {activeNav === "disruptions" && (
-          <DisruptionDeck currentRole={currentRole} />
-        )}
-
-        {activeNav === "ai_booking" && (
-          <AiBookingAssistant currentRole={currentRole} />
-        )}
-
-        {activeNav === "exports" && (
-          <ExportsDeck />
-        )}
-      </div>
-    </AppShell>
+      </Shell>
+      <CommandPalette open={palette} onClose={() => setPalette(false)} items={items} />
+    </>
   );
 }

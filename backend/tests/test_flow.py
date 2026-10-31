@@ -29,6 +29,17 @@ def test_generate_exams_bookings_export_disruption(client, admin, admin2, tmp_pa
     assert dash["sessions_scheduled"] == 189 and dash["hard_violation_count"] == 0
     assert dash["exams_scheduled"] == 41 and dash["ready_for_export"]
 
+    # regenerating the timetable after the Spectra decisions exist must not leave stale, clashing decisions
+    jid2 = client.post("/api/schedules/generate?time_limit=0", headers=admin).json()["data"]["job_id"]
+    assert wait(client, admin, f"/api/jobs/{jid2}")["status"] == "DONE"
+    dash2 = client.get("/api/dashboard", headers=admin).json()["data"]
+    assert dash2["hard_violation_count"] == 0 and dash2["booking_decisions"] == 25, dash2["conflicts"]
+    board = client.get("/api/venue-board", headers=admin).json()["data"]
+    assert len(board["classes"]) >= 189 and any(e["source"] == "spectra" for e in board["events"])
+    assert client.get("/api/venue-board").status_code == 401
+    base = client.get("/api/exports/schedule", headers=admin).json()
+    (tmp_path / "schedule.json").write_text(json.dumps(base))
+
     dis = json.loads((SP / "examples" / "sample_disruption.json").read_text())
     pid = client.post("/api/disruptions/propose", json=dis, headers=admin).json()["data"]["proposal_id"]
     p = wait(client, admin, f"/api/proposals/{pid}")
@@ -40,6 +51,8 @@ def test_generate_exams_bookings_export_disruption(client, admin, admin2, tmp_pa
     assert client.post(f"/api/proposals/{pid}/approve", headers=admin2).status_code == 409  # not twice
 
     (tmp_path / "schedule_after.json").write_text(json.dumps(client.get("/api/exports/schedule-after", headers=admin).json()))
+    # schedule.json must still be the original baseline after the change was applied
+    assert client.get("/api/exports/schedule", headers=admin).json() == base
     out = subprocess.run([sys.executable, str(SP / "validator.py"), "--data", str(SP / "data" / "cit_public.json"),
                           "--schedule", str(tmp_path / "schedule_after.json"), "--disruption",
                           str(SP / "examples" / "sample_disruption.json"), "--baseline",

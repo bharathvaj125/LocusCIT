@@ -11,7 +11,7 @@ TEAM = "LocusCIT"
 WS_ID = "demo-1"
 
 _PERSIST = ("revision", "dataset", "schedule", "schedule_meta", "bookings", "exams", "schedule_version",
-            "baseline", "proposals", "applied", "submissions", "manual_events")
+            "baseline", "proposals", "applied", "submissions", "manual_events", "baseline_export", "baseline_dataset")
 
 
 def _tup(d):
@@ -33,6 +33,8 @@ class Workspace:
         self.exams = None
         self.schedule_version = 0       # bumps only when the active timetable changes
         self.baseline = None            # timetable before the first approved disruption
+        self.baseline_export = None     # full schedule.json as it was before the first approved disruption
+        self.baseline_dataset = None    # the dataset that baseline export belongs to
         self.proposals = {}
         self.applied = []
         self.submissions = {}           # booking requests submitted through the app

@@ -1,212 +1,172 @@
 "use client";
 
-import React, { useState } from "react";
-import { DisruptionProposal, RoleType } from "@/lib/types";
-import { SAMPLE_DISRUPTION_PROPOSAL } from "@/lib/mockData";
-import { approveDisruptionProposal, rejectDisruptionProposal } from "@/lib/api";
-import { TactileButton } from "@/components/tactile/TactileButton";
-import { 
-  Wrench, 
-  AlertTriangle, 
-  ShieldCheck, 
-  CheckCircle2, 
-  XCircle, 
-  ArrowRight, 
-  Clock, 
-  MapPin, 
-  RotateCcw,
-  Layers,
-  FileCheck,
-  Check
-} from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowRight, Check, FileJson, Loader2, ShieldAlert, Upload, Wrench, X } from "lucide-react";
+import { DisruptionProposal, ServerProposal } from "@/lib/types";
+import { useApp } from "@/lib/appContext";
+import { approveProposal, describeError, fetchProposal, fetchProposals, fetchSampleDisruption, pollUntil, proposeDisruption, rejectProposal, toDisruptionProposal } from "@/lib/api";
+import { DAY_LABEL } from "@/lib/dept";
+import { periodRange } from "@/lib/uiConfig";
+import { useToast } from "@/lib/toast";
+import { Button, Card, Chip, CountUp, EmptyState, Eyebrow, PageTitle, statusTone } from "@/components/ui/primitives";
+import { cn } from "@/lib/utils";
 
-interface DisruptionDeckProps {
-  currentRole: RoleType;
-  proposal?: DisruptionProposal;
-  onProposalUpdated?: () => void;
-}
+const nice = (s: string) => s.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
 
-export function DisruptionDeck({
-  currentRole,
-  proposal = SAMPLE_DISRUPTION_PROPOSAL,
-  onProposalUpdated,
-}: DisruptionDeckProps) {
-  const [currentProposal, setCurrentProposal] = useState<DisruptionProposal>(proposal);
-  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+export function DisruptionDeck() {
+  const { ref, user, revision, refresh } = useApp();
+  const toast = useToast();
+  const [text, setText] = useState("");
+  const [proposals, setProposals] = useState<ServerProposal[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<ServerProposal | null>(null);
+  const [working, setWorking] = useState<string | null>(null);
+  const [parseError, setParseError] = useState<string | null>(null);
 
-  const handleApprove = async () => {
-    if (currentRole !== "admin") return;
-    setIsProcessing(true);
-    const res = await approveDisruptionProposal(currentProposal.proposal_id);
-    setIsProcessing(false);
-    if (res.success) {
-      setCurrentProposal(res.data);
-      setActionFeedback("Disruption repair proposal APPROVED and committed atomically into active schedule.");
-      if (onProposalUpdated) onProposalUpdated();
-    }
+  const load = useCallback(async () => {
+    try {
+      const list = await fetchProposals();
+      list.sort((a, b) => b.created_at - a.created_at);
+      setProposals(list);
+      setSelectedId((cur) => cur ?? (list[0]?.proposal_id || null));
+    } catch (e) { toast.error(describeError(e)); }
+  }, [toast]);
+  useEffect(() => { load(); }, [load, revision]);
+
+  useEffect(() => {
+    if (!selectedId) { setSelected(null); return; }
+    let alive = true;
+    pollUntil(() => fetchProposal(selectedId), (p) => alive && setSelected(p), ["COMPUTING"], 2500)
+      .then(() => { if (alive) { load(); refresh(); } })
+      .catch((e) => alive && toast.error(describeError(e)));
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
+
+  const view: DisruptionProposal | null = useMemo(() => (selected && ref ? toDisruptionProposal(selected, ref) : null), [selected, ref]);
+
+  const submit = async () => {
+    setParseError(null);
+    let parsed: unknown;
+    try { parsed = JSON.parse(text); } catch { setParseError("That is not valid JSON. Paste a change file in the starter-pack format, or load the sample."); return; }
+    setWorking("propose");
+    try {
+      const id = await proposeDisruption(parsed);
+      setSelectedId(id);
+      toast.info(`Proposal ${id} is being computed. Nothing changes until an Admin approves it.`);
+      await load();
+    } catch (e) { setParseError(describeError(e)); } finally { setWorking(null); }
   };
 
-  const handleReject = async () => {
-    if (currentRole !== "admin") return;
-    setIsProcessing(true);
-    const res = await rejectDisruptionProposal(currentProposal.proposal_id);
-    setIsProcessing(false);
-    if (res.success) {
-      setCurrentProposal(res.data);
-      setActionFeedback("Disruption repair proposal REJECTED. Baseline schedule remains untouched.");
-      if (onProposalUpdated) onProposalUpdated();
-    }
+  const decide = async (approve: boolean) => {
+    if (!view) return;
+    setWorking(approve ? "approve" : "reject");
+    try {
+      const p = approve ? await approveProposal(view.proposal_id) : await rejectProposal(view.proposal_id);
+      setSelected(p);
+      toast.success(approve ? "Approved and applied. Timetable and Week 7 decisions were recomputed; schedule_after.json is ready." : "Rejected. The active timetable is unchanged.");
+      await load(); refresh();
+    } catch (e) { toast.error(describeError(e)); } finally { setWorking(null); }
   };
+
+  const own = view?.requested_by === user.username;
+  const byDay = useMemo(() => {
+    const m: Record<string, number> = {};
+    (view?.changes || []).forEach((c) => { m[c.new.day] = (m[c.new.day] || 0) + 1; });
+    return m;
+  }, [view]);
 
   return (
-    <div className="space-y-4 font-mono text-xs">
-      {/* Header Banner */}
-      <div className="p-4 bg-[#0E1216] border border-white/10 rounded-[4px] space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-[3px] bg-rose-950/60 border border-rose-500/40 text-rose-400">
-                <Wrench className="w-4 h-4" />
-              </span>
-              <h2 className="text-sm font-bold text-white uppercase tracking-wider">
-                DISRUPTION REPAIR ENGINE // ZERO SIDE-EFFECT DIFF
-              </h2>
-              <span className={`text-[10px] px-2 py-0.5 rounded-[2px] font-bold ${
-                currentProposal.status === "APPROVED"
-                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                  : currentProposal.status === "REJECTED"
-                  ? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
-                  : "bg-amber-500/20 text-amber-300 border border-amber-500/40"
-              }`}>
-                STATUS: {currentProposal.status}
-              </span>
-            </div>
-            <p className="text-neutral-400 mt-1">
-              {currentProposal.title} &mdash; Minimal-mutation objective guarantees lowest possible session displacement count.
-            </p>
-          </div>
+    <div className="space-y-6">
+      <PageTitle eyebrow="Changes" title={<>When the campus changes, <span className="italic font-medium text-lagoon-700">move as little as possible</span></>}
+        subtitle="Upload a change file: faculty leave, a closed room, a new or removed session. The solver finds a valid timetable that moves the fewest classes, shows exactly what changes, and waits for a second Admin." />
 
-          {/* Admin Decision Actions */}
-          {currentRole === "admin" && currentProposal.status === "PENDING" && (
-            <div className="flex items-center gap-2">
-              <button
-                disabled={isProcessing}
-                onClick={handleReject}
-                className="px-3 py-1.5 bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-500/40 rounded transition-colors disabled:opacity-40 cursor-pointer"
-              >
-                REJECT REPAIR
-              </button>
-              <button
-                disabled={isProcessing}
-                onClick={handleApprove}
-                className="px-4 py-1.5 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/50 rounded font-bold transition-colors disabled:opacity-40 cursor-pointer flex items-center gap-1.5 shadow-[0_0_12px_rgba(16,185,129,0.2)]"
-              >
-                <Check className="w-3.5 h-3.5" />
-                ADMIN COMMIT REPAIR
-              </button>
-            </div>
-          )}
-
-          {currentRole !== "admin" && (
-            <span className="text-neutral-400 text-[11px]">
-              Admin Authority Required to Commit Disruption Changes
-            </span>
-          )}
+      <Card className="p-5 space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-raised border border-line hover:border-line-strong text-sm font-semibold cursor-pointer">
+            <Upload className="w-4 h-4 text-lagoon-700" />Upload JSON
+            <input type="file" accept=".json,application/json" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) setText(await f.text()); }} />
+          </label>
+          <Button variant="secondary" icon={<FileJson className="w-4 h-4 text-saffron-600" />} onClick={async () => { try { setText(JSON.stringify(await fetchSampleDisruption(), null, 2)); } catch (e) { toast.error(describeError(e)); } }}>Load the sample disruption</Button>
         </div>
+        <textarea value={text} onChange={(e) => setText(e.target.value)} rows={7} spellCheck={false} aria-label="Change file JSON"
+          placeholder='{"changes": [{"type": "faculty_unavailable", "faculty_id": "F07", "days": ["MON"], "periods": [1,2,3,4,5,6,7,8,9]}]}'
+          className="w-full p-3 rounded-xl bg-paper border border-line font-mono text-xs leading-relaxed focus:border-lagoon-500 outline-none" />
+        {parseError && <p className="text-sm text-sunrise-600 bg-sunrise-50 rounded-xl px-4 py-3" role="alert">{parseError}</p>}
+        <div className="flex justify-end"><Button icon={<Wrench className="w-4 h-4" />} loading={working === "propose"} disabled={!text.trim()} onClick={submit}>Propose a repair</Button></div>
+      </Card>
 
-        {/* Solver Telemetry Metrics */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-white/5">
-          <div className="p-2.5 bg-[#12161C] border border-white/10 rounded-[3px]">
-            <span className="text-[10px] text-neutral-400 block">PROPOSAL ID</span>
-            <span className="text-white font-bold mt-0.5 block">{currentProposal.proposal_id}</span>
-          </div>
-
-          <div className="p-2.5 bg-[#12161C] border border-cyan-500/30 rounded-[3px]">
-            <span className="text-[10px] text-cyan-400 block">MOVED SESSIONS</span>
-            <span className="text-cyan-300 font-bold mt-0.5 block">{currentProposal.moved_count} Sessions</span>
-            <span className="text-[9px] text-neutral-500">Proven Minimum Bound</span>
-          </div>
-
-          <div className="p-2.5 bg-[#12161C] border border-emerald-500/30 rounded-[3px]">
-            <span className="text-[10px] text-emerald-400 block">HARD VIOLATIONS</span>
-            <span className="text-emerald-300 font-bold mt-0.5 block">0 Violations</span>
-            <span className="text-[9px] text-neutral-500">All Constraints Satisfied</span>
-          </div>
-
-          <div className="p-2.5 bg-[#12161C] border border-white/10 rounded-[3px]">
-            <span className="text-[10px] text-neutral-400 block">SUBMISSION TIMESTAMP</span>
-            <span className="text-neutral-300 font-bold mt-0.5 block truncate">{currentProposal.submitted_at.slice(11, 19)} IST</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Action Notification Toast */}
-      {actionFeedback && (
-        <div className="p-3 bg-[#161B22] border border-cyan-500/50 rounded flex items-center justify-between text-cyan-200">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0" />
-            <span>{actionFeedback}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Side-by-Side Diff Table */}
-      <div className="bg-[#0E1216] border border-white/10 rounded-[4px] overflow-hidden">
-        <div className="p-3 bg-[#12161C] border-b border-white/10 flex items-center justify-between">
-          <span className="font-bold text-white uppercase tracking-wider text-xs flex items-center gap-1.5">
-            <Layers className="w-3.5 h-3.5 text-cyan-400" />
-            DISPLACED SESSION BLAST RADIUS // BEFORE VS AFTER DIFF
-          </span>
-          <span className="text-neutral-400 text-[10px]">
-            {currentProposal.changes.length} Total Impacted Slots
-          </span>
-        </div>
-
-        <div className="divide-y divide-white/5">
-          {currentProposal.changes.map((diff) => (
-            <div
-              key={diff.session_id}
-              className="p-3 hover:bg-[#12161C]/50 transition-colors space-y-2"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-cyan-300">{diff.session_id}</span>
-                  <span className="text-white font-sans font-medium">{diff.course_title}</span>
-                </div>
-                <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                  REASON: {diff.reason}
-                </span>
-              </div>
-
-              {/* Side by Side Old vs New Slot */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                {/* Old Slot */}
-                <div className="p-2.5 bg-[#181116] border border-rose-500/30 rounded-[3px] space-y-1">
-                  <span className="text-[10px] text-rose-400 uppercase font-bold flex items-center gap-1">
-                    <XCircle className="w-3 h-3 text-rose-400" /> PRE-DISRUPTION BASELINE
-                  </span>
-                  <div className="flex items-center justify-between text-neutral-300">
-                    <span>Timeslot: <strong className="text-white">{diff.old.day} P{diff.old.start_period}{diff.old.start_period > 0 ? `-P${diff.old.end_period}` : ""}</strong></span>
-                    <span>Room: <strong className="text-white">{diff.old.room_id}</strong></span>
-                  </div>
-                </div>
-
-                {/* New Repaired Slot */}
-                <div className="p-2.5 bg-[#0F1B1A] border border-emerald-500/30 rounded-[3px] space-y-1">
-                  <span className="text-[10px] text-emerald-400 uppercase font-bold flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-400" /> REPAIRED SCHEDULE ALLOCATION
-                  </span>
-                  <div className="flex items-center justify-between text-neutral-300">
-                    <span>Timeslot: <strong className="text-emerald-300">{diff.new.day} P{diff.new.start_period}-P{diff.new.end_period}</strong></span>
-                    <span>Room: <strong className="text-emerald-300">{diff.new.room_id}</strong> ({diff.new.room_name})</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+      {proposals.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {proposals.map((p) => (
+            <button key={p.proposal_id} onClick={() => setSelectedId(p.proposal_id)}
+              className={cn("px-3 py-1.5 rounded-xl border text-sm cursor-pointer flex items-center gap-2", selectedId === p.proposal_id ? "bg-raised border-lagoon-500 shadow-card" : "border-line hover:border-line-strong")}>
+              <span className="font-mono text-xs">{p.proposal_id}</span><Chip tone={statusTone(p.status)}>{nice(p.status)}</Chip>
+            </button>
           ))}
         </div>
-      </div>
+      )}
+      {proposals.length === 0 && <EmptyState title="No proposals yet" body="Load the sample disruption and press Propose a repair." tone="sunrise" />}
+
+      {view && (
+        <div className="space-y-5">
+          <Card className="p-6 space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
+                <Chip tone={statusTone(view.status)} dot>{view.status === "COMPUTING" ? "Computing" : nice(view.status)}</Chip>
+                {view.status === "COMPUTING" && <Loader2 className="w-4 h-4 animate-spin text-lagoon-700" />}
+                <span className="text-sm text-ink-600">{view.title}</span>
+              </div>
+              {view.status === "PENDING" && (
+                <div className="flex gap-2">
+                  <Button variant="danger" icon={<X className="w-4 h-4" />} disabled={!!working} onClick={() => decide(false)}>Reject</Button>
+                  <Button variant="success" icon={<Check className="w-4 h-4" />} loading={working === "approve"} disabled={!!working || own} onClick={() => decide(true)}>Approve and apply</Button>
+                </div>
+              )}
+            </div>
+            {view.status === "PENDING" && own && (
+              <div className="rounded-xl bg-sunrise-50 text-sunrise-600 px-4 py-3 text-sm flex items-center gap-2"><ShieldAlert className="w-4 h-4 shrink-0" />You proposed this, so you cannot approve it. Switch to the Second Admin account (bottom of the left menu).</div>
+            )}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="rounded-2xl bg-lagoon-50 p-4"><Eyebrow>Sessions moved</Eyebrow><p className="font-display text-5xl font-semibold text-lagoon-900 mt-1">{view.status === "COMPUTING" ? "..." : <CountUp value={view.moved_count} />}</p><p className="text-xs text-ink-600 mt-1">{view.status === "COMPUTING" ? "" : view.proven_minimum ? "proven minimum" : "best found in the time limit"}</p></div>
+              <div className="rounded-2xl bg-paper p-4"><Eyebrow className="text-ink-400">Directly broken</Eyebrow><p className="font-display text-5xl font-semibold mt-1">{view.lower_bound}</p><p className="text-xs text-ink-600 mt-1">must move at least this many</p></div>
+              <div className="rounded-2xl bg-mangrove-50 p-4"><Eyebrow className="text-mangrove-600">Hard violations</Eyebrow><p className="font-display text-5xl font-semibold text-mangrove-600 mt-1">{["PENDING", "APPROVED"].includes(view.status) ? "0" : "-"}</p><p className="text-xs text-ink-600 mt-1">official validator</p></div>
+              <div className="rounded-2xl bg-paper p-4"><Eyebrow className="text-ink-400">New / removed</Eyebrow><p className="font-display text-5xl font-semibold mt-1">{view.new_sessions.length} / {view.removed_sessions.length}</p><p className="text-xs text-ink-600 mt-1 truncate">{view.new_sessions.join(", ") || "no new sessions"}</p></div>
+            </div>
+            {Object.keys(byDay).length > 0 && (
+              <div>
+                <Eyebrow className="text-ink-400">Where classes land</Eyebrow>
+                <div className="flex gap-2 mt-2">{["MON", "TUE", "WED", "THU", "FRI"].map((d) => (
+                  <div key={d} className="flex-1 rounded-xl bg-paper p-2 text-center"><p className="font-mono text-[10px] text-ink-400">{d}</p>
+                    <motion.div className="mx-auto mt-1 w-full rounded-md bg-lagoon-500" initial={{ height: 0 }} animate={{ height: 6 + (byDay[d] || 0) * 10 }} style={{ maxHeight: 80 }} transition={{ duration: 0.6 }} />
+                    <p className="text-sm font-semibold mt-1">{byDay[d] || 0}</p></div>
+                ))}</div>
+              </div>
+            )}
+            {view.diagnostics && <p className="text-sm text-ink-900">{view.diagnostics}</p>}
+            {view.diagnostic_items.length > 0 && <ul className="text-sm text-sunrise-600 space-y-1 list-disc pl-5">{view.diagnostic_items.map((d, i) => <li key={i}>{d}</li>)}</ul>}
+          </Card>
+
+          {view.changes.length > 0 && (
+            <Card className="overflow-hidden">
+              <div className="px-6 py-4 border-b border-line flex items-center justify-between"><h3 className="font-display text-xl font-semibold">Before and after</h3><Chip tone="lagoon">{view.changes.length} moved</Chip></div>
+              <ul className="divide-y divide-line">
+                <AnimatePresence initial>
+                  {view.changes.map((c, i) => (
+                    <motion.li key={c.session_id} initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: Math.min(i, 10) * 0.045 }} className="px-6 py-4 grid md:grid-cols-[1.2fr_1fr_auto_1fr] gap-3 items-center">
+                      <div><p className="font-semibold">{c.course_title}</p><p className="font-mono text-xs text-ink-400">{c.session_id}</p><p className="text-xs text-saffron-600 mt-0.5">{c.reason}</p></div>
+                      <div className="rounded-xl bg-sunrise-50 px-3 py-2"><p className="text-[10px] font-mono uppercase text-sunrise-600">Before</p><p className="text-sm font-semibold">{c.old.day} {periodRange(c.old.start_period, c.old.end_period)}</p><p className="text-xs text-ink-600">{c.old.room_id}</p></div>
+                      <motion.span animate={{ x: [0, 4, 0] }} transition={{ repeat: Infinity, duration: 1.8, delay: i * 0.1 }} className="hidden md:block text-lagoon-700"><ArrowRight className="w-5 h-5" /></motion.span>
+                      <div className="rounded-xl bg-mangrove-50 px-3 py-2"><p className="text-[10px] font-mono uppercase text-mangrove-600">After</p><p className="text-sm font-semibold">{DAY_LABEL[c.new.day].slice(0, 3).toUpperCase()} {periodRange(c.new.start_period, c.new.end_period)}</p><p className="text-xs text-ink-600">{c.new.room_id}</p></div>
+                    </motion.li>
+                  ))}
+                </AnimatePresence>
+              </ul>
+            </Card>
+          )}
+        </div>
+      )}
     </div>
   );
 }

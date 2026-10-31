@@ -3,5 +3,5 @@
 import { MainDashboardView } from "@/components/views/MainDashboardView";
 
 export default function RootPage() {
-  return <MainDashboardView initialNav="timetable" />;
+  return <MainDashboardView initialNav="overview" />;
 }

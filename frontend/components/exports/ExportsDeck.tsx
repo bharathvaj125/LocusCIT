@@ -1,172 +1,61 @@
 "use client";
 
 import React, { useState } from "react";
-import { TactileButton } from "@/components/tactile/TactileButton";
-import { 
-  Download, 
-  CheckCircle2, 
-  FileCode, 
-  ShieldCheck, 
-  Terminal, 
-  ExternalLink,
-  Layers,
-  Copy,
-  Check
-} from "lucide-react";
+import { Check, Copy, Download, FileCheck2, Terminal } from "lucide-react";
+import { useApp } from "@/lib/appContext";
+import { describeError, fetchExport } from "@/lib/api";
+import { useToast } from "@/lib/toast";
+import { Button, Card, Chip, Eyebrow, PageTitle } from "@/components/ui/primitives";
 
 export function ExportsDeck() {
-  const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
+  const { dashboard: d } = useApp();
+  const toast = useToast();
+  const [busy, setBusy] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
 
-  const downloadFile = async (type: "baseline" | "after") => {
+  const download = async (kind: "schedule" | "schedule-after") => {
+    setBusy(kind);
     try {
-      const filename = type === "baseline" ? "schedule.json" : "schedule_after.json";
-      // Fetch either from public export or static JSON
-      const res = await fetch(`/api/exports/${type === "baseline" ? "schedule" : "schedule-after"}`).catch(() => null);
-      
-      let dataStr = "";
-      if (res && res.ok) {
-        dataStr = await res.text();
-      } else {
-        // Fallback to bundled export JSON
-        const fallback = await import("@/lib/backend_schedule_export.json");
-        dataStr = JSON.stringify(fallback.default || fallback, null, 2);
-      }
-
-      const blob = new Blob([dataStr], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch {
-      alert("Export file generation triggered. Please verify in exports/ directory.");
-    }
+      const text = await fetchExport(kind);
+      const filename = kind === "schedule" ? "schedule.json" : "schedule_after.json";
+      const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+      const a = document.createElement("a"); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      toast.success(`${filename} downloaded. The server re-checked it with the official validator first.`);
+    } catch (e) { toast.error(describeError(e)); } finally { setBusy(null); }
   };
-
-  const copyToClipboard = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedCmd(id);
-    setTimeout(() => setCopiedCmd(null), 2000);
-  };
-
-  const baselineValidatorCmd = "python starter_pack/validator.py --data starter_pack/data/cit_public.json --schedule exports/schedule.json";
-  const disruptionValidatorCmd = "python starter_pack/validator.py --data starter_pack/data/cit_public.json --schedule exports/schedule_after.json --disruption starter_pack/examples/sample_disruption.json --baseline exports/schedule.json";
+  const copy = (t: string, id: string) => { navigator.clipboard?.writeText(t); setCopied(id); setTimeout(() => setCopied(null), 1800); };
+  const base = "python starter_pack/validator.py --data starter_pack/data/cit_public.json --schedule schedule.json";
+  const after = "python starter_pack/validator.py --data starter_pack/data/cit_public.json --schedule schedule_after.json --disruption starter_pack/examples/sample_disruption.json --baseline schedule.json";
+  const applied = !!d && d.applied_disruptions > 0;
 
   return (
-    <div className="space-y-4 font-mono text-xs">
-      {/* Header Banner */}
-      <div className="p-4 bg-[#0E1216] border border-white/10 rounded-[4px] space-y-2">
-        <div className="flex items-center gap-2">
-          <span className="p-1.5 rounded-[3px] bg-cyan-950/60 border border-cyan-500/40 text-cyan-400">
-            <FileCode className="w-4 h-4" />
-          </span>
-          <h2 className="text-sm font-bold text-white uppercase tracking-wider">
-            OFFICIAL EXPORTS &amp; VALIDATOR CONFORMANCE
-          </h2>
-          <span className="text-[10px] px-2 py-0.5 rounded-[2px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-            SCHEMA CONFORMANT (cit-public-v1)
-          </span>
-        </div>
-        <p className="text-neutral-400 mt-1">
-          Export canonical solutions directly into competition format. Compatible with unmodified <strong className="text-white">validator.py</strong>.
-        </p>
+    <div className="space-y-6">
+      <PageTitle eyebrow="Exports" title={<>Files the judges can <span className="italic font-medium text-lagoon-700">check themselves</span></>}
+        subtitle="Both files are built from the live state of the app and re-validated by the unmodified official validator before they are sent." />
+      <div className="grid md:grid-cols-2 gap-5">
+        <Card className="p-6 space-y-4">
+          <div className="flex items-center justify-between"><h2 className="font-display text-2xl font-semibold flex items-center gap-2"><FileCheck2 className="w-6 h-6 text-lagoon-700" />schedule.json</h2><Chip tone={d?.ready_for_export ? "mangrove" : "saffron"} dot>{d?.ready_for_export ? "Ready" : "Not ready"}</Chip></div>
+          <p className="text-sm text-ink-600">{applied ? "The baseline: timetable, Week 7 decisions and exams exactly as they were before the first approved change." : `Timetable (${d?.sessions_scheduled ?? 0}/${d?.sessions_total ?? "?"} sessions), Week 7 decisions (${d?.booking_decisions ?? 0}/${d?.booking_requests ?? "?"}) with any class overrides, and exams (${d?.exams_scheduled ?? 0}/${d?.exams_total ?? "?"}).`}</p>
+          {!d?.ready_for_export && <p className="text-sm text-saffron-600">Run the three steps on the Overview page first.</p>}
+          <Button icon={<Download className="w-4 h-4" />} loading={busy === "schedule"} disabled={busy !== null} onClick={() => download("schedule")}>Download schedule.json</Button>
+        </Card>
+        <Card className="p-6 space-y-4">
+          <div className="flex items-center justify-between"><h2 className="font-display text-2xl font-semibold flex items-center gap-2"><FileCheck2 className="w-6 h-6 text-sunrise-500" />schedule_after.json</h2><Chip tone={applied ? "mangrove" : "saffron"} dot>{applied ? `${d!.applied_disruptions} change applied` : "No change applied"}</Chip></div>
+          <p className="text-sm text-ink-600">The timetable after the approved disruption, measured against the timetable before the first one.</p>
+          {!applied && <p className="text-sm text-saffron-600">Propose and approve a change first (Changes screen).</p>}
+          <Button variant="sunrise" icon={<Download className="w-4 h-4" />} loading={busy === "schedule-after"} disabled={busy !== null} onClick={() => download("schedule-after")}>Download schedule_after.json</Button>
+        </Card>
       </div>
-
-      {/* Export Download Tiles */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Baseline Export Tile */}
-        <div className="p-4 bg-[#0E1216] border border-white/10 rounded-[4px] space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-white text-sm">schedule.json (Baseline)</span>
-            <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-              189 Sessions + 41 Exams
-            </span>
+      <Card className="p-6 space-y-3">
+        <h2 className="font-display text-xl font-semibold flex items-center gap-2"><Terminal className="w-5 h-5 text-mangrove-500" />Check them with the official validator</h2>
+        {([["base", base], ["after", after]] as const).map(([id, cmd]) => (
+          <div key={id} className="flex items-center gap-2 rounded-xl bg-ink-900 text-lagoon-200 pl-4 pr-2 py-2.5">
+            <code className="font-mono text-xs overflow-x-auto whitespace-nowrap flex-1">{cmd}</code>
+            <button onClick={() => copy(cmd, id)} aria-label="Copy command" className="p-2 rounded-lg hover:bg-lagoon-700/50 cursor-pointer shrink-0">{copied === id ? <Check className="w-4 h-4 text-mangrove-500" /> : <Copy className="w-4 h-4" />}</button>
           </div>
-          <p className="text-neutral-400 text-xs">
-            Complete baseline timetable, Week 7 Spectra booking decisions (25 requests) with session overrides, and midsem exam allocations.
-          </p>
-
-          <div className="pt-2 border-t border-white/5 flex items-center justify-between">
-            <span className="text-[10px] text-neutral-500">Official Format v1</span>
-            <TactileButton
-              size="sm"
-              variant="primary"
-              onClick={() => downloadFile("baseline")}
-              icon={<Download className="w-3.5 h-3.5" />}
-            >
-              DOWNLOAD SCHEDULE.JSON
-            </TactileButton>
-          </div>
-        </div>
-
-        {/* Post-Disruption Export Tile */}
-        <div className="p-4 bg-[#0E1216] border border-white/10 rounded-[4px] space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-white text-sm">schedule_after.json (Repaired)</span>
-            <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-              Disruption Repaired
-            </span>
-          </div>
-          <p className="text-neutral-400 text-xs">
-            Post-disruption repaired schedule after applying faculty F07 leave and CR-102 closure with minimal session displacement.
-          </p>
-
-          <div className="pt-2 border-t border-white/5 flex items-center justify-between">
-            <span className="text-[10px] text-neutral-500">Minimal Mutation Bound</span>
-            <TactileButton
-              size="sm"
-              variant="amber"
-              onClick={() => downloadFile("after")}
-              icon={<Download className="w-3.5 h-3.5" />}
-            >
-              DOWNLOAD SCHEDULE_AFTER.JSON
-            </TactileButton>
-          </div>
-        </div>
-      </div>
-
-      {/* Official Validator Commands Benchmark */}
-      <div className="p-4 bg-[#0E1216] border border-white/10 rounded-[4px] space-y-3">
-        <div className="flex items-center gap-2">
-          <Terminal className="w-4 h-4 text-emerald-400" />
-          <span className="font-bold text-white uppercase text-xs">
-            RUN VALIDATOR IN TERMINAL (COMMAND SNIPPETS)
-          </span>
-        </div>
-
-        <div className="space-y-2">
-          {/* Baseline Cmd */}
-          <div className="p-2.5 bg-[#12161C] border border-white/10 rounded flex items-center justify-between gap-2">
-            <code className="text-emerald-300 text-xs overflow-x-auto truncate">
-              {baselineValidatorCmd}
-            </code>
-            <button
-              onClick={() => copyToClipboard(baselineValidatorCmd, "base")}
-              className="p-1.5 hover:bg-white/10 rounded text-neutral-300 hover:text-white shrink-0 cursor-pointer"
-              title="Copy Command"
-            >
-              {copiedCmd === "base" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-            </button>
-          </div>
-
-          {/* Disruption Cmd */}
-          <div className="p-2.5 bg-[#12161C] border border-white/10 rounded flex items-center justify-between gap-2">
-            <code className="text-cyan-300 text-xs overflow-x-auto truncate">
-              {disruptionValidatorCmd}
-            </code>
-            <button
-              onClick={() => copyToClipboard(disruptionValidatorCmd, "dis")}
-              className="p-1.5 hover:bg-white/10 rounded text-neutral-300 hover:text-white shrink-0 cursor-pointer"
-              title="Copy Command"
-            >
-              {copiedCmd === "dis" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-            </button>
-          </div>
-        </div>
-      </div>
+        ))}
+        <Eyebrow className="text-ink-400">Expect: Hard violations: 0</Eyebrow>
+      </Card>
     </div>
   );
 }

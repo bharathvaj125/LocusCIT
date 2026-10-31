@@ -86,6 +86,37 @@ def _decider():
     return D
 
 
+def reconcile_after_timetable_change():
+    """Call with WS.lock held whenever the active timetable changed.
+
+    Spectra decisions depend on where classes are, so they are decided again (only if they had been decided).
+    Bookings made through the app that were approved are re-checked one by one against the new classes and
+    marked NEEDS_REVIEW if they no longer fit, instead of silently staying approved on a clash.
+    """
+    from .solver.bookings import evaluate_bookings
+    if WS.schedule is None:
+        return
+    if WS.bookings is not None:
+        decisions, overrides, _ = evaluate_bookings(WS.dataset, WS.schedule)
+        WS.bookings = {"decisions": decisions, "overrides": overrides}
+    D = Decider(WS.dataset, _week_base())
+    reqs = {r["id"]: r for r in WS.dataset["booking_requests"]}
+    for d in (WS.bookings or {}).get("decisions", []):
+        if d["request_id"] in reqs:
+            D.place_existing(d, reqs[d["request_id"]])
+    for s in sorted(WS.submissions.values(), key=lambda x: x["created_at"]):
+        if s["status"] not in ("APPROVED", "ALTERNATIVE_OFFERED") or not s.get("placement"):
+            continue
+        p = s["placement"]
+        problems = D.check_slot(s["request"], p["room_id"], p["day"], p["start_period"], p["end_period"])
+        if problems:
+            s["status"] = "NEEDS_REVIEW"
+            s["decision_reason"] = ("The timetable changed and this slot no longer works: "
+                                    + "; ".join(m for _, m in problems))
+        else:
+            D.place_existing({"status": "approved", **p}, s["request"])
+
+
 def _request_dict(user, d, sid, window_list):
     req = {"id": sid, "submitted_at": _now_iso(), "requester": user["org"] or user["display_name"],
            "role": user["role"], "requested_category": d.requested_category, "title": d.title,
@@ -177,6 +208,11 @@ def submit(draft: Draft, user=Depends(current_user)):
             req = _request_dict(user, draft, sid, wl)
             req["series_id"] = series
             dec = D.decide(req, allow_displace=False)     # reserves the slot inside D for the rest of the series
+            # the engine only proposes here; a person approves, so word the reason as a proposal
+            for old, new in (("Approved. ", "Fits the rules and can be approved. "),
+                             ("Alternative offered. ", "Only an alternative fits. ")):
+                if dec["reason"].startswith(old):
+                    dec["reason"] = new + dec["reason"][len(old):]
             sub = {"id": sid, "requester_username": user["username"], "requester": req["requester"],
                    "role": user["role"], "department": user["department"], "title": draft.title,
                    "request": req, "proposed": dec, "created_at": time.time(), "manual": False,
@@ -313,3 +349,42 @@ def manual_event(ev: ManualEvent, user=Depends(current_user)):
         WS.revision += 1
     db.log(user["username"], "manual_event", sid)
     return ok(_public_sub(sub))
+
+
+@router.get("/venue-board")
+def venue_board(user=Depends(current_user)):
+    """Week 7 room-by-time picture: classes (after any Week 7 overrides), events and closures."""
+    d = WS.dataset
+    sess = {s["id"]: s for s in d["sessions"]}
+    base = _week_base() if WS.schedule is not None else {}
+    moved = {o["session_id"] for o in (WS.bookings or {}).get("overrides", [])}
+    classes = []
+    for sid, (day, st, rid) in base.items():
+        s = sess.get(sid)
+        if s:
+            classes.append({"session_id": sid, "course_id": s["course_id"], "kind": s["kind"], "room_id": rid,
+                            "day": day, "start": st, "end": st + s["duration"] - 1, "groups": s["groups"],
+                            "week7_override": sid in moved})
+    events = []
+    reqs = {r["id"]: r for r in d["booking_requests"]}
+    for x in (WS.bookings or {}).get("decisions", []):
+        if x["status"] in ("approved", "alternative_offered") and x.get("room_id"):
+            r = reqs[x["request_id"]]
+            events.append({"id": x["request_id"], "title": r["title"], "requester": r["requester"], "room_id": x["room_id"],
+                           "day": x["day"], "start": x["start_period"], "end": x["end_period"],
+                           "status": x["status"], "category": x["effective_category"], "source": "spectra"})
+    for s in WS.submissions.values():
+        if s.get("placement") and s["status"] in ("APPROVED", "ALTERNATIVE_OFFERED", "PENDING_APPROVAL", "NEEDS_REVIEW"):
+            p = s["placement"]
+            visible = user["role"] == "admin" or s["requester_username"] == user["username"] or s["status"] == "APPROVED"
+            if visible:
+                events.append({"id": s["id"], "title": s["title"], "requester": s["requester"], "room_id": p["room_id"],
+                               "day": p["day"], "start": p["start_period"], "end": p["end_period"],
+                               "status": s["status"].lower(), "category": s["proposed"].get("effective_category", ""),
+                               "source": "app"})
+    closures = [{"room_id": u["room_id"], "day": u["day"], "periods": u["periods"], "reason": u.get("reason", "")}
+                for u in d.get("room_unavailability", [])]
+    return ok({"days": d["calendar"]["days"], "rooms": [{"id": r["id"], "name": r["name"], "type": r["type"],
+                                                         "capacity": r["capacity"], "events_ok": "event" in r["allowed_uses"]}
+                                                        for r in d["rooms"]],
+               "classes": classes, "events": events, "closures": closures, "revision": WS.revision})
