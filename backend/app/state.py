@@ -16,6 +16,10 @@ class Workspace:
         self.schedule = None          # sid -> (day, start, room)
         self.schedule_meta = {}
         self.bookings = None          # {'decisions': [...], 'overrides': [...]}
+        self.schedule_version = 0     # bumps only when the active timetable changes
+        self.baseline = None          # timetable before the first approved disruption
+        self.proposals = {}
+        self.applied = []
         self.exams = None             # list of exam assignments
         self.jobs = {}
 

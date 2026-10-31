@@ -58,6 +58,9 @@ def _run_generate(job_id, time_limit):
                 job.update(status="STALE", error="Workspace changed while solving")
                 return
             WS.schedule = assign
+            WS.schedule_version += 1
+            WS.baseline = None
+            WS.applied = []
             WS.schedule_meta = {"solver_status": status, "soft_total": rep["soft_total"],
                                 "soft_penalties": rep["soft_penalties"]}
             WS.revision += 1
