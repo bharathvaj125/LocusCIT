@@ -5,8 +5,8 @@ generates the semester timetable and midsem exams, decides Spectra-week venue bo
 English/Hinglish booking requests, repairs the timetable after disruptions with the fewest moved sessions, and
 applies changes only after an Admin approves. Every schedule is checked by the **official validator** before it is saved.
 
-* Live app: _TBD_
-* API: _TBD_
+* Live app: _TBD (frontend)_
+* API: https://locuscit.onrender.com (health: `/api/health`, docs: `/docs`)
 * Video: _TBD_
 
 ## Architecture

@@ -1,23 +1,35 @@
 # Test report
 
-Dataset `cit-public-v1`. All numbers below were produced by the app and checked with the **unmodified** official `validator.py`
-(`backend/scripts/generate_exports.py`, local run on 2026-10-31). Deployed-host timings are still to be measured.
+Dataset `cit-public-v1`. Numbers below come from the app and were checked with the **unmodified** official `validator.py`.
+`exports/schedule.json` and `exports/schedule_after.json` were downloaded from the **deployed** backend
+(https://locuscit.onrender.com, Render free instance, Singapore) after a reset, generate, exams, booking evaluation and the
+sample disruption approved by a second Admin.
 
-| Check | Result |
+| Check | Result (deployed) |
 | --- | --- |
 | Sessions scheduled | 189 / 189 |
-| Hard violations (timetable + exams + Week 7) | 0 |
-| Soft penalty S1-S6 | 3 (S4 = 3; solver status OPTIMAL for the model) |
+| Hard violations (timetable, exams, Week 7) | 0 |
+| Soft penalty S1-S6 | 3 (S4 = 3; solver status OPTIMAL) |
 | Exams scheduled | 41 / 41, exam soft penalty 0 |
-| Spectra booking score | 67.0 of 70 (22 approved, 1 alternative, 2 rejected); 0 priority inversions |
-| Unreachable booking points | BR-09 wants 1,200 seats (largest venue 800); BR-17 window ends past P13 |
-| Sample disruption: sessions moved | 9 (proven minimum: equals the number of directly broken sessions) |
+| Spectra booking score | 67.0 of 70 (22 approved, 1 alternative, 2 rejected); 0 priority inversions; no class displaced |
+| Unreachable booking points | BR-09 wants 1,200 seats (largest venue 800); BR-17's window ends past P13 |
+| Sample disruption: sessions moved | 12 (equals the proven lower bound for this timetable) |
 | Sample disruption: hard violations | 0 |
-| Automated backend tests | `python -m pytest -q tests` (parser, security/roles, booking flow, faculty requests, repair, exports) |
+| Self-approval | blocked (403); second Admin approves (200) |
+| Automated backend tests | 37 passing (`python -m pytest -q tests`, about 25 s) |
 
-## Timings (local laptop, 8 workers)
-Feasible timetable about 25 s; optimiser reaches the optimum in roughly 60-90 s. Generation publishes the feasible timetable
-first and replaces it only with a validator-checked improvement.
+## Timings on the free Render instance (about 0.1 CPU, 512 MB)
+| Step | Wall time |
+| --- | --- |
+| Valid timetable available | about 20-30 s |
+| Optimal timetable (soft penalty 3) | about 190-240 s |
+| Exams (optimal) | 3-4 s |
+| Booking decisions | 1-3 s |
+| Disruption repair | 2-15 s |
+| Peak memory (local, one worker) | about 370 MB |
+
+The solver was tuned for small hosts (presolve off, optimiser limited to the 6 best-fitting rooms per slot, one worker).
+The free instance sleeps after 15 minutes idle; the first request then takes about a minute (use an uptime pinger).
 
 ## Still to measure
-Deployed URL, cold start, p50/p95 latency, behaviour with several judges at once. Fill in after deployment.
+Several simultaneous judges, and the frontend flows end to end.
