@@ -35,7 +35,7 @@ def fail(status, code, message, **extra):
 
 @router.get("/health")
 def health():
-    return ok({"status": "ok", "version": "0.3.1", "dataset_id": WS.dataset["dataset_id"],
+    return ok({"status": "ok", "version": "0.3.2", "dataset_id": WS.dataset["dataset_id"],
                "revision": WS.revision})
 
 
