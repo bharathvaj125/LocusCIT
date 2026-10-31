@@ -2,10 +2,11 @@
 from collections import defaultdict
 from ortools.sat.python import cp_model
 
+from . import config
 from .candidates import build_candidates
 
 
-def solve_timetable(data, time_limit=60.0, seed=1, workers=8, hint=None,
+def solve_timetable(data, time_limit=60.0, seed=1, workers=None, hint=None,
                     candidates=None, fixed=None, objective=None):
     """Return (status_name, assignment | None). assignment: sid -> (day, start, room).
 
@@ -90,7 +91,8 @@ def solve_timetable(data, time_limit=60.0, seed=1, workers=8, hint=None,
 
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = time_limit
-    solver.parameters.num_workers = workers
+    solver.parameters.num_workers = workers or config.workers()
+    config.tune_timetable(solver.parameters)
     solver.parameters.random_seed = seed
     status = solver.Solve(m)
     name = solver.StatusName(status)

@@ -1,11 +1,11 @@
-# Optional Render blueprint. Use a plan with at least 1 vCPU that does not sleep (CP-SAT needs CPU).
+# Optional Render blueprint (a plain "New > Web Service" works too: see docs/DEPLOY.md).
 services:
   - type: web
     name: locuscit-api
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: .
-    plan: standard
+    plan: free
     healthCheckPath: /api/health
     envVars:
       - key: DATABASE_URL
@@ -16,3 +16,7 @@ services:
         sync: false
       - key: AI_ENABLED
         value: "false"
+      - key: SOLVER_WORKERS
+        value: "1"
+      - key: OPTIMISE_SECONDS
+        value: "300"

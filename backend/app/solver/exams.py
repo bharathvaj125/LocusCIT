@@ -2,8 +2,10 @@
 from collections import defaultdict
 from ortools.sat.python import cp_model
 
+from . import config
 
-def solve_exams(data, time_limit=30.0, seed=1, workers=8):
+
+def solve_exams(data, time_limit=30.0, seed=1, workers=None):
     """Return (status, list of {exam_id, day, session, rooms}) or (status, None)."""
     cal = data["calendar"]["exam_week"]
     slots = [(d, s["id"]) for d in cal["days"] for s in cal["sessions"]]
@@ -45,7 +47,7 @@ def solve_exams(data, time_limit=30.0, seed=1, workers=8):
 
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = time_limit
-    solver.parameters.num_workers = workers
+    solver.parameters.num_workers = workers or config.workers()
     solver.parameters.random_seed = seed
     st = solver.Solve(m)
     name = solver.StatusName(st)

@@ -64,3 +64,26 @@ def build_candidates(data):
     if empty:
         raise ValueError(f"Sessions with no eligible placement: {empty}")
     return out
+
+
+def prune_rooms(data, cands, hint, k):
+    """Keep, per session and time slot, the k smallest-capacity fitting rooms plus the hinted placement.
+
+    Rooms that differ only by size matter little to the soft score (only S5) but multiply the model size.
+    The hinted placement is always kept, so a feasible solution always remains available. k <= 0 disables.
+    """
+    if not k or k <= 0:
+        return cands
+    cap = {r["id"]: r["capacity"] for r in data["rooms"]}
+    out = {}
+    for sid, cl in cands.items():
+        taken, res = defaultdict(int), []
+        for c in sorted(cl, key=lambda x: (cap[x[2]], x[2])):
+            if taken[c[0], c[1]] < k:
+                taken[c[0], c[1]] += 1
+                res.append(c)
+        h = tuple(hint[sid]) if sid in hint else None
+        if h and h not in res:
+            res.append(h)
+        out[sid] = res
+    return out

@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 
+from .solver import config
 from .solver.generate import generate_timetable
 from .solver.exams import solve_exams
 from .solver.bookings import evaluate_bookings
@@ -65,7 +66,7 @@ def _run_generate(job_id, time_limit):
             if _publish(job, start_rev, assign, info, False):
                 job.update(phase="optimising", soft_total=info["soft_total"], sessions=len(assign),
                            hard_violation_count=0)
-        status, assign, info = generate_timetable(WS.dataset, feasible_limit=60.0, optimize_limit=time_limit,
+        status, assign, info = generate_timetable(WS.dataset, feasible_limit=config.feasible_seconds(), optimize_limit=time_limit,
                                                   on_feasible=early)
         if assign is None:
             if status == "FAILED_VALIDATION":
@@ -90,7 +91,9 @@ def _run_generate(job_id, time_limit):
 
 
 @router.post("/schedules/generate", status_code=202, dependencies=[Depends(require("admin"))])
-def generate(time_limit: float = Query(90, ge=0, le=300)):
+def generate(time_limit: float | None = Query(None, ge=0, le=900)):
+    if time_limit is None:
+        time_limit = config.optimise_seconds()
     if any(j["status"] == "RUNNING" for j in WS.jobs.values()):
         return fail(409, "INVALID_INPUT", "A generation job is already running")
     jid = uuid.uuid4().hex[:12]

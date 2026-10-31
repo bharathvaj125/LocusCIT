@@ -3,7 +3,8 @@ import time
 
 from ..core.official import official_validator
 from .baseline import solve_timetable
-from .candidates import build_candidates
+from . import config
+from .candidates import build_candidates, prune_rooms
 from .export import timetable_export
 from .soft import soft_objective
 
@@ -14,7 +15,7 @@ def _check(data, assign):
     return hard, rep["soft_total"], rep["soft_penalties"]
 
 
-def generate_timetable(data, feasible_limit=60.0, optimize_limit=60.0, seed=1, workers=8, on_feasible=None):
+def generate_timetable(data, feasible_limit=60.0, optimize_limit=60.0, seed=1, workers=None, on_feasible=None):
     """Return (status, assignment|None, info). The returned assignment is always validator-clean."""
     t0 = time.time()
     cands = build_candidates(data)
@@ -29,8 +30,9 @@ def generate_timetable(data, feasible_limit=60.0, optimize_limit=60.0, seed=1, w
     if on_feasible:
         on_feasible(assign, {"solver_status": status, "soft_total": soft, "soft_penalties": pen})
     if optimize_limit > 0:
+        small = prune_rooms(data, cands, assign, config.prune_rooms())
         st2, a2 = solve_timetable(data, time_limit=optimize_limit, seed=seed, workers=workers,
-                                  candidates=cands, hint=assign, objective=soft_objective)
+                                  candidates=small, hint=assign, objective=soft_objective)
         if a2 is not None:
             h2, s2, p2 = _check(data, a2)
             if not h2 and s2 <= best_soft:         # only ever keep a validator-verified improvement

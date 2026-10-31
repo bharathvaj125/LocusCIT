@@ -169,7 +169,7 @@ def _neighbours(free, cands, base, sessions, k):
     return out
 
 
-def repair(data_after, baseline, time_limit=60.0, workers=8, seed=1, restrict=None):
+def repair(data_after, baseline, time_limit=60.0, workers=None, seed=1, restrict=None):
     """Return a result dict.  `baseline`: sid -> (day, start, room) before the disruption.
 
     restrict: optional {session_id: predicate(candidate) -> bool} limiting where those sessions may go
