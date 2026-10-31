@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeftRight, Check, Clock, ShieldAlert, Timer, Users, X, Wrench } from "lucide-react";
+import { ArrowLeftRight, ArrowRight, Check, Clock, ShieldAlert, Timer, Users, X, Wrench } from "lucide-react";
 import { ServerProposal, Submission } from "@/lib/types";
 import { useApp } from "@/lib/appContext";
 import { cancelSubmission, decideSubmission, describeError, fetchBookings, fetchFacultyRequests, fetchNegotiationOptions, fetchNegotiations, fetchProposals, Negotiation, NegotiationOption, respondToAlternative, respondToNegotiation, startNegotiation, withdrawNegotiation } from "@/lib/api";
@@ -76,7 +76,7 @@ export function ApprovalsDeck({ onOpenChanges }: { onOpenChanges: () => void }) 
     setBusy(id);
     try {
       const s = await fn();
-      toast.success(`${verb}: ${s.id} is now ${nice(s.status).toLowerCase()}.`);
+      toast.success(`${verb} ${s.id}.`);
       await load(); refresh();
     } catch (e) { toast.error(describeError(e)); } finally { setBusy(null); }
   };
@@ -137,13 +137,24 @@ export function ApprovalsDeck({ onOpenChanges }: { onOpenChanges: () => void }) 
                   )}
                   <p className="text-sm text-ink-600"><strong className="text-ink-900">Rules engine:</strong> {cleanReason(s.proposed.reason)}</p>
                   {offerFor(s)?.status === "accepted" && <p className="text-sm rounded-xl bg-lagoon-50 text-lagoon-900 px-3 py-2">Approving this also moves <strong>{offerFor(s)!.holder.title}</strong> from {slotOf(offerFor(s)!.a_from)} to {slotOf(offerFor(s)!.a_to)}, as its owner agreed. Both are re-checked first.</p>}
+                  {s.routing && <p className="text-sm rounded-xl bg-paper px-3 py-2 flex items-start gap-2"><ShieldAlert className="w-4 h-4 mt-0.5 shrink-0 text-lagoon-700" /><span><strong>Who can decide:</strong> {s.routing.why}</span></p>}
+                  {s.affected_classes && s.affected_classes.length > 0 && (
+                    <div className="rounded-xl bg-saffron-50 text-saffron-600 px-3 py-2 text-sm space-y-1">
+                      <p className="font-semibold">Moves {s.affected_classes.length} class{s.affected_classes.length === 1 ? "" : "es"} in Week 7 only:</p>
+                      {s.affected_classes.map((a) => <p key={a.session_id}>• <span className="font-mono text-xs">{a.course_id}</span> {a.old ? `${a.old.day} P${a.old.start_period} ${a.old.room_id}` : "now"} <ArrowRight className="inline w-3.5 h-3.5" /> <strong>{a.new.day} P{a.new.start_period} {a.new.room_id}</strong></p>)}
+                    </div>
+                  )}
+                  {s.can_decide === false ? (
+                    <p className="text-sm text-ink-600 pt-3 border-t border-line">{s.decide_blocked_reason || "You cannot decide this request."}</p>
+                  ) : (
                   <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-line">
                     <input value={reasons[s.id] || ""} onChange={(e) => setReasons({ ...reasons, [s.id]: e.target.value })} placeholder="Reason, shown to the requester (optional)" aria-label="Reason"
                       className="flex-1 min-w-[220px] h-10 px-3 rounded-xl bg-paper border border-line text-sm" />
                     <Button variant="danger" size="sm" icon={<X className="w-4 h-4" />} disabled={busy === s.id} onClick={() => act(s.id, () => decideSubmission(s.id, "reject", reasons[s.id]), "Rejected")}>Reject</Button>
-                    <Button variant="secondary" size="sm" disabled={busy === s.id} onClick={() => act(s.id, () => decideSubmission(s.id, "offer_alternative", reasons[s.id]), "Offered")}>Offer as alternative</Button>
+                    {!s.affected_classes?.length && <Button variant="secondary" size="sm" disabled={busy === s.id} onClick={() => act(s.id, () => decideSubmission(s.id, "offer_alternative", reasons[s.id]), "Offered an alternative for")}>Offer as alternative</Button>}
                     <Button variant="success" size="sm" icon={<Check className="w-4 h-4" />} loading={busy === s.id} onClick={() => act(s.id, () => decideSubmission(s.id, "approve", reasons[s.id]), "Approved")}>Approve</Button>
                   </div>
+                  )}
                 </Card>
               </motion.div>
             ))}
@@ -214,8 +225,8 @@ export function ApprovalsDeck({ onOpenChanges }: { onOpenChanges: () => void }) 
             <div className="flex flex-wrap gap-2 pt-1">
               {["PENDING_APPROVAL", "REJECTED", "ALTERNATIVE_OFFERED"].includes(s.status) && s.proposed.status !== "approved" && !s.negotiation_id && <Button size="sm" variant="secondary" icon={<ArrowLeftRight className="w-4 h-4" />} disabled={busy === s.id} onClick={() => look(s.id)}>Can someone make room?</Button>}
               {s.status === "ALTERNATIVE_OFFERED" && <>
-                <Button size="sm" variant="success" disabled={busy === s.id} onClick={() => act(s.id, () => respondToAlternative(s.id, true), "Accepted")}>Accept alternative</Button>
-                <Button size="sm" variant="secondary" disabled={busy === s.id} onClick={() => act(s.id, () => respondToAlternative(s.id, false), "Declined")}>Decline</Button>
+                <Button size="sm" variant="success" disabled={busy === s.id} onClick={() => act(s.id, () => respondToAlternative(s.id, true), "Accepted the alternative for")}>Accept alternative</Button>
+                <Button size="sm" variant="secondary" disabled={busy === s.id} onClick={() => act(s.id, () => respondToAlternative(s.id, false), "Declined the alternative for")}>Decline</Button>
               </>}
               {(s.status === "PENDING_APPROVAL" || s.status === "APPROVED") && <Button size="sm" variant="ghost" disabled={busy === s.id} onClick={() => act(s.id, () => cancelSubmission(s.id), "Cancelled")}>Cancel request</Button>}
             </div>

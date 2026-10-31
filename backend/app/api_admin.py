@@ -9,6 +9,7 @@ from .auth import current_user, require
 from .core.dataset import DatasetError, validate_dataset
 from .solver.candidates import build_candidates
 from .solver.export import timetable_export
+from .permissions import lab_owners
 from .state import TEAM, WS
 
 router = APIRouter(prefix="/api")
@@ -85,8 +86,9 @@ def dashboard(user=Depends(current_user)):
         pending = []
         subs = [s for s in subs if s.get("requester_username") == user["username"]]
     elif role == "department_coordinator":
+        from .permissions import can_see
         pending = []
-        subs = [s for s in subs if s.get("department") in (user["department"], None)]
+        subs = [s for s in subs if can_see(user, s)]
     book = (rep or {}).get("bookings", {})
     util = room_utilisation()
     return ok({
@@ -94,7 +96,7 @@ def dashboard(user=Depends(current_user)):
         "sessions_total": len(d["sessions"]), "sessions_scheduled": len(WS.schedule or {}),
         "hard_violation_count": (rep or {}).get("hard_violation_count"),
         "hard_by_rule": (rep or {}).get("hard_by_rule", {}),
-        "conflicts": ((rep or {}).get("hard_violations") or [])[:50],
+        "conflicts": (((rep or {}).get("hard_violations") or [])[:50] if role == "admin" else []),
         "soft_total": (rep or {}).get("soft_total"), "soft_penalties": (rep or {}).get("soft_penalties"),
         "exams_total": len(d["exams"]), "exams_scheduled": len(WS.exams or []),
         "exam_soft_penalty": (rep or {}).get("exam_soft_penalty"),
@@ -147,7 +149,7 @@ def reference(user=Depends(current_user)):
     return ok({
         "dataset_id": d["dataset_id"], "revision": WS.revision, "calendar": d["calendar"],
         "priority_order": d["priority_order"], "role_category_cap": d["role_category_cap"],
-        "rooms": d["rooms"],
+        "rooms": [{**r, "owner_departments": lab_owners(r["id"])} for r in d["rooms"]],
         "faculty": [{k: f.get(k) for k in ("id", "name", "department", "max_hours_per_day", "needs_accessible")}
                     for f in d["faculty"]],
         "student_groups": d["student_groups"],

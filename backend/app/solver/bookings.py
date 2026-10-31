@@ -366,6 +366,22 @@ class Decider:
             out += [o for _, o in alts[: limit - len(out)]]
         return out
 
+    def displace_plan(self, req, r_id, d, a, b):
+        """Class moves needed to hold `req` in exactly this slot for Week 7, or None if the official rules do not
+        allow it (only an institute-level event may move regular classes, and never a parallel-elective basket).
+        This Decider is left holding the moved state, so call it on a fresh one."""
+        if self.order.index(self.eff(req)) > self.inst:
+            return None
+        bl = self.week.blockers(req, r_id, d, a, b)
+        if not bl or not all(k == "class" and not self.week.sess[x].get("basket_slot") for k, x in bl):
+            return None
+        victims = sorted({x for _, x in bl})
+        self.week.add_event(req, r_id, d, a, b)
+        if not all(self.week.relocate(x, self.cands) for x in victims):
+            return None
+        return [{"session_id": x, "day": self.week.pos[x][0], "start_period": self.week.pos[x][1],
+                 "room_id": self.week.pos[x][2], "displaced_by": req["id"]} for x in victims]
+
     # -- decision ------------------------------------------------------------------------------
     def decide(self, req, allow_displace=True, pending=None):
         rid = req["id"]

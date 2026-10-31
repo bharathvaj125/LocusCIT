@@ -45,6 +45,9 @@ Optional header `If-Match: <revision>` on writes: a stale value returns 409 `STA
 | `GET /negotiations` | party / admin | offers with `status`, `seconds_left`, `can_respond`, `can_withdraw` |
 | `POST /negotiations/{id}/respond` | the holder only | `{accept: bool}`; accept re-validates both bookings, then waits for an approver |
 | `POST /negotiations/{id}/withdraw` | requester / admin | |
+| `GET /campus/overview` | any | shared, read-only: counts, events per day, approved events (no pending requests, reasons or private details) |
+| `GET /campus/availability?day&start&end&min_capacity` | any | which event rooms are free for that time and what holds the others |
+| `GET /admin/priority-order`, `PUT /admin/priority-order` | admin | `{order: [...]}` or `{reset: true}`; exams and regular classes stay first; Spectra decisions are re-checked |
 | `POST /events/manual` | any | room and time chosen manually; same hard rules; invalid gives 422 with `rule_ids` and no change |
 | `POST /disruptions/propose` | admin | body is the change file; nothing changes until approval |
 | `GET /proposals`, `GET /proposals/{id}` | admin | moved sessions with old and new slot and reason, `moved_count`, `proven_minimum` |
@@ -56,6 +59,24 @@ Optional header `If-Match: <revision>` on writes: a stale value returns 409 `STA
 | `GET /exports/schedule`, `GET /exports/schedule-after` | admin | official schema, re-validated before returning |
 | `POST /admin/reset` | admin | restores demo data, keeps accounts, bumps `revision` |
 | `POST /admin/dataset/import` | admin | validates structure and that every session has a legal slot |
+
+## Who may decide a booking (`POST /bookings/{id}/decision`)
+Permissions are checked in the backend (`app/permissions.py`) at the moment of the decision, from the stored request and the
+verified token, never from anything the client sends.
+
+| Request | Who can decide | Anyone else |
+| --- | --- | --- |
+| Booking of a lab owned by a department (CS-LAB-1/2 CSE, ELEC-LAB-1/2 ECE and EE, PHY-LAB PH, MECH-WS ME, CIVIL-LAB CE) | that department's coordinator, or an Admin | 403 |
+| Booking that moves classes in Week 7 (institute-level requests only) | an Admin other than the requester; a coordinator alone is never enough | 403 |
+| Any other venue booking | an Admin other than the requester | 403 |
+| Anyone's own request | nobody: 403 `You cannot approve or reject your own request` | |
+| Cancelled, rejected or already decided request | 409 | |
+
+A refused attempt is recorded in the audit log (`approval_denied`). Every request in the list carries `routing`
+(who can decide it and why), `can_decide` and `decide_blocked_reason` for the signed-in user, and `affected_classes`
+(old and new slot of every class it would move). An Admin who schedules an ordinary event through `POST /events/manual` is
+booked at once (an administrative action); an event that would move classes, and anything booked by another role, stays
+`PENDING_APPROVAL` until someone else approves it. Timetables (`GET /schedules`) are readable by every role.
 
 ## Move offers (optional, never exported)
 Offer status: `awaiting_response`, `accepted`, `declined`, `expired`, `withdrawn`, `failed_revalidation`. While an offer is

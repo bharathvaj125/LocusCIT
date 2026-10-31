@@ -7,6 +7,7 @@ import { useApp } from "@/lib/appContext";
 import { usePipeline } from "@/lib/pipeline";
 import { fetchAudit } from "@/lib/api";
 import { NavRouteId } from "@/lib/types";
+import { CampusGlance } from "@/components/campus/CampusGlance";
 import { Button, Card, Chip, CountUp, Eyebrow, PageTitle, Ring, Seal, Skeleton, StepDot } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
 
@@ -82,7 +83,7 @@ export function Overview({ onNav }: { onNav: (n: NavRouteId) => void }) {
                   {ready ? "Everything is placed and validated" : isAdmin ? "Run the three steps in order" : "Waiting for an Admin to finish setup"}
                 </h2>
               </div>
-              {ready && (
+              {ready && isAdmin && (
                 <Button variant="sunrise" icon={<Download className="w-4 h-4" />} onClick={() => onNav("exports")}>Open exports</Button>
               )}
             </div>
@@ -127,6 +128,9 @@ export function Overview({ onNav }: { onNav: (n: NavRouteId) => void }) {
           <button onClick={() => refresh()} className="font-semibold underline cursor-pointer">Try again now</button>
         </motion.div>
       )}
+
+      {/* the same read-only campus picture for every role */}
+      <motion.div variants={item}><CampusGlance onNav={onNav} /></motion.div>
 
       {/* metrics */}
       <motion.div variants={item} className="grid grid-cols-2 lg:grid-cols-4 gap-4">

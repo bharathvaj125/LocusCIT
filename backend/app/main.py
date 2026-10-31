@@ -10,6 +10,7 @@ from . import auth, db
 from .api import router
 from .api_admin import router as admin_router
 from .api_bookings import router as bookings_router
+from .api_campus import router as campus_router
 from .api_negotiation import router as negotiation_router
 from .api_explain import router as explain_router
 from .api_faculty import router as faculty_router
@@ -108,6 +109,7 @@ app.include_router(router)
 app.include_router(admin_router)
 app.include_router(repair_router)
 app.include_router(bookings_router)
+app.include_router(campus_router)
 app.include_router(negotiation_router)
 app.include_router(faculty_router)
 app.include_router(explain_router)
