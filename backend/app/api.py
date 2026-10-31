@@ -1,13 +1,14 @@
 import importlib.util, threading, time, uuid
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 
 from .solver.generate import generate_timetable
 from .solver.exams import solve_exams
 from .solver.bookings import evaluate_bookings
 from .solver.export import timetable_export
+from .auth import current_user, require
 from .state import WS, TEAM
 
 router = APIRouter(prefix="/api")
@@ -51,6 +52,7 @@ def _publish(job, expected_rev, assign, info, final):
         WS.revision += 1
         job["_published"] = True
         job["_rev"] = WS.revision
+    WS.save()
     return True
 
 
@@ -87,7 +89,7 @@ def _run_generate(job_id, time_limit):
         job.update(status="ERROR", error=str(e))
 
 
-@router.post("/schedules/generate", status_code=202)
+@router.post("/schedules/generate", status_code=202, dependencies=[Depends(require("admin"))])
 def generate(time_limit: float = Query(90, ge=0, le=300)):
     if any(j["status"] == "RUNNING" for j in WS.jobs.values()):
         return fail(409, "INVALID_INPUT", "A generation job is already running")
@@ -97,7 +99,7 @@ def generate(time_limit: float = Query(90, ge=0, le=300)):
     return ok({"job_id": jid, "status": "RUNNING"})
 
 
-@router.get("/jobs/{job_id}")
+@router.get("/jobs/{job_id}", dependencies=[Depends(require("admin"))])
 def job(job_id: str):
     j = WS.jobs.get(job_id)
     if not j:
@@ -105,8 +107,43 @@ def job(job_id: str):
     return ok({k: v for k, v in j.items() if not k.startswith("_")})
 
 
+def _scope_denied(user, view, id):
+    role = user["role"]
+    if role == "admin":
+        return None
+    if id is None:
+        return "Choose a specific group, faculty member or room"
+    d = WS.dataset
+    if view == "room":
+        return None
+    if role == "club":
+        return "Club representatives can view room timetables only"
+    if role == "faculty":
+        if view == "faculty" and id == user["faculty_id"]:
+            return None
+        if view == "group" and any(s["faculty_id"] == user["faculty_id"] and id in s["groups"]
+                                   for s in d["sessions"]):
+            return None
+        return "Faculty can view their own timetable and the groups they teach"
+    if role == "department_coordinator":
+        if view == "group":
+            g = next((g for g in d["student_groups"] if g["id"] == id), None)
+            if g and g["department"] in (user["department"], "COMMON"):
+                return None
+        if view == "faculty":
+            f = next((f for f in d["faculty"] if f["id"] == id), None)
+            if f and f["department"] == user["department"]:
+                return None
+        return "Coordinators can view their own department's groups and faculty"
+    return "Not allowed"
+
+
 @router.get("/schedules")
-def schedules(view: str = Query("group", pattern="^(group|faculty|room)$"), id: str | None = None):
+def schedules(view: str = Query("group", pattern="^(group|faculty|room)$"), id: str | None = None,
+              user=Depends(current_user)):
+    denied = _scope_denied(user, view, id)
+    if denied:
+        return fail(403, "FORBIDDEN", denied)
     if WS.schedule is None:
         return fail(404, "INVALID_INPUT", "No schedule generated yet")
     sess = {s["id"]: s for s in WS.dataset["sessions"]}
@@ -124,7 +161,7 @@ def schedules(view: str = Query("group", pattern="^(group|faculty|room)$"), id: 
                "revision": WS.revision, "assignments": rows, "meta": WS.schedule_meta})
 
 
-@router.post("/exams/generate")
+@router.post("/exams/generate", dependencies=[Depends(require("admin"))])
 def exams_generate(time_limit: float = Query(30, ge=5, le=120)):
     status, out = solve_exams(WS.dataset, time_limit=time_limit)
     if out is None:
@@ -143,7 +180,7 @@ def exams_generate(time_limit: float = Query(30, ge=5, le=120)):
                "hard_violation_count": 0})
 
 
-@router.get("/exams")
+@router.get("/exams", dependencies=[Depends(current_user)])
 def exams_list(group: str | None = None):
     if WS.exams is None:
         return fail(404, "INVALID_INPUT", "No exam schedule generated yet")
@@ -165,7 +202,7 @@ def _fest_week():
             "session_overrides": WS.bookings["overrides"]}
 
 
-@router.post("/bookings/evaluate-batch")
+@router.post("/bookings/evaluate-batch", dependencies=[Depends(require("admin"))])
 def bookings_evaluate():
     if WS.schedule is None:
         return fail(409, "INVALID_INPUT", "Generate the timetable before evaluating bookings")
@@ -186,15 +223,27 @@ def bookings_evaluate():
                "priority_inversions": rep["bookings"]["priority_inversions"], "revision": WS.revision})
 
 
+def _can_see_request(user, r):
+    if user["role"] == "admin":
+        return True
+    if user["role"] == "club":
+        return r["role"] == "club" and r["requester"] == user["org"]
+    return r["role"] == user["role"]
+
+
 @router.get("/bookings")
-def bookings_list():
-    reqs = {r["id"]: r for r in WS.dataset["booking_requests"]}
+def bookings_list(user=Depends(current_user)):
+    reqs = {r["id"]: r for r in WS.dataset["booking_requests"] if _can_see_request(user, r)}
     decisions = {d["request_id"]: d for d in (WS.bookings or {}).get("decisions", [])}
     rows = [{"request": r, "decision": decisions.get(r["id"])} for r in reqs.values()]
-    return ok({"requests": rows, "decided": WS.bookings is not None, "revision": WS.revision})
+    mine = [s for s in WS.submissions.values()
+            if user["role"] == "admin" or s.get("requester_username") == user["username"]
+            or (user["role"] == "department_coordinator" and s.get("department") == user["department"])]
+    return ok({"requests": rows, "submitted": mine, "decided": WS.bookings is not None,
+               "revision": WS.revision})
 
 
-@router.get("/exports/schedule")
+@router.get("/exports/schedule", dependencies=[Depends(require("admin"))])
 def export_schedule():
     if WS.schedule is None or WS.bookings is None or WS.exams is None:
         return fail(409, "INVALID_INPUT", "Generate timetable, exams and booking decisions first",

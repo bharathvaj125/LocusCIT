@@ -3,12 +3,13 @@ import threading
 import time
 import uuid
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, Depends
 
 from .api import fail, ok, official_validator
 from .solver.bookings import evaluate_bookings
 from .solver.export import timetable_export
 from .solver.repair import ChangeFileError, apply_changes, repair
+from .auth import current_user, require
 from .state import TEAM, WS
 
 router = APIRouter(prefix="/api")
@@ -47,10 +48,12 @@ def _compute(pid, changes, time_limit):
         p.update(status="INVALID", message=str(e), moved=[], moved_count=0)
     except Exception as e:  # keep the proposal pollable
         p.update(status="ERROR", message=str(e), moved=[], moved_count=0)
+    finally:
+        WS.save()
 
 
 @router.post("/disruptions/propose", status_code=202)
-def propose(changes: dict = Body(...), time_limit: float = 60):
+def propose(changes: dict = Body(...), time_limit: float = 60, user=Depends(require("admin"))):
     if WS.schedule is None:
         return fail(409, "INVALID_INPUT", "Generate the timetable before proposing a disruption")
     try:  # fail fast on malformed files instead of creating a doomed proposal
@@ -62,18 +65,18 @@ def propose(changes: dict = Body(...), time_limit: float = 60):
     pid = uuid.uuid4().hex[:10]
     WS.proposals[pid] = {"proposal_id": pid, "type": "disruption", "status": "COMPUTING",
                          "base_schedule_version": WS.schedule_version,
-                         "dataset_version": WS.dataset["dataset_id"], "requested_by": None,
+                         "dataset_version": WS.dataset["dataset_id"], "requested_by": user["username"],
                          "approved_by": None, "created_at": time.time(), "approved_at": None}
     threading.Thread(target=_compute, args=(pid, changes, min(max(time_limit, 10), 120)), daemon=True).start()
     return ok({"proposal_id": pid, "status": "COMPUTING"})
 
 
-@router.get("/proposals")
+@router.get("/proposals", dependencies=[Depends(require("admin"))])
 def proposals():
     return ok({"proposals": [_public(p) | {"moved": None} for p in WS.proposals.values()]})
 
 
-@router.get("/proposals/{pid}")
+@router.get("/proposals/{pid}", dependencies=[Depends(require("admin"))])
 def proposal(pid: str):
     p = WS.proposals.get(pid)
     if not p:
@@ -82,13 +85,15 @@ def proposal(pid: str):
 
 
 @router.post("/proposals/{pid}/approve")
-def approve(pid: str):
+def approve(pid: str, user=Depends(require("admin"))):
     p = WS.proposals.get(pid)
     if not p:
         return fail(404, "INVALID_INPUT", "Unknown proposal")
     with WS.lock:
         if p["status"] != "PENDING":
             return fail(409, "INVALID_INPUT", f"Proposal is {p['status']}, only PENDING proposals can be approved")
+        if p.get("requested_by") == user["username"]:
+            return fail(403, "FORBIDDEN", "You cannot approve your own request; ask another Admin")
         if p["base_schedule_version"] != WS.schedule_version:
             p["status"] = "STALE"
             return fail(409, "STALE_PROPOSAL", "The timetable changed after this proposal was made; propose again")
@@ -108,12 +113,13 @@ def approve(pid: str):
         WS.applied.append(pid)
         decisions, overrides, _ = evaluate_bookings(after, WS.schedule)
         WS.bookings = {"decisions": decisions, "overrides": overrides}
-        p.update(status="APPROVED", approved_at=time.time(), hard_validation_result="0 hard violations")
+        p.update(status="APPROVED", approved_by=user["username"], approved_at=time.time(),
+                 hard_validation_result="0 hard violations")
     return ok(_public(p))
 
 
 @router.post("/proposals/{pid}/reject")
-def reject(pid: str):
+def reject(pid: str, user=Depends(require("admin"))):
     p = WS.proposals.get(pid)
     if not p:
         return fail(404, "INVALID_INPUT", "Unknown proposal")
@@ -121,10 +127,11 @@ def reject(pid: str):
         if p["status"] not in ("PENDING", "INFEASIBLE", "UNKNOWN", "FAILED_VALIDATION"):
             return fail(409, "INVALID_INPUT", f"Proposal is {p['status']}")
         p["status"] = "REJECTED"
+        p["rejected_by"] = user["username"]
     return ok(_public(p))
 
 
-@router.get("/exports/schedule-after")
+@router.get("/exports/schedule-after", dependencies=[Depends(require("admin"))])
 def export_after():
     from fastapi.responses import JSONResponse
     if not WS.applied or WS.baseline is None:
