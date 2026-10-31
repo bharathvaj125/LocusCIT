@@ -11,13 +11,13 @@ from . import ai, db
 from .api import fail, ok, official_validator
 from .auth import current_user
 from .nlp import IST, parse_booking_text
+from .permissions import can_see, check_decision, deny, view_for
 from .solver.bookings import Decider
 from .solver.export import timetable_export
 from .state import TEAM, WS
 
 router = APIRouter(prefix="/api")
 NEEDS = {"projector", "pa_system", "stage", "computers", "power_benches", "accessible", "ac"}
-LAB_TYPES = {"lab_cs", "lab_elec", "lab_phy", "lab_civil", "workshop"}
 
 
 class Window(BaseModel):
@@ -68,7 +68,7 @@ def _now_iso():
 
 def _week_base():
     base = dict(WS.schedule or {})
-    for o in (WS.bookings or {}).get("overrides", []):
+    for o in list((WS.bookings or {}).get("overrides", [])) + list(WS.app_overrides or []):
         base[o["session_id"]] = (o["day"], o["start_period"], o["room_id"])
     return base
 
@@ -99,6 +99,7 @@ def reconcile_after_timetable_change():
     from .solver.bookings import evaluate_bookings
     if WS.schedule is None:
         return
+    WS.app_overrides = []           # class moves made for app bookings were worked out on the old timetable
     if WS.bookings is not None:
         decisions, overrides, _ = evaluate_bookings(WS.dataset, WS.schedule)
         WS.bookings = {"decisions": decisions, "overrides": overrides}
@@ -208,8 +209,9 @@ def _official_hard(sub):
     return _official_hard_many([sub])
 
 
-def _official_hard_many(subs):
-    """Independent re-check by the official validator for requests placed on top of the live decisions."""
+def _official_hard_many(subs, extra_overrides=()):
+    """Independent re-check by the official validator for requests placed on top of the live decisions.
+    `extra_overrides` are the Week 7 class moves the requests would cause."""
     data = copy.deepcopy(WS.dataset)
     for sub in subs:
         data["booking_requests"].append(sub["request"])
@@ -217,14 +219,61 @@ def _official_hard_many(subs):
     decisions = [{k: v for k, v in d.items() if k in keys} for d in (WS.bookings or {}).get("decisions", [])]
     for sub in subs:
         decisions.append({"request_id": sub["request"]["id"], "status": "approved", **sub["placement"], "reason": "check"})
-    fest = {"bookings": decisions, "session_overrides": (WS.bookings or {}).get("overrides", [])}
+    fest = {"bookings": decisions, "session_overrides": list((WS.bookings or {}).get("overrides", [])) + list(extra_overrides)}
     rep = official_validator().run(data, timetable_export(TEAM, data["dataset_id"], WS.schedule, fest_week=fest))
-    ids = [sub["request"]["id"] for sub in subs]
+    ids = [sub["request"]["id"] for sub in subs] + [o["session_id"] for o in extra_overrides]
     return [v for v in rep["hard_violations"] if any(i in v["detail"] for i in ids)]
 
 
+def _affected(s):
+    """The classes a booking would move in Week 7, with where they are now and where they would go."""
+    sess = {x["id"]: x for x in WS.dataset["sessions"]}
+    out = []
+    for o in s.get("overrides") or []:
+        now = _week_base().get(o["session_id"]) or (WS.schedule or {}).get(o["session_id"])
+        out.append({"session_id": o["session_id"], "course_id": sess[o["session_id"]]["course_id"],
+                    "old": {"day": now[0], "start_period": now[1], "room_id": now[2]} if now else None,
+                    "new": {"day": o["day"], "start_period": o["start_period"], "room_id": o["room_id"]}})
+    return out
+
+
 def _public_sub(s):
-    return {k: v for k, v in s.items() if not k.startswith("_")}
+    out = {k: v for k, v in s.items() if not k.startswith("_")}
+    out["affected_classes"] = _affected(s)
+    return out
+
+
+def _displacement_proposal(req):
+    """Only an institute-level request can ever move regular classes (official rule B2). If this one cannot be placed
+    as asked but can be placed by moving classes to other legal slots for Week 7, return (decision, class_moves);
+    nothing is applied. Otherwise None."""
+    probe = _decider()
+    if probe.order.index(probe.eff(req)) > probe.inst:
+        return None
+    best = None
+    for (r_id, d, a, b) in probe.slots(req, sorted(probe.eligible(req), key=lambda r: probe.room_pref(req, r))):
+        bl = probe.week.blockers(req, r_id, d, a, b)
+        if bl and all(k == "class" for k, _ in bl):
+            n = len({x for _, x in bl})
+            if best is None or n < best[0]:
+                best = (n, r_id, d, a, b)
+    if not best:
+        return None
+    _, r_id, d, a, b = best
+    moves = _decider().displace_plan(req, r_id, d, a, b)
+    if not moves:
+        return None
+    eff = probe.eff(req)
+    names = ", ".join(probe.label(o["session_id"]) for o in moves)
+    return ({"request_id": req["id"], "status": "approved", "effective_category": eff,
+             "priority_rank": probe.order.index(eff) + 1, "day": d, "start_period": a, "end_period": b, "room_id": r_id,
+             "reason": (f"Fits inside the requested window if {names} move{'s' if len(moves) == 1 else ''} to another "
+                        f"legal slot for Week 7 only. Only an Admin can approve a booking that moves classes.")}, moves)
+
+
+def _same_moves(a, b):
+    key = lambda L: sorted((o["session_id"], o["day"], o["start_period"], o["room_id"]) for o in L)
+    return key(a) == key(b)
 
 
 @router.post("/bookings/submit")
@@ -245,6 +294,11 @@ def submit(draft: Draft, user=Depends(current_user)):
             req = _request_dict(user, draft, sid, wl)
             req["series_id"] = series
             dec = D.decide(req, allow_displace=False)     # reserves the slot inside D for the rest of the series
+            moves = []
+            if dec["status"] != "approved" and WS.bookings is not None:
+                proposal = _displacement_proposal(req)    # institute-level requests only; nothing is applied yet
+                if proposal:
+                    dec, moves = proposal
             # the engine only proposes here; a person approves, so word the reason as a proposal
             for old, new in (("Approved. ", "Fits the rules and can be approved. "),
                              ("Alternative offered. ", "Only an alternative fits. ")):
@@ -253,74 +307,79 @@ def submit(draft: Draft, user=Depends(current_user)):
             sub = {"id": sid, "requester_username": user["username"], "requester": req["requester"],
                    "role": user["role"], "department": user["department"], "title": draft.title,
                    "request": req, "proposed": dec, "created_at": time.time(), "manual": False,
-                   "status": "PENDING_APPROVAL", "placement": None, "decided_by": None, "decision_reason": dec["reason"]}
+                   "status": "PENDING_APPROVAL", "placement": None, "decided_by": None, "decision_reason": dec["reason"],
+                   "overrides": moves}
             if dec["status"] == "rejected":
                 sub["status"] = "REJECTED"
             else:
                 sub["placement"] = {k: dec[k] for k in ("day", "start_period", "end_period", "room_id")}
             WS.submissions[sid] = sub
-            out.append(_public_sub(sub))
+            out.append(view_for(user, sub, _public_sub(sub)))
         WS.revision += 1
     db.log(user["username"], "booking_submit", ",".join(s["id"] for s in out))
     return ok({"submissions": out})
 
 
-def _can_approve(user, sub):
-    if user["username"] == sub["requester_username"]:
-        return "You cannot approve or reject your own request; ask another approver"
-    if user["role"] == "admin":
-        return None
-    if user["role"] == "department_coordinator":
-        room = next((r for r in WS.dataset["rooms"] if r["id"] == (sub.get("placement") or {}).get("room_id")), None)
-        if room and room["type"] in LAB_TYPES and sub.get("department") == user["department"]:
-            return None
-        return "Coordinators can only decide lab bookings requested by their own department"
-    return "Only an Admin or the owning department coordinator can decide bookings"
-
-
 @router.post("/bookings/{sid}/decision")
 def decide(sid: str, body: DecisionBody, user=Depends(current_user)):
+    """Approve, reject or offer an alternative. Everything happens under the workspace lock, so two approvals of
+    the same or of conflicting requests run one after the other and the second sees the first one's result."""
     with WS.lock:
         sub = WS.submissions.get(sid)
         if not sub:
             return fail(404, "INVALID_INPUT", "Unknown booking")
-        denied = _can_approve(user, sub)
-        if denied:
-            return fail(403, "FORBIDDEN", denied)
+        blocked = check_decision(user, sub)               # re-checked at the moment of approval, from the stored request
+        if blocked:
+            return fail(403, "FORBIDDEN", deny(user, sub, blocked))
         if sub["status"] != "PENDING_APPROVAL":
-            return fail(409, "INVALID_INPUT", f"Booking is {sub['status']}; only pending bookings can be decided")
+            return fail(409, "INVALID_INPUT", f"This request is already {sub['status'].lower().replace('_', ' ')}; "
+                                              "only pending requests can be decided.")
         act = body.action
+        if act not in ("approve", "reject", "offer_alternative"):
+            return fail(422, "INVALID_INPUT", "action must be approve, reject or offer_alternative")
         if sub.get("negotiation_id") and act in ("approve", "offer_alternative"):
             from .api_negotiation import apply_negotiation
             return apply_negotiation(sub, user, body.reason)
         if act == "reject":
-            sub.update(status="REJECTED", decided_by=user["username"],
-                       decision_reason=body.reason or "Rejected by approver")
+            sub.update(status="REJECTED", decided_by=user["username"], decided_role=user["role"],
+                       decision_reason=body.reason or "The approver declined this request and gave no further reason.")
             from .api_negotiation import on_reject
             on_reject(sub)
-        elif act in ("approve", "offer_alternative"):
+        else:
             p = sub["placement"]
+            moves = sub.get("overrides") or []
             D = _decider()          # the live state excludes this pending booking, so its slot must be free
-            problems = D.check_slot(sub["request"], p["room_id"], p["day"], p["start_period"], p["end_period"])
-            if problems:
-                return fail(409, "CONSTRAINT_VIOLATION", "That slot is no longer valid: " + "; ".join(m for _, m in problems),
-                            details=[{"rule": r, "detail": m} for r, m in problems],
-                            rule_ids=sorted({r for r, _ in problems}))
-            hard = _official_hard(sub)
+            fresh = []
+            if moves:
+                if act != "approve":
+                    return fail(422, "INVALID_INPUT", "A booking that moves classes can only be approved or rejected")
+                if WS.bookings is None:
+                    return fail(409, "INVALID_INPUT", "Decide the Spectra requests (Overview, step 3) before approving a booking that moves classes")
+                fresh = D.displace_plan(sub["request"], p["room_id"], p["day"], p["start_period"], p["end_period"]) or []
+                if not fresh or not _same_moves(fresh, moves):
+                    return fail(409, "STALE_PROPOSAL", "The class moves proposed for this booking are no longer valid or "
+                                                       "have changed. Nothing was applied; the request needs to be submitted again.")
+            else:
+                problems = D.check_slot(sub["request"], p["room_id"], p["day"], p["start_period"], p["end_period"])
+                if problems:
+                    return fail(409, "CONSTRAINT_VIOLATION", "That slot is no longer valid: " + "; ".join(m for _, m in problems),
+                                details=[{"rule": r, "detail": m} for r, m in problems],
+                                rule_ids=sorted({r for r, _ in problems}))
+            hard = _official_hard_many([sub], fresh)
             if hard:
                 return fail(500, "CONSTRAINT_VIOLATION", "Official validator rejected the placement", details=hard)
             inside = any(w["day"] == p["day"] and w["from_period"] <= p["start_period"] and p["end_period"] <= w["to_period"]
                          for w in sub["request"]["windows"])
             if act == "approve" and not inside:
                 act = "offer_alternative"        # outside the requested window can only be an alternative
+            # every check passed: from here on the changes are applied together
+            WS.app_overrides = list(WS.app_overrides or []) + fresh
             sub.update(status="APPROVED" if act == "approve" else "ALTERNATIVE_OFFERED", decided_by=user["username"],
-                       decision_reason=body.reason or sub["proposed"]["reason"])
-        else:
-            return fail(422, "INVALID_INPUT", "action must be approve, reject or offer_alternative")
+                       decided_role=user["role"], decision_reason=body.reason or sub["proposed"]["reason"])
         sub["decided_at"] = time.time()
         WS.revision += 1
-    db.log(user["username"], f"booking_{act}", sid)
-    return ok(_public_sub(sub))
+    db.log(user["username"], f"booking_{act}", f"{sid} (requested by {sub['requester_username']})")
+    return ok(view_for(user, sub, _public_sub(sub)))
 
 
 @router.post("/bookings/{sid}/respond")
@@ -345,6 +404,7 @@ def cancel(sid: str, user=Depends(current_user)):
         if sub["status"] in ("CANCELLED", "REJECTED", "WITHDRAWN"):
             return fail(409, "INVALID_INPUT", f"Booking is already {sub['status']}")
         sub["status"] = "CANCELLED"
+        WS.app_overrides = [o for o in (WS.app_overrides or []) if o.get("displaced_by") != sid]   # classes move back
         from .api_negotiation import on_cancel
         on_cancel(sub)
         WS.revision += 1
@@ -372,27 +432,48 @@ def manual_event(ev: ManualEvent, user=Depends(current_user)):
         D = _decider()
         groups = {g["id"] for g in WS.dataset["student_groups"]}
         problems = [("H13", f"Unknown student group {g}") for g in ev.mandatory_for_groups if g not in groups]
-        problems += D.check_slot(req, ev.room_id, ev.day, ev.start_period, ev.end_period)
+        found = D.check_slot(req, ev.room_id, ev.day, ev.start_period, ev.end_period)
+        only_classes = bool(found) and all(rule == "H4" and "used by class" in m for rule, m in found)
+        moves = []
+        if only_classes and user["role"] == "admin" and WS.bookings is not None:
+            # an Admin may ask for an institute-level event in a room that has classes: propose moving them
+            moves = _decider().displace_plan(req, ev.room_id, ev.day, ev.start_period, ev.end_period) or []
+        if moves:
+            found = []
+        problems += found
         if problems:
-            return fail(422, "CONSTRAINT_VIOLATION", "Not scheduled: " + "; ".join(m for _, m in problems),
+            why = "; ".join(m for _, m in problems)
+            if only_classes and user["role"] != "admin":
+                why += ". Only an institute-level event, booked by an Admin, may move classes"
+            return fail(422, "CONSTRAINT_VIOLATION", "Not scheduled: " + why,
                         details=[{"rule": r, "detail": m} for r, m in problems],
                         rule_ids=sorted({r for r, _ in problems}))
         placement = {"day": ev.day, "start_period": ev.start_period, "end_period": ev.end_period, "room_id": ev.room_id}
+        reason = ("Manually scheduled; moves classes in Week 7, so a second Admin has to approve it" if moves
+                  else "Manually scheduled")
         sub = {"id": sid, "requester_username": user["username"], "requester": req["requester"], "role": user["role"],
                "department": user["department"], "title": ev.title, "request": req, "created_at": time.time(),
-               "manual": True, "placement": placement, "proposed": {"status": "approved", "reason": "Manually scheduled",
-                                                                    **placement}, "decision_reason": "Manually scheduled"}
-        if user["role"] in ("admin", "department_coordinator"):
-            sub.update(status="APPROVED", decided_by=user["username"])
+               "manual": True, "placement": placement, "overrides": moves,
+               "proposed": {"status": "approved", "reason": reason, "effective_category":
+                            official_validator().effective_category(WS.dataset, req), **placement},
+               "decision_reason": reason}
+        # An Admin scheduling an ordinary event is an administrative action and is booked at once. Anything that moves
+        # classes, and everything booked by any other role, waits for someone else to approve it.
+        if user["role"] == "admin" and not moves:
+            sub.update(status="APPROVED", decided_by=user["username"], decided_role="admin", decided_at=time.time())
             hard = _official_hard(sub)
             if hard:
                 return fail(500, "CONSTRAINT_VIOLATION", "Official validator rejected the placement", details=hard)
         else:
+            if moves:
+                hard = _official_hard_many([sub], moves)
+                if hard:
+                    return fail(500, "CONSTRAINT_VIOLATION", "Official validator rejected the class moves", details=hard)
             sub["status"] = "PENDING_APPROVAL"
         WS.submissions[sid] = sub
         WS.revision += 1
     db.log(user["username"], "manual_event", sid)
-    return ok(_public_sub(sub))
+    return ok(view_for(user, sub, _public_sub(sub)))
 
 
 @router.get("/venue-board")
@@ -401,7 +482,7 @@ def venue_board(user=Depends(current_user)):
     d = WS.dataset
     sess = {s["id"]: s for s in d["sessions"]}
     base = _week_base() if WS.schedule is not None else {}
-    moved = {o["session_id"] for o in (WS.bookings or {}).get("overrides", [])}
+    moved = {o["session_id"] for o in list((WS.bookings or {}).get("overrides", [])) + list(WS.app_overrides or [])}
     classes = []
     for sid, (day, st, rid) in base.items():
         s = sess.get(sid)
@@ -420,7 +501,7 @@ def venue_board(user=Depends(current_user)):
     for s in WS.submissions.values():
         if s.get("placement") and s["status"] in ("APPROVED", "ALTERNATIVE_OFFERED", "PENDING_APPROVAL", "NEEDS_REVIEW"):
             p = s["placement"]
-            visible = user["role"] == "admin" or s["requester_username"] == user["username"] or s["status"] == "APPROVED"
+            visible = s["status"] == "APPROVED" or can_see(user, s)
             if visible:
                 events.append({"id": s["id"], "title": s["title"], "requester": s["requester"], "room_id": p["room_id"],
                                "day": p["day"], "start": p["start_period"], "end": p["end_period"],

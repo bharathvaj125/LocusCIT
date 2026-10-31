@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { Dashboard, NavRouteId, SessionUser } from "@/lib/types";
 import { DEMO_ACCOUNTS, NAV_ROUTES, ROLE_CONFIGS } from "@/lib/uiConfig";
-import { Chip, Kbd, Seal } from "@/components/ui/primitives";
+import { Chip, Kbd } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
 
 const ICONS: Record<NavRouteId, React.ReactNode> = {
@@ -152,7 +152,6 @@ export function Shell({ user, dashboard, nav, onNav, onSwitch, onSignOut, onSear
             <Search className="w-4 h-4 shrink-0" /><span className="truncate">Search groups, faculty, rooms, screens</span><span className="ml-auto hidden sm:flex shrink-0 items-center"><Kbd>Ctrl K</Kbd></span>
           </button>
           <div className="flex-1" />
-          <div className="hidden md:block"><Seal hard={dashboard?.sessions_scheduled ? dashboard.hard_violation_count : null} soft={dashboard?.soft_total} /></div>
           <button onClick={() => onNav("approvals")} aria-label={`${pending} pending approvals`} className="relative p-2.5 rounded-xl hover:bg-sunk text-ink-600 cursor-pointer">
             <Bell className="w-5 h-5" />
             {pending > 0 && <span className="absolute top-1.5 right-1.5 min-w-4 h-4 px-1 rounded-full bg-sunrise-500 text-raised text-[10px] font-bold flex items-center justify-center">{pending}</span>}

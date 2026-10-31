@@ -10,11 +10,12 @@ import { DAY_LABEL } from "@/lib/dept";
 import { periodRange } from "@/lib/uiConfig";
 import { useToast } from "@/lib/toast";
 import { Button, Card, Chip, CountUp, EmptyState, Eyebrow, PageTitle, statusTone } from "@/components/ui/primitives";
+import { ChangeBuilder, ChangePreview } from "./ChangeTools";
 import { cn } from "@/lib/utils";
 
 const nice = (s: string) => s.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
 
-export function DisruptionDeck() {
+export function DisruptionDeck({ onOpenExports }: { onOpenExports?: () => void }) {
   const { ref, user, revision, refresh } = useApp();
   const toast = useToast();
   const [text, setText] = useState("");
@@ -70,6 +71,17 @@ export function DisruptionDeck() {
     } catch (e) { toast.error(describeError(e)); } finally { setWorking(null); }
   };
 
+  // when no timetable exists, say which teachers hold the most blocked sessions and what to try
+  const blocked = useMemo(() => {
+    if (!selected || !ref || !["INFEASIBLE", "FAILED_VALIDATION", "INVALID"].includes(selected.status)) return null;
+    const ids = (selected.diagnostics || []).map((d) => d.session_id).filter(Boolean) as string[];
+    if (ids.length === 0) return null;
+    const by: Record<string, number> = {};
+    ids.forEach((id) => { const s = ref.sessions.find((x) => x.id === id); if (s) by[s.faculty_id] = (by[s.faculty_id] || 0) + 1; });
+    const top = Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([f, n]) => `${ref.faculty.find((x) => x.id === f)?.name || f} (${n})`);
+    return { n: ids.length, top };
+  }, [selected, ref]);
+
   const own = view?.requested_by === user.username;
   const byDay = useMemo(() => {
     const m: Record<string, number> = {};
@@ -82,18 +94,21 @@ export function DisruptionDeck() {
       <PageTitle eyebrow="Changes" title={<>When the campus changes, <span className="italic font-medium text-lagoon-700">move as little as possible</span></>}
         subtitle="Upload a change file: faculty leave, a closed room, a new or removed session. The solver finds a valid timetable that moves the fewest classes, shows exactly what changes, and waits for a second Admin." />
 
+      <ChangeBuilder refData={ref} text={text} setText={setText} />
+
       <Card className="p-5 space-y-4">
         <div className="flex flex-wrap items-center gap-2">
           <label className="inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-raised border border-line hover:border-line-strong text-sm font-semibold cursor-pointer">
             <Upload className="w-4 h-4 text-lagoon-700" />Upload JSON
-            <input type="file" accept=".json,application/json" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) setText(await f.text()); }} />
+            <input type="file" accept=".json,application/json" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) { setText(await f.text()); setParseError(null); } e.target.value = ""; }} />
           </label>
           <Button variant="secondary" icon={<FileJson className="w-4 h-4 text-saffron-600" />} onClick={async () => { try { setText(JSON.stringify(await fetchSampleDisruption(), null, 2)); } catch (e) { toast.error(describeError(e)); } }}>Load the sample disruption</Button>
         </div>
         <textarea value={text} onChange={(e) => setText(e.target.value)} rows={7} spellCheck={false} aria-label="Change file JSON"
           placeholder='{"changes": [{"type": "faculty_unavailable", "faculty_id": "F07", "days": ["MON"], "periods": [1,2,3,4,5,6,7,8,9]}]}'
           className="w-full p-3 rounded-xl bg-paper border border-line font-mono text-xs leading-relaxed focus:border-lagoon-500 outline-none" />
-        {parseError && <p className="text-sm text-sunrise-600 bg-sunrise-50 rounded-xl px-4 py-3" role="alert">{parseError}</p>}
+        <ChangePreview text={text} refData={ref} />
+        {parseError && <p className="text-sm text-sunrise-600 bg-sunrise-50 rounded-xl px-4 py-3" role="alert"><strong>The server did not accept this file.</strong> {parseError}</p>}
         <div className="flex justify-end"><Button icon={<Wrench className="w-4 h-4" />} loading={working === "propose"} disabled={!text.trim()} onClick={submit}>Propose a repair</Button></div>
       </Card>
 
@@ -131,7 +146,7 @@ export function DisruptionDeck() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="rounded-2xl bg-lagoon-50 p-4"><Eyebrow>Sessions moved</Eyebrow><p className="font-display text-5xl font-semibold text-lagoon-900 mt-1">{view.status === "COMPUTING" ? "..." : <CountUp value={view.moved_count} />}</p><p className="text-xs text-ink-600 mt-1">{view.status === "COMPUTING" ? "" : view.proven_minimum ? "proven minimum" : "best found in the time limit"}</p></div>
               <div className="rounded-2xl bg-paper p-4"><Eyebrow className="text-ink-400">Directly broken</Eyebrow><p className="font-display text-5xl font-semibold mt-1">{view.lower_bound}</p><p className="text-xs text-ink-600 mt-1">must move at least this many</p></div>
-              <div className="rounded-2xl bg-mangrove-50 p-4"><Eyebrow className="text-mangrove-600">Hard violations</Eyebrow><p className="font-display text-5xl font-semibold text-mangrove-600 mt-1">{["PENDING", "APPROVED"].includes(view.status) ? "0" : "-"}</p><p className="text-xs text-ink-600 mt-1">official validator</p></div>
+              <div className="rounded-2xl bg-mangrove-50 p-4"><Eyebrow className="text-mangrove-600">Hard violations</Eyebrow><p className="font-display text-5xl font-semibold text-mangrove-600 mt-1">{["PENDING", "APPROVED"].includes(view.status) ? (selected?.hard_violation_count ?? "-") : "-"}</p><p className="text-xs text-ink-600 mt-1">{selected?.soft_total != null && ["PENDING", "APPROVED"].includes(view.status) ? `official validator · soft penalty ${selected.soft_total}` : "official validator"}</p></div>
               <div className="rounded-2xl bg-paper p-4"><Eyebrow className="text-ink-400">New / removed</Eyebrow><p className="font-display text-5xl font-semibold mt-1">{view.new_sessions.length} / {view.removed_sessions.length}</p><p className="text-xs text-ink-600 mt-1 truncate">{view.new_sessions.join(", ") || "no new sessions"}</p></div>
             </div>
             {Object.keys(byDay).length > 0 && (
@@ -142,6 +157,20 @@ export function DisruptionDeck() {
                     <motion.div className="mx-auto mt-1 w-full rounded-md bg-lagoon-500" initial={{ height: 0 }} animate={{ height: 6 + (byDay[d] || 0) * 10 }} style={{ maxHeight: 80 }} transition={{ duration: 0.6 }} />
                     <p className="text-sm font-semibold mt-1">{byDay[d] || 0}</p></div>
                 ))}</div>
+              </div>
+            )}
+            {view.status === "APPROVED" && (
+              <div className="rounded-xl bg-mangrove-50 text-mangrove-600 px-4 py-3 text-sm flex flex-wrap items-center justify-between gap-3" role="status">
+                <span><strong>Applied by {selected?.approved_by}.</strong> The timetable and the Week 7 decisions were recomputed, and <span className="font-mono">schedule_after.json</span> now holds the repaired timetable.</span>
+                {onOpenExports && <Button size="sm" variant="success" icon={<ArrowRight className="w-4 h-4" />} onClick={onOpenExports}>Open exports</Button>}
+              </div>
+            )}
+            {view.status === "PENDING" && <p className="text-sm text-ink-600">Nothing has changed yet. Another Admin has to approve this; the timetable is checked again at that moment, and a stale proposal is refused.</p>}
+            {blocked && (
+              <div className="rounded-xl bg-sunrise-50 text-sunrise-600 px-4 py-3 text-sm space-y-1" role="alert">
+                <p className="font-semibold">No valid timetable exists with this change, so nothing was proposed and nothing changed.</p>
+                <p>{blocked.n} session{blocked.n === 1 ? "" : "s"} would have no legal slot left{blocked.top.length ? `, mostly those taught by ${blocked.top.join(", ")}` : ""}. A teacher can teach at most their daily limit, and every room, group and teacher can be in one place at a time.</p>
+                <p>Try making the unavailability shorter (fewer days or periods), removing a session, or closing a different room.</p>
               </div>
             )}
             {view.diagnostics && <p className="text-sm text-ink-900">{view.diagnostics}</p>}

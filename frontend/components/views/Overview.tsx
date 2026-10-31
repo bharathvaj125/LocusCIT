@@ -2,12 +2,14 @@
 
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, Bell, Cpu, Download, GraduationCap, Sparkles, TriangleAlert } from "lucide-react";
+import { ArrowRight, Bell, Cpu, Download, GraduationCap, RotateCcw, Sparkles, TriangleAlert } from "lucide-react";
 import { useApp } from "@/lib/appContext";
 import { usePipeline } from "@/lib/pipeline";
-import { fetchAudit } from "@/lib/api";
+import { describeError, fetchAudit, resetDemoData } from "@/lib/api";
+import { useToast } from "@/lib/toast";
 import { NavRouteId } from "@/lib/types";
-import { Button, Card, Chip, CountUp, Eyebrow, PageTitle, Ring, Seal, Skeleton, StepDot } from "@/components/ui/primitives";
+import { CampusGlance } from "@/components/campus/CampusGlance";
+import { Button, Card, Chip, CountUp, Eyebrow, PageTitle, Ring, Skeleton, StepDot } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
@@ -25,6 +27,8 @@ export function Overview({ onNav }: { onNav: (n: NavRouteId) => void }) {
   const p = usePipeline();
   const [audit, setAudit] = useState<Array<{ at: number; actor: string; action: string; detail: string }>>([]);
   const isAdmin = user.role === "admin";
+  const toast = useToast();
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     if (isAdmin) fetchAudit().then((a) => setAudit(a.slice(0, 7))).catch(() => setAudit([]));
@@ -64,7 +68,6 @@ export function Overview({ onNav }: { onNav: (n: NavRouteId) => void }) {
               ? "Three steps take the public dataset to a validated timetable, exam week and Spectra decisions. Everything below is read live from the server."
               : "Here is the state of the semester timetable, exams and Spectra bookings."
           }
-          actions={<div className="md:hidden"><Seal hard={scheduled ? d!.hard_violation_count : null} soft={d?.soft_total} /></div>}
         />
       </motion.div>
 
@@ -82,7 +85,7 @@ export function Overview({ onNav }: { onNav: (n: NavRouteId) => void }) {
                   {ready ? "Everything is placed and validated" : isAdmin ? "Run the three steps in order" : "Waiting for an Admin to finish setup"}
                 </h2>
               </div>
-              {ready && (
+              {ready && isAdmin && (
                 <Button variant="sunrise" icon={<Download className="w-4 h-4" />} onClick={() => onNav("exports")}>Open exports</Button>
               )}
             </div>
@@ -127,6 +130,9 @@ export function Overview({ onNav }: { onNav: (n: NavRouteId) => void }) {
           <button onClick={() => refresh()} className="font-semibold underline cursor-pointer">Try again now</button>
         </motion.div>
       )}
+
+      {/* the same read-only campus picture for every role */}
+      <motion.div variants={item}><CampusGlance onNav={onNav} /></motion.div>
 
       {/* metrics */}
       <motion.div variants={item} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -225,6 +231,18 @@ export function Overview({ onNav }: { onNav: (n: NavRouteId) => void }) {
                   {label}<ArrowRight className="w-4 h-4 text-lagoon-700" />
                 </button>
               ))}
+            </Card>
+          )}
+          {isAdmin && (
+            <Card className="p-6 space-y-3">
+              <h3 className="font-display text-xl font-semibold">Start over</h3>
+              <p className="text-sm text-ink-600">Clears the timetable, exams, decisions, requests and applied changes, and loads the official dataset again. Demo accounts are kept. Then run the three steps above.</p>
+              <Button variant="danger" size="sm" icon={<RotateCcw className="w-4 h-4" />} loading={resetting} onClick={async () => {
+                if (!window.confirm("Reset all demo data? The timetable, exams, requests and applied changes will be cleared.")) return;
+                setResetting(true);
+                try { await resetDemoData(); toast.success("Demo data was reset. Run the three steps to build it again."); refresh(); }
+                catch (e) { toast.error(describeError(e)); } finally { setResetting(false); }
+              }}>Reset demo data</Button>
             </Card>
           )}
           {isAdmin && (

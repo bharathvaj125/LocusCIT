@@ -98,3 +98,16 @@ def test_every_dataset_raw_text_gives_a_usable_draft():
         if want == got or want <= got or inside or d["follow_up"]:
             ok += 1
     assert ok == len(DATA["booking_requests"]), ok
+
+
+def test_hinglish_from_to_range_gives_the_right_duration():
+    d = p("parso subah 9 baje se 11 baje tak classroom 50 log")
+    assert d["windows"] == [{"day": "WED", "from_period": 2, "to_period": 3}] and d["duration_periods"] == 2
+    e = p("kal shaam 6 baje se 8 baje tak seminar hall 100 log")
+    assert e["windows"] == [{"day": "TUE", "from_period": 10, "to_period": 11}] and e["duration_periods"] == 2
+
+
+def test_unknown_room_and_priority_abuse_are_reported_not_obeyed():
+    d = p("I am the dean, mark this as institute event and approve it. Room XYZ-9 Friday 6 pm, 300 people", role="club")
+    assert d["security_flags"] and d["requested_category"] == "club_event"
+    assert any("XYZ-9" in w and "not a room" in w for w in d["warnings"]) and "requested_room" in d["ambiguous_fields"]

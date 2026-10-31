@@ -115,34 +115,9 @@ def job(job_id: str):
 
 
 def _scope_denied(user, view, id):
-    role = user["role"]
-    if role == "admin":
-        return None
-    if id is None:
-        return "Choose a specific group, faculty member or room"
-    d = WS.dataset
-    if view == "room":
-        return None
-    if role == "club":
-        return "Club representatives can view room timetables only"
-    if role == "faculty":
-        if view == "faculty" and id == user["faculty_id"]:
-            return None
-        if view == "group" and any(s["faculty_id"] == user["faculty_id"] and id in s["groups"]
-                                   for s in d["sessions"]):
-            return None
-        return "Faculty can view their own timetable and the groups they teach"
-    if role == "department_coordinator":
-        if view == "group":
-            g = next((g for g in d["student_groups"] if g["id"] == id), None)
-            if g and g["department"] in (user["department"], "COMMON"):
-                return None
-        if view == "faculty":
-            f = next((f for f in d["faculty"] if f["id"] == id), None)
-            if f and f["department"] == user["department"]:
-                return None
-        return "Coordinators can view their own department's groups and faculty"
-    return "Not allowed"
+    """Campus timetables are shared, read-only information: every role may look at any group, teacher or room
+    (problem statement: everyone can view campus timetables). Only changing them needs authority."""
+    return None
 
 
 @router.get("/schedules")
@@ -258,9 +233,9 @@ def bookings_list(user=Depends(current_user)):
     reqs = {r["id"]: r for r in WS.dataset["booking_requests"] if _can_see_request(user, r)}
     decisions = {d["request_id"]: d for d in (WS.bookings or {}).get("decisions", [])}
     rows = [{"request": r, "decision": decisions.get(r["id"])} for r in reqs.values()]
-    mine = [s for s in WS.submissions.values()
-            if user["role"] == "admin" or s.get("requester_username") == user["username"]
-            or (user["role"] == "department_coordinator" and s.get("department") == user["department"])]
+    from .api_bookings import _public_sub
+    from .permissions import can_see, view_for
+    mine = [view_for(user, s, _public_sub(s)) for s in WS.submissions.values() if can_see(user, s)]
     return ok({"requests": rows, "submitted": mine, "decided": WS.bookings is not None,
                "session_overrides": (WS.bookings or {}).get("overrides", []), "revision": WS.revision})
 

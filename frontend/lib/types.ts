@@ -343,6 +343,12 @@ export interface Submission {
   title: string;
   status: "PENDING_APPROVAL" | "PENDING_NEGOTIATION" | "APPROVED" | "ALTERNATIVE_OFFERED" | "REJECTED" | "CANCELLED" | "WITHDRAWN" | "NEEDS_REVIEW";
   negotiation_id?: string | null;
+  decided_role?: string | null;
+  routing?: { approver: "admin" | "coordinator_or_admin"; departments: string[]; why: string };
+  can_decide?: boolean;
+  decide_blocked_reason?: string | null;
+  overrides?: Array<{ session_id: string; day: DayOfWeek; start_period: number; room_id: string }>;
+  affected_classes?: Array<{ session_id: string; course_id: string; old: { day: DayOfWeek; start_period: number; room_id: string } | null; new: { day: DayOfWeek; start_period: number; room_id: string } }>;
   manual: boolean;
   placement: { day: DayOfWeek; start_period: number; end_period: number; room_id: string } | null;
   proposed: { status: string; reason: string; effective_category?: string };
@@ -372,6 +378,8 @@ export interface ServerProposal {
   understood?: Record<string, unknown>;
   request_text?: string | null;
   seconds?: number;
+  hard_violation_count?: number;
+  soft_total?: number;
 }
 
 export interface Explanation {

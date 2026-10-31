@@ -2,11 +2,11 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, CalendarPlus, CheckCircle2, HelpCircle, Info, Search, TriangleAlert, XCircle } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUp, CalendarPlus, CheckCircle2, HelpCircle, Info, ListOrdered, RotateCcw, Search, TriangleAlert, XCircle } from "lucide-react";
 import { askedText, cleanReason, placedText } from "@/lib/reason";
 import { BookingRequest, DayOfWeek, Explanation } from "@/lib/types";
 import { useApp } from "@/lib/appContext";
-import { ApiError, VenueBoard, describeError, explainBooking, fetchBookings, fetchVenueBoard, scheduleManualEvent } from "@/lib/api";
+import { ApiError, PriorityOrder, VenueBoard, describeError, explainBooking, fetchBookings, fetchPriorityOrder, fetchVenueBoard, savePriorityOrder, scheduleManualEvent } from "@/lib/api";
 import { CATEGORY_LABEL, CATEGORY_TONE, DAY_LABEL, TONES } from "@/lib/dept";
 import { PERIOD_CLOCK, periodRange } from "@/lib/uiConfig";
 import { Button, Card, Chip, Drawer, EmptyState, Eyebrow, PageTitle, Skeleton, Tabs } from "@/components/ui/primitives";
@@ -26,17 +26,22 @@ export function SpectraBoard() {
   const { user, revision } = useApp();
   const [tab, setTab] = useState<"decisions" | "board">("decisions");
   const [manual, setManual] = useState(false);
+  const [priority, setPriority] = useState(false);
   return (
     <div className="space-y-6">
       <PageTitle
         eyebrow="Venues and Spectra, Week 7"
         title={<>Who gets which room, <span className="italic font-medium text-lagoon-700">and why</span></>}
         subtitle="Requests are decided by priority: institute events, then guest lectures, department events and clubs. A role can never claim a higher category than it holds."
-        actions={<Button variant="secondary" icon={<CalendarPlus className="w-4 h-4" />} onClick={() => setManual(true)}>Schedule an event</Button>}
+        actions={<div className="flex flex-wrap gap-2">
+          {user.role === "admin" && <Button variant="ghost" icon={<ListOrdered className="w-4 h-4" />} onClick={() => setPriority(true)}>Priority order</Button>}
+          <Button variant="secondary" icon={<CalendarPlus className="w-4 h-4" />} onClick={() => setManual(true)}>{user.role === "admin" ? "Schedule an event" : "Request an event"}</Button>
+        </div>}
       />
       <Tabs id="spectra" value={tab} onChange={setTab} items={[{ id: "decisions", label: <>Decisions</> }, { id: "board", label: <>Venue board</> }]} />
       {tab === "decisions" ? <Decisions key={revision} /> : <Board key={revision} />}
-      <ManualDrawer open={manual} onClose={() => setManual(false)} canAutoBook={user.role === "admin" || user.role === "department_coordinator"} />
+      <ManualDrawer open={manual} onClose={() => setManual(false)} canAutoBook={user.role === "admin"} />
+      {user.role === "admin" && <PriorityDrawer open={priority} onClose={() => setPriority(false)} />}
     </div>
   );
 }
@@ -275,7 +280,9 @@ function ManualDrawer({ open, onClose, canAutoBook }: { open: boolean; onClose: 
         title: f.title || "Campus event", room_id: f.room, day: f.day, start_period: f.start, end_period: f.start + f.duration - 1,
         attendance: f.attendance, needs, mandatory_for_groups: f.groups.split(/[ ,]+/).map((g) => g.trim().toUpperCase()).filter(Boolean), requested_category: f.category,
       });
-      toast.success(s.status === "APPROVED" ? `${s.id} is booked in ${f.room}.` : `${s.id} passed every rule and is waiting for an approver.`);
+      toast.success(s.status === "APPROVED" ? `${s.id} is booked in ${f.room}.`
+        : s.overrides && s.overrides.length ? `${s.id} would move ${s.overrides.length} class(es) in Week 7, so a second Admin has to approve it. Nothing has moved yet.`
+        : `${s.id} passed every rule. It is pending until an approver decides; nothing is booked yet.`);
       refresh(); onClose();
     } catch (err) {
       setProblem({ text: describeError(err), rules: err instanceof ApiError ? err.ruleIds : [] });
@@ -285,7 +292,7 @@ function ManualDrawer({ open, onClose, canAutoBook }: { open: boolean; onClose: 
   const input = "w-full h-10 px-3 rounded-xl bg-paper border border-line text-sm";
   return (
     <Drawer open={open} onClose={onClose} eyebrow="Manual scheduling" title="Schedule an event" width={500}
-      footer={<div className="flex items-center justify-between gap-3"><span className="text-xs text-ink-600">{canAutoBook ? "A valid event is booked immediately." : "A valid event goes to an approver."}</span><Button type="submit" form="manual-form" loading={busy}>Check rules and schedule</Button></div>}>
+      footer={<div className="flex items-center justify-between gap-3"><span className="text-xs text-ink-600">{canAutoBook ? "A valid event is booked at once. One that would move classes needs a second Admin." : "A valid request goes to an approver; it is pending until then."}</span><Button type="submit" form="manual-form" loading={busy}>Check rules and schedule</Button></div>}>
       <form id="manual-form" onSubmit={submit} className="space-y-4">
         <label className="block"><span className="text-xs font-semibold text-ink-600">Title</span><input required value={f.title} onChange={(e) => set("title", e.target.value)} className={input} placeholder="e.g. Robotics workshop" /></label>
         <div className="grid grid-cols-2 gap-3">
@@ -314,6 +321,55 @@ function ManualDrawer({ open, onClose, canAutoBook }: { open: boolean; onClose: 
           </div>
         )}
       </form>
+    </Drawer>
+  );
+}
+
+/* ------------------------------------------------------------ priority order (Admin) */
+const CAT_NAME: Record<string, string> = { exam: "Exams", regular_session: "Regular classes", ...CATEGORY_LABEL };
+
+function PriorityDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { refresh } = useApp();
+  const toast = useToast();
+  const [po, setPo] = useState<PriorityOrder | null>(null);
+  const [order, setOrder] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    fetchPriorityOrder().then((p) => { setPo(p); setOrder(p.order); setError(null); }).catch((e) => setError(describeError(e)));
+  }, [open]);
+
+  const move = (i: number, d: -1 | 1) => setOrder((o) => { const n = [...o]; const j = i + d; if (j < 2 || j >= n.length || i < 2) return o; [n[i], n[j]] = [n[j], n[i]]; return n; });
+  const save = async (body: { order?: string[]; reset?: boolean }) => {
+    setBusy(true); setError(null);
+    try { const r = await savePriorityOrder(body); setPo({ ...(po as PriorityOrder), ...r }); setOrder(r.order); toast.success(r.changed ? "Priority order saved. Spectra decisions were checked again." : "Official priority order restored."); refresh(); }
+    catch (e) { setError(describeError(e)); } finally { setBusy(false); }
+  };
+  const dirty = po ? order.join() !== po.order.join() : false;
+
+  return (
+    <Drawer open={open} onClose={onClose} eyebrow="Admin only" title="Priority order" width={460}
+      footer={<div className="flex items-center justify-between gap-3">
+        <Button variant="ghost" icon={<RotateCcw className="w-4 h-4" />} disabled={busy || !po?.changed} onClick={() => save({ reset: true })}>Restore official order</Button>
+        <Button loading={busy} disabled={!dirty} onClick={() => save({ order })}>Save order</Button></div>}>
+      <p className="text-sm text-ink-600">When two requests want the same room at the same time, the higher one wins. Exams and regular classes always come first; you can reorder the rest.</p>
+      {error && <p className="text-sm text-sunrise-600 bg-sunrise-50 rounded-xl px-3 py-2" role="alert">{error}</p>}
+      <ol className="space-y-2 mt-3">
+        {order.map((c, i) => (
+          <li key={c} className={cn("flex items-center gap-3 rounded-xl border px-3 py-2.5", i < 2 ? "bg-sunk border-line" : "bg-raised border-line-strong")}>
+            <span className="font-mono text-xs w-5 text-ink-400">{i + 1}</span>
+            <span className="flex-1 text-sm font-semibold">{CAT_NAME[c] || c}</span>
+            {i < 2 ? <span className="text-xs text-ink-400">fixed</span> : (
+              <span className="flex gap-1">
+                <button aria-label={`Move ${CAT_NAME[c] || c} up`} disabled={i === 2} onClick={() => move(i, -1)} className="p-1.5 rounded-lg hover:bg-lagoon-50 disabled:opacity-30 cursor-pointer"><ArrowUp className="w-4 h-4" /></button>
+                <button aria-label={`Move ${CAT_NAME[c] || c} down`} disabled={i === order.length - 1} onClick={() => move(i, 1)} className="p-1.5 rounded-lg hover:bg-lagoon-50 disabled:opacity-30 cursor-pointer"><ArrowDown className="w-4 h-4" /></button>
+              </span>
+            )}
+          </li>
+        ))}
+      </ol>
+      {po?.changed && <p className="text-xs text-saffron-600 bg-saffron-50 rounded-xl px-3 py-2 mt-3">This differs from the official order. The judges' validator reads the order from the dataset, so restore the official order before exporting <span className="font-mono">schedule.json</span>.</p>}
     </Drawer>
   );
 }

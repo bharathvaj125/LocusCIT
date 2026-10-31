@@ -579,3 +579,39 @@ export interface VenueBoard {
 export async function fetchVenueBoard(): Promise<VenueBoard> {
   return request("/api/venue-board");
 }
+
+// ------------------------------------------------------------------------------------------ shared campus view
+export interface CampusEvent { id: string; title: string; requester: string; category: string; room_id: string; day: DayOfWeek; start: number; end: number; source: string }
+export interface CampusOverview {
+  timetable_ready: boolean; priority_order: string[]; days: DayOfWeek[];
+  stats: { sessions_scheduled: number; sessions_total: number; rooms: number; event_rooms: number; exams_scheduled: number; exams_total: number; approved_events: number; student_groups: number; faculty: number };
+  events_per_day: Record<string, number>; approved_events: CampusEvent[];
+}
+export interface RoomAvailability { id: string; name: string; type: string; capacity: number; features: string[]; accessible: boolean; free: boolean; held_by: string[] }
+
+export async function fetchCampusOverview(): Promise<CampusOverview> {
+  return request("/api/campus/overview");
+}
+export async function fetchAvailability(day: string, start: number, end: number, minCapacity = 0): Promise<{ day: string; start: number; end: number; free: number; rooms: RoomAvailability[] }> {
+  return request(`/api/campus/availability?day=${encodeURIComponent(day)}&start=${start}&end=${end}&min_capacity=${minCapacity}`);
+}
+
+// ------------------------------------------------------------------------------------------ priority order (Admin)
+export interface PriorityOrder { order: string[]; official_order: string[]; changed: boolean; fixed_top?: string[]; note?: string }
+export async function fetchPriorityOrder(): Promise<PriorityOrder> {
+  return request("/api/admin/priority-order");
+}
+export async function savePriorityOrder(body: { order?: string[]; reset?: boolean }): Promise<PriorityOrder> {
+  return request("/api/admin/priority-order", { method: "PUT", body });
+}
+
+// ------------------------------------------------------------------------------------------ validator report for the exports
+export interface ValidatorBrief {
+  hard_violation_count: number; hard_by_rule: Record<string, number>; hard_violations: Array<{ rule: string; detail: string }>;
+  soft_total: number; soft_penalties: Record<string, number>; exam_soft_penalty?: number | null; sessions: number;
+  bookings: { score: number; max: number; approved: number; alternatives: number; rejected: number; priority_inversions: number; inversions: string[] } | null;
+  stability: { sessions_moved: number; time_changed: number; room_only_changed: number } | null;
+}
+export async function fetchExportReport(): Promise<{ schedule: ValidatorBrief | null; schedule_after: ValidatorBrief | null; applied_disruptions: number }> {
+  return request("/api/exports/report", { timeoutMs: 120000 });
+}

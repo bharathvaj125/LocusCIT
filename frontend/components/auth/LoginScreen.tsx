@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, Loader2, ShieldCheck } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import { describeError, health, login } from "@/lib/api";
 import { StoredSession } from "@/lib/session";
 import { DEMO_ACCOUNTS } from "@/lib/uiConfig";
@@ -29,10 +29,6 @@ function Art() {
             transition={{ duration: 9, times: [0, 0.12, 0.5, 0.9, 1], delay: i * 0.18, repeat: Infinity, repeatDelay: 0.4, ease: "easeOut" }} />
         ))}
       </div>
-      <motion.div className="absolute -top-3 -right-3 flex items-center gap-2 rounded-full bg-mangrove-50 text-mangrove-600 px-3 py-1.5 text-[12px] font-semibold shadow-pop"
-        animate={{ y: [0, -5, 0] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}>
-        <ShieldCheck className="w-4 h-4" />0 hard violations
-      </motion.div>
     </div>
   );
 }

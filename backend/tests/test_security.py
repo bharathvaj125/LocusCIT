@@ -30,16 +30,17 @@ def test_role_cannot_be_elevated_by_the_client(client, club):
     assert r.status_code == 403
 
 
-def test_scoped_views(client, admin, faculty, coordinator, club):
+def test_campus_timetables_are_readable_by_every_role_but_not_editable(client, admin, faculty, coordinator, club):
     me = client.get("/api/auth/me", headers=faculty).json()["data"]
     assert me["role"] == "faculty" and me["faculty_id"] == "F06"
-    assert client.get("/api/schedules?view=faculty&id=F06", headers=faculty).status_code != 403
-    assert client.get("/api/schedules?view=faculty&id=F07", headers=faculty).status_code == 403
-    assert client.get("/api/schedules?view=group&id=Y1-A", headers=club).status_code == 403
-    assert client.get("/api/schedules?view=room&id=AUD", headers=club).status_code != 403
-    assert client.get("/api/schedules?view=faculty&id=F40", headers=coordinator).status_code == 403
-    assert client.get("/api/schedules?view=group&id=Y1-A", headers=coordinator).status_code != 403
-    assert client.get("/api/schedules", headers=faculty).status_code == 403
+    # read-only campus timetables: any group, teacher or room is open to every role (problem statement section 4)
+    for who in (faculty, coordinator, club):
+        for url in ("/api/schedules?view=faculty&id=F06", "/api/schedules?view=faculty&id=F07",
+                    "/api/schedules?view=group&id=Y1-A", "/api/schedules?view=room&id=AUD", "/api/schedules"):
+            assert client.get(url, headers=who).status_code != 403, url
+    # ... but changing anything is still Admin only
+    for who in (faculty, coordinator, club):
+        assert client.post("/api/schedules/generate?time_limit=0", headers=who).status_code == 403
 
 
 def test_bookings_are_role_scoped(client, admin, club):

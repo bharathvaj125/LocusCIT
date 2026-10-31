@@ -65,7 +65,7 @@ function BookingTab({ initialText, onConsumedInitialText }: Props) {
   const parse = async (t0?: string) => {
     const t = (t0 ?? text).trim();
     if (!t) return;
-    setParsing(true); setError(null); setResult(null); setSubmitError(null); setShowProblems(false); setByHand(false);
+    setParsing(true); setError(null); setResult(null); setSubmitError(null); setShowProblems(true); setByHand(false);
     try { setDraft(await parseBooking(t)); } catch (e) { setError(describeError(e)); } finally { setParsing(false); }
   };
   useEffect(() => {
@@ -74,8 +74,8 @@ function BookingTab({ initialText, onConsumedInitialText }: Props) {
   }, [initialText]);
 
   const amb = (f: string) => (draft?.ambiguous_fields.includes(f) ? "!border-saffron-500 ring-2 ring-saffron-500/25" : "");
-  const set = <K extends keyof ServerDraft>(k: K, v: ServerDraft[K]) => { setSug(null); if (draft) setDraft({ ...draft, [k]: v }); };
-  const setWin = (i: number, w: Partial<Window>) => { setSug(null); if (draft) setDraft({ ...draft, windows: draft.windows.map((x, j) => (j === i ? { ...x, ...w } : x)) }); };
+  const set = <K extends keyof ServerDraft>(k: K, v: ServerDraft[K]) => { setSug(null); setShowProblems(true); if (draft) setDraft({ ...draft, [k]: v }); };
+  const setWin = (i: number, w: Partial<Window>) => { setSug(null); setShowProblems(true); if (draft) setDraft({ ...draft, windows: draft.windows.map((x, j) => (j === i ? { ...x, ...w } : x)) }); };
   const startBlank = () => { setError(null); setResult(null); setSug(null); setSubmitError(null); setShowProblems(false); setByHand(true); setDraft(blankDraft()); };
 
   // everything that would stop this draft from being submitted, in plain words (checked before anything is sent)
@@ -205,12 +205,13 @@ function BookingTab({ initialText, onConsumedInitialText }: Props) {
               {sug && (
                 <div className={cn("rounded-xl border p-4 space-y-2", sug.options.some((o) => o.kind === "inside_window") ? "border-mangrove-500/40 bg-mangrove-50" : "border-saffron-500/40 bg-saffron-50")} role="status">
                   <p className="text-sm font-semibold text-ink-900">{sug.message}</p>
+                  {sug.options.length > 0 && <p className="text-xs text-ink-600">Rooms marked "fits your window" can be approved as asked; "alternative only" means a different time than you asked for.</p>}
                   {sug.options.length === 0 && <p className="text-sm text-ink-600">{sug.reason}</p>}
                   <div className="flex flex-wrap gap-2">{sug.options.map((o) => (
                     <span key={`${o.room_id}${o.day}${o.start_period}`} className={cn("inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm bg-raised border", o.kind === "inside_window" ? "border-mangrove-500/50" : "border-saffron-500/50")}>
                       <strong>{o.room_id}</strong> {o.day} {periodRange(o.start_period, o.end_period)}<span className="text-xs text-ink-400">{o.kind === "inside_window" ? "fits your window" : "alternative only"}</span>
                     </span>))}</div>
-                  <p className="text-xs text-ink-400">Free right now. Nothing is reserved until you submit and an approver decides.</p>
+                  <p className="text-xs text-ink-400">These rooms are free right now for the times you chose. Checking only looks; nothing is sent or reserved until you submit and an approver decides.</p>
                 </div>
               )}
 
@@ -229,7 +230,7 @@ function BookingTab({ initialText, onConsumedInitialText }: Props) {
 
               {showProblems && problems.length > 0 && (
                 <div className="rounded-xl bg-sunrise-50 text-sunrise-600 px-4 py-3 text-sm space-y-1" role="alert">
-                  <p className="font-semibold flex items-center gap-1.5"><TriangleAlert className="w-4 h-4" />Not submitted. Fix {problems.length === 1 ? "this" : "these"} first:</p>
+                  <p className="font-semibold flex items-center gap-1.5"><TriangleAlert className="w-4 h-4" />This cannot be submitted yet:</p>
                   {problems.map((p, i) => <p key={i}>• {p}</p>)}
                 </div>
               )}
@@ -241,8 +242,8 @@ function BookingTab({ initialText, onConsumedInitialText }: Props) {
               )}
 
               <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-line">
-                <p className="text-sm text-ink-600">{problems.length ? <span className="text-saffron-600 font-semibold">{problems.length} thing{problems.length === 1 ? "" : "s"} to fix before it can be submitted</span> : <>Counts as <strong className="text-ink-900">{CATEGORY_LABEL[draft.effective_category || draft.requested_category] || draft.requested_category}</strong>{draft.effective_category ? "" : " (at most your role's highest category)"}</>}</p>
-                <div className="flex gap-2"><Button variant="ghost" onClick={() => { setDraft(null); setResult(null); setSug(null); setSubmitError(null); setShowProblems(false); }}>Discard</Button><Button variant="secondary" loading={checking} onClick={check}>See what fits</Button><Button icon={<Send className="w-4 h-4" />} loading={submitting} onClick={submit}>Check the rules and submit</Button></div>
+                <p className="text-sm text-ink-600">{problems.length ? <span className="text-sunrise-600 font-semibold">{problems[0]}</span> : <>Counts as <strong className="text-ink-900">{CATEGORY_LABEL[draft.effective_category || draft.requested_category] || draft.requested_category}</strong>{draft.effective_category ? "" : " (at most your role's highest category)"}</>}</p>
+                <div className="flex gap-2"><Button variant="ghost" onClick={() => { setDraft(null); setResult(null); setSug(null); setSubmitError(null); setShowProblems(false); }}>Discard</Button><Button variant="secondary" loading={checking} onClick={check} title="Shows which rooms are free in the times you chose. Nothing is sent or reserved.">Check availability</Button><Button icon={<Send className="w-4 h-4" />} loading={submitting} onClick={submit}>Check the rules and submit</Button></div>
               </div>
             </Card>
           </motion.div>
@@ -257,7 +258,7 @@ function Pill({ on, onClick, children }: { on: boolean; onClick: () => void; chi
 }
 
 function ChangeTab() {
-  const { ref, refresh } = useApp();
+  const { ref, user, refresh } = useApp();
   const [mine, setMine] = useState<Awaited<ReturnType<typeof fetchMySessions>>>([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -273,10 +274,14 @@ function ChangeTab() {
     return [`Please move my ${lec?.course_id ?? "CS201"} lecture off ${day}`, "I am on leave every Friday", "Shift my tutorial to Thursday afternoon"];
   }, [mine]);
 
-  const send = async () => {
+  const [offDays, setOffDays] = useState<string[]>([]);
+  const [offWhy, setOffWhy] = useState("");
+  const markOff = () => send({ kind: "unavailable", days: offDays, reason: offWhy || undefined });
+
+  const send = async (body?: Record<string, unknown>) => {
     setBusy(true); setError(null); setQuestion(null); setProposal(null);
     try {
-      const r = await facultyChangeRequest({ text });
+      const r = await facultyChangeRequest(body ?? { text });
       setFlags(r.security_flags || []);
       if (r.status === "NEEDS_INFO") setQuestion(r.question);
       else { await pollUntil(() => fetchFacultyRequest(r.proposal_id), setProposal, ["COMPUTING"], 2500); refresh(); }
@@ -289,11 +294,23 @@ function ChangeTab() {
       <Card className="p-5 space-y-4">
         <div className="flex flex-wrap gap-2">{examples.map((e) => <button key={e} onClick={() => setText(e)} className="px-3 py-1.5 rounded-full border border-line bg-paper hover:border-saffron-500 text-[13px] font-semibold text-ink-600 cursor-pointer">{e}</button>)}</div>
         <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} aria-label="Change request" placeholder="Move my CS201 lecture off Monday morning" className="w-full p-3 rounded-xl bg-paper border border-line text-[15px] focus:border-lagoon-500 outline-none" />
-        <div className="flex justify-end"><Button icon={<Send className="w-4 h-4" />} loading={busy} disabled={!text.trim()} onClick={send}>Ask for the change</Button></div>
+        <div className="flex justify-end"><Button icon={<Send className="w-4 h-4" />} loading={busy} disabled={!text.trim()} onClick={() => send()}>Ask for the change</Button></div>
         {flags.length > 0 && <p className="text-sm text-sunrise-600">Ignored instructions in the text: {flags.map((f) => `"${f}"`).join(", ")}. An Admin still has to approve.</p>}
         {question && <div className="rounded-xl bg-saffron-50 text-saffron-600 px-4 py-3 text-sm flex gap-2"><CircleHelp className="w-4 h-4 mt-0.5 shrink-0" />{question}</div>}
         {error && <p className="text-sm text-sunrise-600 bg-sunrise-50 rounded-xl px-4 py-3" role="alert">{error}</p>}
       </Card>
+      {user.role === "faculty" && (
+        <Card className="p-5 space-y-3">
+          <div><h3 className="font-display text-xl font-semibold">Mark myself unavailable</h3><p className="text-sm text-ink-600">Pick the days you cannot teach. We look for a valid timetable that moves as few of your classes as possible; an Admin approves it before anything changes.</p></div>
+          <div className="flex flex-wrap gap-2">
+            {(ref?.calendar.days || []).map((d) => <Pill key={d} on={offDays.includes(d)} onClick={() => setOffDays(offDays.includes(d) ? offDays.filter((x) => x !== d) : [...offDays, d])}>{d}</Pill>)}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <input value={offWhy} onChange={(e) => setOffWhy(e.target.value)} placeholder="Reason (optional), for example conference" aria-label="Reason" className="flex-1 min-w-[220px] h-10 px-3 rounded-xl bg-paper border border-line text-sm" />
+            <Button variant="secondary" loading={busy} disabled={offDays.length === 0} onClick={markOff}>Mark unavailable</Button>
+          </div>
+        </Card>
+      )}
       {proposal && (
         <Card className="p-5 space-y-2">
           <div className="flex items-center gap-2"><span className="font-semibold font-mono text-sm">{proposal.proposal_id}</span><Chip tone={proposal.status === "PENDING" ? "mangrove" : "sunrise"} dot>{proposal.status}</Chip></div>

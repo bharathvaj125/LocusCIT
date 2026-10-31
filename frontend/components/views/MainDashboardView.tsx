@@ -47,17 +47,8 @@ export function MainDashboardView({ initialNav = "overview" }: { initialNav?: Na
 
 function allowedEntities(ref: ReferenceData | null, user: SessionUser): TimetableEntities {
   if (!ref) return { group: [], faculty: [], room: [] };
-  if (user.role === "admin") return { group: ref.student_groups, faculty: ref.faculty, room: ref.rooms };
-  if (user.role === "club") return { group: [], faculty: [], room: ref.rooms };
-  if (user.role === "faculty") {
-    const taught = new Set(ref.sessions.filter((s) => s.faculty_id === user.faculty_id).flatMap((s) => s.groups));
-    return { group: ref.student_groups.filter((g) => taught.has(g.id)), faculty: ref.faculty.filter((f) => f.id === user.faculty_id), room: ref.rooms };
-  }
-  return {
-    group: ref.student_groups.filter((g) => g.department === user.department || g.department === "COMMON"),
-    faculty: ref.faculty.filter((f) => f.department === user.department),
-    room: ref.rooms,
-  };
+  // campus timetables are shared, read-only information: every role can open any group, teacher or room
+  return { group: ref.student_groups, faculty: ref.faculty, room: ref.rooms };
 }
 
 function Workspace({ initialNav, onSession, onSignOut }: { initialNav: NavRouteId; onSession: (s: StoredSession) => void; onSignOut: () => void }) {
@@ -94,7 +85,9 @@ function Workspace({ initialNav, onSession, onSignOut }: { initialNav: NavRouteI
     const list = entities[pivot] as Array<{ id: string }>;
     if (!list.length) return;
     if (!list.some((e) => e.id === selectedId)) {
-      const pref = pivot === "group" ? "Y1-A" : pivot === "room" ? (user.role === "club" ? "AUD" : "LH-1") : "";
+      const own = pivot === "faculty" ? user.faculty_id || "" : pivot === "group" && user.role === "department_coordinator"
+        ? (ref?.student_groups.find((g) => g.department === user.department)?.id || "") : "";
+      const pref = own || (pivot === "group" ? "Y1-A" : pivot === "room" ? (user.role === "club" ? "AUD" : "LH-1") : "");
       setSelectedId(list.some((e) => e.id === pref) ? pref : list[0].id);
     }
   }, [entities, pivot, selectedId, user.role]);
@@ -164,7 +157,7 @@ function Workspace({ initialNav, onSession, onSignOut }: { initialNav: NavRouteI
             {nav === "exams" && <ExamsBoard />}
             {nav === "spectra_clash" && <SpectraBoard />}
             {nav === "approvals" && <ApprovalsDeck onOpenChanges={() => go("disruptions")} />}
-            {nav === "disruptions" && <DisruptionDeck />}
+            {nav === "disruptions" && <DisruptionDeck onOpenExports={() => go("exports")} />}
             {nav === "ai_booking" && <AiBookingAssistant initialText={assistantText} onConsumedInitialText={() => setAssistantText(null)} />}
             {nav === "exports" && <ExportsDeck />}
           </>

@@ -11,7 +11,7 @@ TEAM = "LocusCIT"
 WS_ID = "demo-1"
 
 _PERSIST = ("revision", "dataset", "schedule", "schedule_meta", "bookings", "exams", "schedule_version",
-            "baseline", "proposals", "applied", "submissions", "negotiations", "manual_events", "baseline_export", "baseline_dataset")
+            "baseline", "proposals", "applied", "submissions", "negotiations", "app_overrides", "manual_events", "baseline_export", "baseline_dataset")
 
 
 def _tup(d):
@@ -38,6 +38,7 @@ class Workspace:
         self.proposals = {}
         self.applied = []
         self.submissions = {}           # booking requests submitted through the app
+        self.app_overrides = []         # Week 7 class moves caused by approved app bookings (never part of the export)
         self.negotiations = {}          # voluntary move offers between two app bookings (not part of the export)
         self.manual_events = {}
 
