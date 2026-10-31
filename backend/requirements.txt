@@ -1,0 +1,11 @@
+ortools
+fastapi
+uvicorn[standard]
+pydantic
+sqlalchemy
+psycopg[binary]
+pyjwt
+bcrypt
+python-multipart
+pytest
+httpx
