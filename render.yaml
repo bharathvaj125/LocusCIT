@@ -1,0 +1,22 @@
+# Optional Render blueprint (a plain "New > Web Service" works too: see docs/DEPLOY.md).
+services:
+  - type: web
+    name: locuscit-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        sync: false
+      - key: AI_ENABLED
+        value: "false"
+      - key: SOLVER_WORKERS
+        value: "1"
+      - key: OPTIMISE_SECONDS
+        value: "300"

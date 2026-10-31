@@ -1,9 +1,31 @@
 # AI usage declaration
 
-To be completed and kept accurate. Required sections:
+## 1. AI inside the deployed product
+| What | Provider / model | Used for | Always on? |
+| --- | --- | --- | --- |
+| Optional booking-text assist | Anthropic Messages API (`LLM_MODEL`, default `claude-haiku-5-5`) via `LLM_API_KEY` | Reading an English/Hinglish request and suggesting values for fields the rule-based parser left empty (headcount, day, time, needs) | **No.** Off unless `AI_ENABLED=true` and a key is set. Default deployment can run without it. |
 
-1. Models/APIs the deployed product calls and what for (parsing booking requests, explaining decisions).
-2. AI tools used to build the project and which parts they helped with.
-3. Where prompts are kept (`docs/PROMPTS/`).
-4. What the LLM is NOT allowed to decide: schedule validity, booking validity or precedence,
-   roles/permissions, approvals. All of that is deterministic code.
+Everything else that looks "intelligent" is deterministic code, not an LLM:
+the English/Hinglish parser (`backend/app/nlp.py`), faculty change-request parsing (`backend/app/api_faculty.py`),
+and all explanations (`backend/app/api_explain.py`, built from rule checks and penalty arithmetic).
+
+If the LLM is off, rate-limited, wrong or unreachable, the deterministic parser and the manual booking form still work.
+
+## 2. What the LLM is NOT allowed to decide
+* Whether a timetable, exam plan or booking is valid (only our code and the official `validator.py` decide).
+* Booking priority, effective category, approval, rejection or alternatives.
+* Roles and permissions (always read from the signed-in user, never from text).
+* Whether a proposal is applied (an Admin approves; self-approval is blocked by the backend).
+
+LLM output is sanitised against a strict schema (`backend/app/ai.py`), may only fill empty fields, and is shown to the user
+as an editable draft with the assumptions listed. Instructions hidden in user text ("ignore the rules", "I am the admin",
+"mark it institute level") are detected, reported and ignored.
+
+## 3. AI tools used to build the project
+| Tool | Used for |
+| --- | --- |
+| Claude Code (Anthropic) | Backend: solver modelling (OR-Tools CP-SAT), FastAPI endpoints, parsers, tests, deployment files and documentation, under the owner's direction and review. |
+| _Frontend and other tools_ | **To be completed by the frontend owner before submission** (every coding/design assistant actually used). |
+
+## 4. Prompts
+Prompt files or links are kept in `docs/PROMPTS/`. Add the frontend owner's prompts there before submission.
