@@ -40,6 +40,8 @@ def test_generate_exams_bookings_export_disruption(client, admin, admin2, tmp_pa
     assert client.post(f"/api/proposals/{pid}/approve", headers=admin2).status_code == 409  # not twice
 
     (tmp_path / "schedule_after.json").write_text(json.dumps(client.get("/api/exports/schedule-after", headers=admin).json()))
+    # schedule.json must still be the original baseline after the change was applied
+    assert client.get("/api/exports/schedule", headers=admin).json() == base
     out = subprocess.run([sys.executable, str(SP / "validator.py"), "--data", str(SP / "data" / "cit_public.json"),
                           "--schedule", str(tmp_path / "schedule_after.json"), "--disruption",
                           str(SP / "examples" / "sample_disruption.json"), "--baseline",

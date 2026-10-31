@@ -25,6 +25,9 @@ Optional header `If-Match: <revision>` on writes: a stale value returns 409 `STA
 | `POST /auth/login`, `GET /auth/me` | public / any | token, role, faculty_id, department, org |
 | `GET /dashboard` | any | counts, hard and soft totals, exam coverage, booking score, pending approvals, utilisation (role-scoped) |
 | `GET /rooms` | any | rooms with features and utilisation |
+| `GET /reference` | any | names and attributes from the active dataset: rooms, faculty, groups, courses, sessions, calendar |
+| `GET /examples/sample-disruption` | admin | the starter pack's practice change file |
+| `GET /audit` | admin | latest audit events (logins, generations, approvals, resets) |
 | `GET /schedules?view=group` or `faculty` or `room`, `&id=` | any (scoped) | admin: all; coordinator: own department; faculty: own timetable and groups they teach; club: rooms only |
 | `POST /schedules/generate?time_limit=` | admin | background job |
 | `GET /jobs/{id}` | admin | |

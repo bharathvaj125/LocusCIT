@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
-import { ScheduledSession, Room, Faculty, StudentGroup } from "@/lib/types";
+import React, { useEffect, useState } from "react";
+import { Explanation, ScheduledSession } from "@/lib/types";
+import { describeError, explainSession } from "@/lib/api";
 import { TactileButton } from "@/components/tactile/TactileButton";
 import { 
   X, 
@@ -21,18 +22,26 @@ import {
 interface SessionInspectModalProps {
   session: ScheduledSession | null;
   onClose: () => void;
-  room?: Room;
-  faculty?: Faculty;
-  groupObjects?: StudentGroup[];
 }
 
-export function SessionInspectModal({
-  session,
-  onClose,
-  room,
-  faculty,
-  groupObjects = [],
-}: SessionInspectModalProps) {
+export function SessionInspectModal({ session, onClose }: SessionInspectModalProps) {
+  const [why, setWhy] = useState<Explanation | null>(null);
+  const [whyError, setWhyError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setWhy(null);
+    setWhyError(null);
+    if (!session) return;
+    explainSession(session.id).then(setWhy).catch((e) => setWhyError(describeError(e)));
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [session, onClose]);
+
   if (!session) return null;
 
   const utilPercent = Math.round(session.capacity_ratio * 100);
@@ -227,6 +236,38 @@ export function SessionInspectModal({
             </div>
           </div>
 
+          {/* Why is it here? Facts computed by the backend from the rules and penalties */}
+          <div className="p-3 bg-[#12161C] border border-cyan-500/30 rounded-[3px] space-y-1.5">
+            <span className="font-mono text-xs uppercase font-bold text-cyan-300 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400" /> Why is it scheduled here?
+            </span>
+            {!why && !whyError && <p className="font-mono text-[11px] text-neutral-400">Working it out from the rules...</p>}
+            {whyError && <p className="font-mono text-[11px] text-rose-300">{whyError}</p>}
+            {why && (
+              <>
+                {why.explanation.map((line, i) => (
+                  <p key={i} className="font-mono text-[11px] text-neutral-200">{line}</p>
+                ))}
+                {Array.isArray(why.best_alternatives) && (why.best_alternatives as Array<{ slot: string; soft_change: number; because: string[] }>).length > 0 && (
+                  <div className="pt-1 space-y-0.5">
+                    <span className="font-mono text-[10px] uppercase text-neutral-400">Best legal alternatives if moved alone:</span>
+                    {(why.best_alternatives as Array<{ slot: string; soft_change: number; because: string[] }>).map((a) => (
+                      <p key={a.slot} className="font-mono text-[10px] text-neutral-400">
+                        {a.slot}: penalty {a.soft_change >= 0 ? "+" : ""}{a.soft_change}{a.because.length ? ` (${a.because.join(", ")})` : ""}
+                      </p>
+                    ))}
+                  </div>
+                )}
+                {why.slots_blocked_by && Object.keys(why.slots_blocked_by as object).length > 0 && (
+                  <p className="font-mono text-[10px] text-neutral-500">
+                    Other slots ruled out by: {Object.entries(why.slots_blocked_by as Record<string, number>)
+                      .map(([k, v]) => `${k} x${v}`).join("; ")}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+
           {/* Hard Constraints & Rules Audit Checklist */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -235,7 +276,7 @@ export function SessionInspectModal({
                 Hard Constraint Compliance (H1-H14)
               </span>
               <span className="font-mono text-[10px] px-2 py-0.5 bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 rounded-[2px]">
-                ALL RULES VERIFIED PASS
+                VALIDATOR-CHECKED ON SAVE
               </span>
             </div>
 
@@ -266,7 +307,7 @@ export function SessionInspectModal({
         {/* Modal Footer */}
         <div className="flex items-center justify-between px-4 py-2.5 bg-[#161B22] border-t border-white/10">
           <span className="font-mono text-[10px] text-neutral-400">
-            CIT Solver CP-SAT Verifier // Revision #1
+            Timetable is saved only after the official validator reports 0 hard violations
           </span>
           <TactileButton size="sm" variant="default" onClick={onClose}>
             DISMISS INSPECTOR

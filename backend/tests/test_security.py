@@ -72,3 +72,16 @@ def test_state_survives_restart(client, admin):
     fresh = Workspace()
     assert fresh.load() and fresh.revision == WS.revision
     assert fresh.dataset["dataset_id"] == WS.dataset["dataset_id"]
+
+
+def test_reference_sample_and_audit(client, admin, club):
+    r = client.get("/api/reference", headers=club).json()["data"]
+    assert len(r["rooms"]) == 27 and len(r["faculty"]) == 40 and len(r["sessions"]) == 189
+    assert all("name" in f for f in r["faculty"])
+    assert client.get("/api/reference").status_code == 401
+    s = client.get("/api/examples/sample-disruption", headers=admin).json()["data"]
+    assert s["changes"] and s["changes"][0]["type"] == "faculty_unavailable"
+    assert client.get("/api/examples/sample-disruption", headers=club).status_code == 403
+    ev = client.get("/api/audit", headers=admin).json()["data"]["events"]
+    assert ev and {"at", "actor", "action"} <= set(ev[0])
+    assert client.get("/api/audit", headers=club).status_code == 403

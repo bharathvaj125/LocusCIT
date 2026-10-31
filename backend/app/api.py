@@ -35,7 +35,7 @@ def fail(status, code, message, **extra):
 
 @router.get("/health")
 def health():
-    return ok({"status": "ok", "version": "0.3.3", "dataset_id": WS.dataset["dataset_id"],
+    return ok({"status": "ok", "version": "0.4.0", "dataset_id": WS.dataset["dataset_id"],
                "revision": WS.revision})
 
 
@@ -47,6 +47,8 @@ def _publish(job, expected_rev, assign, info, final):
         WS.schedule = assign
         WS.schedule_version += 1
         WS.baseline = None
+        WS.baseline_export = None
+        WS.baseline_dataset = None
         WS.applied = []
         WS.schedule_meta = {"solver_status": info["solver_status"], "soft_total": info["soft_total"],
                             "soft_penalties": info["soft_penalties"], "optimised": final}
@@ -243,11 +245,18 @@ def bookings_list(user=Depends(current_user)):
             if user["role"] == "admin" or s.get("requester_username") == user["username"]
             or (user["role"] == "department_coordinator" and s.get("department") == user["department"])]
     return ok({"requests": rows, "submitted": mine, "decided": WS.bookings is not None,
-               "revision": WS.revision})
+               "session_overrides": (WS.bookings or {}).get("overrides", []), "revision": WS.revision})
 
 
 @router.get("/exports/schedule", dependencies=[Depends(require("admin"))])
 def export_schedule():
+    if WS.applied and WS.baseline_export is not None:
+        # after an approved disruption, schedule.json stays the original baseline (schedule-after is the new one)
+        rep = official_validator().run(WS.baseline_dataset, WS.baseline_export)
+        if rep["hard_violation_count"]:
+            return fail(500, "CONSTRAINT_VIOLATION", "Export failed official validation",
+                        details=rep["hard_violations"][:10], rule_ids=sorted(rep["hard_by_rule"]))
+        return JSONResponse(content=WS.baseline_export)
     if WS.schedule is None or WS.bookings is None or WS.exams is None:
         return fail(409, "INVALID_INPUT", "Generate timetable, exams and booking decisions first",
                     details={"timetable": WS.schedule is not None, "exams": WS.exams is not None,

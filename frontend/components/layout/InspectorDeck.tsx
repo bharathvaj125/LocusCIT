@@ -1,228 +1,151 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { TactileButton } from "@/components/tactile/TactileButton";
 import { LiveStatusBadge } from "@/components/tactile/LiveStatusBadge";
 import { TelemetryCard } from "@/components/tactile/TelemetryCard";
-import { 
-  Activity, 
-  Send, 
-  Sparkles, 
-  AlertCircle, 
-  CheckCircle2, 
-  Clock, 
-  MessageSquare,
-  Building2,
-  CalendarCheck
-} from "lucide-react";
-import { RoleType, ScenarioType } from "./Header";
+import { Activity, Send, Sparkles, Clock, AlertTriangle, CheckSquare } from "lucide-react";
+import { useApp } from "@/lib/appContext";
+import { fetchAudit } from "@/lib/api";
 
 interface InspectorDeckProps {
-  currentScenario: ScenarioType;
-  currentRole: RoleType;
+  onOpenAssistant: (text: string) => void;
+  onOpenApprovals: () => void;
 }
 
-export function InspectorDeck({
-  currentScenario,
-  currentRole,
-}: InspectorDeckProps) {
+export function InspectorDeck({ onOpenAssistant, onOpenApprovals }: InspectorDeckProps) {
+  const { dashboard: d, user, revision, error } = useApp();
   const [nlPrompt, setNlPrompt] = useState("");
-  const [isParsing, setIsParsing] = useState(false);
-  const [parsedDraft, setParsedDraft] = useState<{
-    venue: string;
-    day: string;
-    time: string;
-    event: string;
-    priority: number;
-    status: string;
-  } | null>(null);
+  const [audit, setAudit] = useState<Array<{ at: number; actor: string; action: string; detail: string }>>([]);
 
-  const handleQuickParse = () => {
-    if (!nlPrompt.trim()) return;
-    setIsParsing(true);
-    setTimeout(() => {
-      setIsParsing(false);
-      setParsedDraft({
-        venue: "AUDITORIUM",
-        day: "FRI",
-        time: "18:00 - 21:00 (P10-P12)",
-        event: "Spectra Music Club Rehearsal",
-        priority: currentRole === "club" ? 6 : currentRole === "faculty" ? 4 : 3,
-        status: "DRAFT_READY // PENDING_VALIDATION",
-      });
-    }, 600);
-  };
+  useEffect(() => {
+    if (user.role !== "admin") return;
+    fetchAudit().then(setAudit).catch(() => setAudit([]));
+  }, [user.role, revision]);
+
+  const scheduled = d && d.sessions_scheduled > 0;
 
   return (
-    <aside className="w-full lg:w-[380px] xl:w-[420px] bg-[#0E1216] border-l border-white/10 flex flex-col h-full overflow-hidden select-none">
-      {/* Inspector Header */}
+    <aside className="w-full lg:w-[360px] xl:w-[400px] bg-[#0E1216] border-l border-white/10 flex flex-col h-full overflow-hidden">
       <div className="p-3 border-b border-white/10 flex items-center justify-between bg-[#080A0C]">
         <div className="flex items-center gap-2">
           <Activity className="w-4 h-4 text-cyan-400" />
-          <span className="font-mono text-xs font-bold uppercase tracking-wider text-white">
-            MISSION INSPECTOR
-          </span>
+          <span className="font-mono text-xs font-bold uppercase tracking-wider text-white">Live status</span>
         </div>
-        <LiveStatusBadge status="neutral" label="REACTIVE // READY" />
+        <LiveStatusBadge status={error ? "alert" : d ? "online" : "idle"} label={error ? "SERVER ERROR" : d ? "CONNECTED" : "LOADING"} />
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-4">
-        {/* Telemetry Summary Cards */}
+        {error && <div className="p-2 bg-rose-950/50 border border-rose-500/40 rounded font-mono text-[11px] text-rose-200">{error}</div>}
+
         <div className="grid grid-cols-2 gap-2">
           <TelemetryCard
-            label="WEEK 7 REQUESTS"
-            value={currentScenario === "spectra_surge" ? "25" : "12"}
-            subValue="SPECTRA"
-            delta={{
-              text: currentScenario === "spectra_surge" ? "PEAK SURGE" : "NOMINAL",
-              type: currentScenario === "spectra_surge" ? "warning" : "positive",
-            }}
-            status={currentScenario === "spectra_surge" ? "warning" : "online"}
+            label="HARD VIOLATIONS"
+            value={scheduled ? String(d!.hard_violation_count ?? "-") : "-"}
+            subValue="OFFICIAL VALIDATOR"
+            status={!scheduled ? "neutral" : d!.hard_violation_count === 0 ? "online" : "alert"}
           />
           <TelemetryCard
-            label="ROOM UTILIZATION"
-            value={currentScenario === "disruption" ? "92.4%" : "78.2%"}
-            subValue="CIT 27 RMS"
-            delta={{
-              text: currentScenario === "disruption" ? "CRITICAL" : "OPTIMAL",
-              type: currentScenario === "disruption" ? "warning" : "neutral",
-            }}
-            status={currentScenario === "disruption" ? "warning" : "neutral"}
+            label="SOFT PENALTY"
+            value={scheduled ? String(d!.soft_total ?? "-") : "-"}
+            subValue="S1-S6"
+            status="neutral"
+          />
+          <TelemetryCard
+            label="SPECTRA DECISIONS"
+            value={d ? `${d.booking_decisions}/${d.booking_requests}` : "-"}
+            subValue={d?.booking_score != null ? `SCORE ${d.booking_score}/${d.booking_score_max}` : "NOT EVALUATED"}
+            status={d && d.booking_decisions === d.booking_requests ? "online" : "neutral"}
+          />
+          <TelemetryCard
+            label="ROOM UTILISATION"
+            value={d ? `${d.utilisation.average_pct}%` : "-"}
+            subValue="AVG TEACHING HOURS"
+            status="neutral"
           />
         </div>
 
-        {/* Natural Language / Hinglish Parser Sandbox */}
-        <div className="bg-[#161B22] border border-white/10 rounded-[4px] p-3 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="font-mono text-[11px] font-bold uppercase text-white flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              NL / HINGLISH VENUE PARSER
+        {d && d.pending_approvals > 0 && (
+          <button onClick={onOpenApprovals}
+            className="w-full text-left p-2.5 bg-amber-950/30 border border-amber-500/40 rounded-[4px] font-mono text-[11px] text-amber-200 hover:bg-amber-950/50 cursor-pointer">
+            <span className="flex items-center gap-1.5 font-bold text-amber-300">
+              <CheckSquare className="w-3.5 h-3.5" /> {d.pending_approvals} pending approval{d.pending_approvals > 1 ? "s" : ""}
             </span>
-            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30">
-              UNTRUSTED // EDITS MANDATORY
+            {d.pending_proposals.map((p) => (
+              <span key={p.proposal_id} className="block text-amber-200/80">
+                • {p.type} {p.proposal_id} ({p.moved_count ?? "?"} moves)
+              </span>
+            ))}
+            {d.pending_bookings.slice(0, 4).map((b) => (
+              <span key={b.id} className="block text-amber-200/80">• {b.id}: {b.title}</span>
+            ))}
+          </button>
+        )}
+
+        {d && d.conflicts.length > 0 && (
+          <div className="p-2.5 bg-rose-950/30 border border-rose-500/40 rounded-[4px] font-mono text-[11px] space-y-1">
+            <span className="flex items-center gap-1.5 font-bold text-rose-300">
+              <AlertTriangle className="w-3.5 h-3.5" /> Current conflicts
             </span>
+            {d.conflicts.slice(0, 8).map((c, i) => (
+              <span key={i} className="block text-rose-200/90">[{c.rule}] {c.detail}</span>
+            ))}
           </div>
+        )}
 
-          <p className="text-xs text-[#9CA3AF] leading-relaxed">
-            Accepts freeform text in English or Hinglish. LLM strictly extracts parameters into an editable draft—never authorizes validity.
-          </p>
-
-          <div className="space-y-2">
-            <div className="relative">
-              <textarea
-                value={nlPrompt}
-                onChange={(e) => setNlPrompt(e.target.value)}
-                placeholder='e.g. "Auditorium chahiye Friday ko after 6pm for drama practice"'
-                className="w-full bg-[#080A0C] border border-white/10 rounded-[4px] p-2.5 text-xs text-white placeholder-[#6B7280] font-sans resize-none focus:outline-none focus:border-cyan-500/80 transition-colors"
-                rows={2}
-              />
-            </div>
-
-            <div className="flex items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={() => setNlPrompt("Need Seminar Hall 1 on Thursday P10 for AI guest lecture with projector")}
-                className="text-[10px] font-mono text-cyan-400/80 hover:text-cyan-300 underline text-left truncate"
-              >
-                Insert sample Hinglish/NL prompt
-              </button>
-
-              <TactileButton
-                size="sm"
-                variant="amber"
-                onClick={handleQuickParse}
-                disabled={isParsing || !nlPrompt.trim()}
-                icon={<Send className="w-3 h-3" />}
-              >
-                {isParsing ? "PARSING..." : "PARSE DRAFT"}
-              </TactileButton>
-            </div>
-          </div>
-
-          {/* Parsed Draft Display */}
-          {parsedDraft && (
-            <div className="bg-[#080A0C] border border-amber-500/40 rounded-[4px] p-2.5 space-y-2 animate-in fade-in duration-200">
-              <div className="flex items-center justify-between border-b border-white/5 pb-1">
-                <span className="font-mono text-[10px] text-amber-400 font-semibold uppercase flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-400" /> DRAFT EXTRACTED (REVIEW REQUIRED)
-                </span>
-                <span className="font-mono text-[10px] text-neutral-400">
-                  PRIORITY: TIER {parsedDraft.priority}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-                <div>
-                  <span className="text-[#6B7280] block text-[10px]">VENUE:</span>
-                  <span className="text-white font-medium">{parsedDraft.venue}</span>
-                </div>
-                <div>
-                  <span className="text-[#6B7280] block text-[10px]">TIMING:</span>
-                  <span className="text-white font-medium">{parsedDraft.time}</span>
-                </div>
-                <div className="col-span-2">
-                  <span className="text-[#6B7280] block text-[10px]">EVENT TITLE:</span>
-                  <span className="text-cyan-300 font-medium">{parsedDraft.event}</span>
-                </div>
-              </div>
-
-              <div className="pt-2 flex items-center justify-end gap-2 border-t border-white/5">
-                <TactileButton size="sm" variant="ghost" onClick={() => setParsedDraft(null)}>
-                  DISCARD
-                </TactileButton>
-                <TactileButton size="sm" variant="primary">
-                  OPEN IN FULL FORM & VALIDATE
-                </TactileButton>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Live System Log Stream */}
         <div className="bg-[#161B22] border border-white/10 rounded-[4px] p-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="font-mono text-[11px] font-bold uppercase text-[#9CA3AF] flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-cyan-400" />
-              SOLVER & ARBITRATION AUDIT LOG
-            </span>
-            <span className="font-mono text-[10px] text-[#6B7280]">STREAM ACTIVE</span>
-          </div>
-
-          <div className="space-y-1.5 font-mono text-[11px]">
-            <div className="p-1.5 bg-[#080A0C] border-l-2 border-emerald-500 text-neutral-300 rounded-r-[2px]">
-              <span className="text-[#6B7280]">[14:32:01]</span> <span className="text-emerald-400">H1-H14 PASS:</span> 189 sessions allocated with 0 clash.
-            </div>
-            {currentScenario === "spectra_surge" && (
-              <div className="p-1.5 bg-[#080A0C] border-l-2 border-amber-500 text-amber-200 rounded-r-[2px]">
-                <span className="text-[#6B7280]">[14:32:15]</span> <span className="text-amber-400">CONFLICT DETECTED:</span> Auditorium requested by Robotics Club (Tier 6) overlaps with Annual Convocation (Tier 3). Escalating to Tier 3.
-              </div>
-            )}
-            {currentScenario === "disruption" && (
-              <div className="p-1.5 bg-[#080A0C] border-l-2 border-rose-500 text-rose-200 rounded-r-[2px]">
-                <span className="text-[#6B7280]">[14:32:28]</span> <span className="text-rose-400">DISRUPTION DETECTED:</span> Room LH-3 maintenance triggered. Solver moved 6 sessions with 0 hard violations.
-              </div>
-            )}
-            {currentScenario === "exams" && (
-              <div className="p-1.5 bg-[#080A0C] border-l-2 border-cyan-500 text-cyan-200 rounded-r-[2px]">
-                <span className="text-[#6B7280]">[14:32:40]</span> <span className="text-cyan-400">EXAM HALVING RULE:</span> 41 midsem exams scheduled with ⌊capacity / 2⌋ rule satisfied.
-              </div>
-            )}
+          <span className="font-mono text-[11px] font-bold uppercase text-white flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Ask in English / Hinglish
+          </span>
+          <p className="text-xs text-[#9CA3AF]">
+            Type a venue request; it opens as an editable draft in the AI Assistant. The rules engine decides, not the AI.
+          </p>
+          <textarea
+            value={nlPrompt}
+            onChange={(e) => setNlPrompt(e.target.value)}
+            placeholder='e.g. "seminar hall kal shaam 6 baje, 2 ghante, 100 log, mic chahiye"'
+            className="w-full bg-[#080A0C] border border-white/10 rounded-[4px] p-2.5 text-xs text-white placeholder-[#6B7280] resize-none focus:outline-none focus:border-cyan-500/80"
+            rows={2}
+          />
+          <div className="flex justify-end">
+            <TactileButton size="sm" variant="amber" disabled={!nlPrompt.trim()} icon={<Send className="w-3 h-3" />}
+              onClick={() => onOpenAssistant(nlPrompt)}>
+              OPEN DRAFT
+            </TactileButton>
           </div>
         </div>
 
-        {/* Priority Hierarchy Reference */}
+        {user.role === "admin" && (
+          <div className="bg-[#161B22] border border-white/10 rounded-[4px] p-3 space-y-2">
+            <span className="font-mono text-[11px] font-bold uppercase text-[#9CA3AF] flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-cyan-400" /> Audit log (latest)
+            </span>
+            <div className="space-y-1 font-mono text-[11px] max-h-64 overflow-y-auto">
+              {audit.length === 0 && <span className="text-neutral-500">No events yet.</span>}
+              {audit.map((a, i) => (
+                <div key={i} className="p-1.5 bg-[#080A0C] border-l-2 border-cyan-500/60 text-neutral-300 rounded-r-[2px]">
+                  <span className="text-[#6B7280]">
+                    [{new Date(a.at * 1000).toLocaleTimeString("en-GB", { timeZone: "Asia/Kolkata" })}]
+                  </span>{" "}
+                  <span className="text-cyan-300">{a.actor}</span> {a.action.replace(/_/g, " ")}
+                  {a.detail && a.detail !== "-" && <span className="text-neutral-500"> {a.detail.slice(0, 60)}</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="bg-[#080A0C] border border-white/5 rounded-[4px] p-2.5 text-xs">
-          <span className="font-mono text-[10px] text-[#9CA3AF] uppercase font-bold block mb-1">
-            Section 4 Priority Arbitration Standard:
-          </span>
+          <span className="font-mono text-[10px] text-[#9CA3AF] uppercase font-bold block mb-1">Booking priority (highest first)</span>
           <ol className="font-mono text-[10px] text-[#6B7280] space-y-0.5 list-decimal list-inside">
-            <li><strong className="text-white">Exams</strong> (Highest authority)</li>
-            <li><strong className="text-white">Regular Classes</strong> (Academic timetable)</li>
-            <li><strong className="text-white">Institute Events</strong> (Spectra main, convocation)</li>
-            <li><strong className="text-white">Guest Lectures</strong> (Approved speakers)</li>
-            <li><strong className="text-white">Department Events</strong></li>
-            <li><strong className="text-white">Club Events</strong> (Student societies)</li>
+            <li><strong className="text-white">Exams</strong></li>
+            <li><strong className="text-white">Regular classes</strong></li>
+            <li><strong className="text-white">Institute events</strong> (only Admin can claim)</li>
+            <li><strong className="text-white">Guest lectures</strong></li>
+            <li><strong className="text-white">Department events</strong></li>
+            <li><strong className="text-white">Club events</strong></li>
           </ol>
+          <p className="font-mono text-[10px] text-[#6B7280] mt-1">Ties go to the earlier request. A role cannot raise its own category.</p>
         </div>
       </div>
     </aside>

@@ -177,6 +177,11 @@ def submit(draft: Draft, user=Depends(current_user)):
             req = _request_dict(user, draft, sid, wl)
             req["series_id"] = series
             dec = D.decide(req, allow_displace=False)     # reserves the slot inside D for the rest of the series
+            # the engine only proposes here; a person approves, so word the reason as a proposal
+            for old, new in (("Approved. ", "Fits the rules and can be approved. "),
+                             ("Alternative offered. ", "Only an alternative fits. ")):
+                if dec["reason"].startswith(old):
+                    dec["reason"] = new + dec["reason"][len(old):]
             sub = {"id": sid, "requester_username": user["username"], "requester": req["requester"],
                    "role": user["role"], "department": user["department"], "title": draft.title,
                    "request": req, "proposed": dec, "created_at": time.time(), "manual": False,

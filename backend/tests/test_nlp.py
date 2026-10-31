@@ -29,10 +29,17 @@ def test_sample_6_hinglish_kal_resolves_to_weekday():
     assert any("tomorrow" in i for i in d["interpretation"])
 
 
-def test_kal_on_friday_asks_which_weekday():
+def test_kal_on_a_friday_proposes_monday_visibly():
     fri = datetime(2026, 11, 6, 11, 0, tzinfo=IST)
     d = parse_booking_text("seminar hall kal shaam 6 baje, 2 ghante, 100 log", DATA, now=fri)
-    assert d["windows"] == [] and d["follow_up"] and "weekday" in d["follow_up"]
+    assert d["windows"] == [{"day": "MON", "from_period": 10, "to_period": 11}]
+    assert "windows" in d["ambiguous_fields"] and any("weekend" in i for i in d["interpretation"])
+    assert d["follow_up"] is None
+
+
+def test_explicit_weekend_day_asks_once():
+    d = p("seminar hall on Sunday 6 to 8 pm, 100 people")
+    assert d["windows"] == [] and len(d["follow_ups"]) == 1 and "weekday" in d["follow_up"]
 
 
 def test_sample_7_named_room_conflicts_with_accessibility():

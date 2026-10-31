@@ -138,3 +138,39 @@ def import_dataset(dataset: dict = Body(...), user=Depends(require("admin"))):
     return ok({"status": "imported", "dataset_id": data["dataset_id"], "revision": rev,
                "counts": {k: len(data[k]) for k in ("rooms", "faculty", "student_groups", "sessions",
                                                     "booking_requests", "exams")}})
+
+
+@router.get("/reference")
+def reference(user=Depends(current_user)):
+    """Names and attributes the UI needs to label things, always taken from the active dataset."""
+    d = WS.dataset
+    return ok({
+        "dataset_id": d["dataset_id"], "revision": WS.revision, "calendar": d["calendar"],
+        "priority_order": d["priority_order"], "role_category_cap": d["role_category_cap"],
+        "rooms": d["rooms"],
+        "faculty": [{k: f.get(k) for k in ("id", "name", "department", "max_hours_per_day", "needs_accessible")}
+                    for f in d["faculty"]],
+        "student_groups": d["student_groups"],
+        "courses": [{k: c.get(k) for k in ("id", "title", "department", "year")} for c in d.get("courses", [])],
+        "sessions": [{k: s.get(k) for k in ("id", "course_id", "kind", "groups", "faculty_id", "size", "duration",
+                                           "room_types", "needs_accessible", "basket_slot", "fixed_slot")}
+                     for s in d["sessions"]],
+    })
+
+
+@router.get("/examples/sample-disruption", dependencies=[Depends(require("admin"))])
+def sample_disruption():
+    """The organisers' practice change file from the starter pack, so it can be loaded with one click."""
+    import json
+    from .state import SEED
+    path = SEED.parents[1] / "examples" / "sample_disruption.json"
+    return ok(json.loads(path.read_text(encoding="utf-8")))
+
+
+@router.get("/audit", dependencies=[Depends(require("admin"))])
+def audit(limit: int = 30):
+    from sqlalchemy import select
+    with db.engine.begin() as c:
+        rows = c.execute(select(db.audit).order_by(db.audit.c.id.desc()).limit(max(1, min(limit, 100)))).mappings().all()
+    return ok({"events": [{"at": r["at"], "actor": r["actor"], "action": r["action"], "detail": r["detail"]}
+                          for r in rows]})

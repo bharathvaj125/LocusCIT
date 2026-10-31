@@ -260,7 +260,8 @@ def repair(data_after, baseline, time_limit=60.0, workers=None, seed=1, restrict
     for sid in sorted(base):
         if assign[sid] != base[sid]:
             moved.append({"session_id": sid, "old": _slot(base[sid]), "new": _slot(assign[sid]),
-                          "reason": _reason(data_after, sessions[sid], base[sid], sid in invalid)})
+                          "reason": ("Moved as requested" if restrict and sid in restrict
+                                     else _reason(data_after, sessions[sid], base[sid], sid in invalid))})
     return {"status": "OK", "assignment": assign, "moved": moved, "moved_count": moved_count,
             "directly_affected": invalid, "new_sessions": new, "removed_sessions": removed,
             "proven_minimum": bool(proven), "lower_bound": lower_bound, "strategy": level_used,

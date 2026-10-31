@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { ExamSession, DayOfWeek } from "@/lib/types";
-import { EXAMS_DATA, STUDENT_GROUPS } from "@/lib/mockData";
+import { useApp } from "@/lib/appContext";
+import { ApiError, describeError, fetchExams } from "@/lib/api";
 import { TactileButton } from "@/components/tactile/TactileButton";
 import { 
   GraduationCap, 
@@ -18,20 +19,33 @@ import {
   AlertTriangle 
 } from "lucide-react";
 
-interface ExamsDeckProps {
-  exams?: ExamSession[];
-}
+export function ExamsDeck() {
+  const { ref, revision, user, dashboard } = useApp();
+  const [exams, setExams] = useState<ExamSession[]>([]);
+  const [loadState, setLoadState] = useState<{ loading: boolean; error: string | null; empty: boolean }>({
+    loading: true, error: null, empty: false,
+  });
+  const STUDENT_GROUPS = ref?.student_groups || [];
+  const EXAM_DAYS: { id: DayOfWeek; label: string }[] = (ref?.calendar.exam_week.days || []).map((d, i) => ({
+    id: d, label: `${d} (Day ${i + 1})`,
+  }));
+  const slots = ref?.calendar.exam_week.sessions || [];
 
-const EXAM_DAYS: { id: DayOfWeek; label: string }[] = [
-  { id: "MON", label: "MON (Day 1)" },
-  { id: "TUE", label: "TUE (Day 2)" },
-  { id: "WED", label: "WED (Day 3)" },
-  { id: "THU", label: "THU (Day 4)" },
-  { id: "FRI", label: "FRI (Day 5)" },
-  { id: "SAT", label: "SAT (Day 6)" },
-];
+  useEffect(() => {
+    if (!ref) return;
+    setLoadState((s) => ({ ...s, loading: true }));
+    fetchExams(ref)
+      .then((rows) => {
+        setExams(rows);
+        setLoadState({ loading: false, error: null, empty: false });
+      })
+      .catch((e) => {
+        setExams([]);
+        if (e instanceof ApiError && e.status === 404) setLoadState({ loading: false, error: null, empty: true });
+        else setLoadState({ loading: false, error: describeError(e), empty: false });
+      });
+  }, [ref, revision]);
 
-export function ExamsDeck({ exams = EXAMS_DATA }: ExamsDeckProps) {
   const [selectedDay, setSelectedDay] = useState<string>("all");
   const [selectedSlot, setSelectedSlot] = useState<"all" | "AM" | "PM">("all");
   const [selectedGroup, setSelectedGroup] = useState<string>("all");
@@ -66,26 +80,33 @@ export function ExamsDeck({ exams = EXAMS_DATA }: ExamsDeckProps) {
                 <GraduationCap className="w-4 h-4" />
               </span>
               <h2 className="font-mono text-sm font-bold text-white uppercase tracking-wider">
-                MIDSEM EXAMINATION MATRIX // 41 PAPERS
+                MIDSEM EXAMS // {exams.length} OF {dashboard?.exams_total ?? "?"} SCHEDULED
               </h2>
               <span className="font-mono text-[10px] px-2 py-0.5 rounded-[2px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                CAPACITY HALVED (0.50x)
+                ROOMS SEAT HALF CAPACITY
               </span>
             </div>
             <p className="font-mono text-xs text-neutral-400 mt-1">
-              Examination halls configured with 1-seat spacing anti-cheat protocol. Monday through Saturday.
+              Exam week {EXAM_DAYS.map((d) => d.id).join(", ")}. An exam can use several rooms; each room seats half its capacity,
+              no room or student group has two exams in a slot.
             </p>
           </div>
 
           <div className="flex items-center gap-2 text-xs font-mono">
-            <span className="px-2.5 py-1 bg-[#12161C] border border-white/10 rounded-[3px] text-neutral-300">
-              AM SLOT: <strong className="text-cyan-400">09:30 - 11:30</strong>
-            </span>
-            <span className="px-2.5 py-1 bg-[#12161C] border border-white/10 rounded-[3px] text-neutral-300">
-              PM SLOT: <strong className="text-amber-400">14:00 - 16:00</strong>
-            </span>
+            {slots.map((s) => (
+              <span key={s.id} className="px-2.5 py-1 bg-[#12161C] border border-white/10 rounded-[3px] text-neutral-300">
+                {s.id}: <strong className={s.id === "AM" ? "text-cyan-400" : "text-amber-400"}>{s.start} - {s.end}</strong>
+              </span>
+            ))}
           </div>
         </div>
+        {loadState.loading && <p className="font-mono text-xs text-neutral-400">Loading exams...</p>}
+        {loadState.error && <p className="font-mono text-xs text-rose-300">{loadState.error}</p>}
+        {loadState.empty && (
+          <p className="font-mono text-xs text-amber-200">
+            No exam schedule yet. {user.role === "admin" ? "Press 2. SCHEDULE EXAMS above (after generating the timetable)." : "An Admin has to generate it."}
+          </p>
+        )}
 
         {/* Filter Controls Bar */}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/5 font-mono text-xs">

@@ -1,18 +1,13 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { 
-  ScheduledSession, 
-  DayOfWeek, 
-  Room, 
-  Faculty, 
-  StudentGroup 
+import {
+  ScheduledSession,
+  DayOfWeek,
+  Room,
+  StudentGroup,
+  ReferenceData
 } from "@/lib/types";
-import { 
-  STUDENT_GROUPS, 
-  FACULTY_MEMBERS, 
-  ROOMS 
-} from "@/lib/mockData";
 import { SessionCard } from "./SessionCard";
 import { SessionInspectModal } from "./SessionInspectModal";
 import { TactileButton } from "@/components/tactile/TactileButton";
@@ -34,14 +29,32 @@ import {
   Info
 } from "lucide-react";
 
+export interface TimetableEntities {
+  group: StudentGroup[];
+  faculty: ReferenceData["faculty"];
+  room: Room[];
+}
+
+export interface EveningEvent {
+  id: string;
+  title: string;
+  day: DayOfWeek;
+  start: number;
+  end: number;
+  status: string;
+}
+
 interface TimetableGridProps {
   sessions: ScheduledSession[];
+  loading?: boolean;
+  entities: TimetableEntities;
   activePivot: "group" | "faculty" | "room";
   onPivotChange: (pivot: "group" | "faculty" | "room") => void;
   selectedId: string;
   onSelectId: (id: string) => void;
   showEvening: boolean;
   onToggleEvening: () => void;
+  eveningEvents?: EveningEvent[];
 }
 
 const DAYS: { id: DayOfWeek; label: string; index: string }[] = [
@@ -54,20 +67,26 @@ const DAYS: { id: DayOfWeek; label: string; index: string }[] = [
 
 export function TimetableGrid({
   sessions,
+  loading = false,
+  entities,
   activePivot,
   onPivotChange,
   selectedId,
   onSelectId,
   showEvening,
   onToggleEvening,
+  eveningEvents = [],
 }: TimetableGridProps) {
   const [inspectedSession, setInspectedSession] = useState<ScheduledSession | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const ROOMS = entities.room;
+  const FACULTY_MEMBERS = entities.faculty;
+  const STUDENT_GROUPS = entities.group;
 
   // Quick lookup maps
-  const roomMap = useMemo(() => new Map(ROOMS.map(r => [r.id, r])), []);
-  const facMap = useMemo(() => new Map(FACULTY_MEMBERS.map(f => [f.id, f])), []);
-  const groupMap = useMemo(() => new Map(STUDENT_GROUPS.map(g => [g.id, g])), []);
+  const roomMap = useMemo(() => new Map(ROOMS.map(r => [r.id, r])), [ROOMS]);
+  const facMap = useMemo(() => new Map(FACULTY_MEMBERS.map(f => [f.id, f])), [FACULTY_MEMBERS]);
+  const groupMap = useMemo(() => new Map(STUDENT_GROUPS.map(g => [g.id, g])), [STUDENT_GROUPS]);
 
   // Filter current entity object
   const currentGroup = activePivot === "group" ? groupMap.get(selectedId) : undefined;
@@ -120,7 +139,7 @@ export function TimetableGrid({
       );
     }
     return [];
-  }, [activePivot, searchQuery]);
+  }, [activePivot, searchQuery, STUDENT_GROUPS, FACULTY_MEMBERS, ROOMS]);
 
   // Cycle to prev / next entity
   const handleCycle = (direction: -1 | 1) => {
@@ -142,8 +161,9 @@ export function TimetableGrid({
     // Sort by start_period
     daySessions.sort((a, b) => a.start_period - b.start_period);
 
-    // Morning segment (P1 - P5)
-    const morningSlots: Array<{ period: number; session?: ScheduledSession; span: number; isCovered?: boolean }> = [];
+    // Morning segment (P1 - P5). Several sessions can start in one slot (parallel electives), so each
+    // slot holds a list and spans the longest of them.
+    const morningSlots: Array<{ period: number; sessions: ScheduledSession[]; span: number }> = [];
     const morningOccupiedPeriods = new Set<number>();
 
     // Register multi-hour session coverage
@@ -159,16 +179,13 @@ export function TimetableGrid({
       if (morningOccupiedPeriods.has(p)) {
         continue; // covered by multi-period session
       }
-      const s = daySessions.find(session => session.start_period === p);
-      if (s) {
-        morningSlots.push({ period: p, session: s, span: Math.min(5 - p + 1, s.duration) });
-      } else {
-        morningSlots.push({ period: p, span: 1 });
-      }
+      const here = daySessions.filter(session => session.start_period === p);
+      const span = here.length ? Math.min(5 - p + 1, Math.max(...here.map(s => s.duration))) : 1;
+      morningSlots.push({ period: p, sessions: here, span });
     }
 
     // Afternoon segment (P6 - P9)
-    const afternoonSlots: Array<{ period: number; session?: ScheduledSession; span: number; isCovered?: boolean }> = [];
+    const afternoonSlots: Array<{ period: number; sessions: ScheduledSession[]; span: number }> = [];
     const afternoonOccupiedPeriods = new Set<number>();
 
     daySessions.forEach(s => {
@@ -183,24 +200,12 @@ export function TimetableGrid({
       if (afternoonOccupiedPeriods.has(p)) {
         continue;
       }
-      const s = daySessions.find(session => session.start_period === p);
-      if (s) {
-        afternoonSlots.push({ period: p, session: s, span: Math.min(9 - p + 1, s.duration) });
-      } else {
-        afternoonSlots.push({ period: p, span: 1 });
-      }
+      const here = daySessions.filter(session => session.start_period === p);
+      const span = here.length ? Math.min(9 - p + 1, Math.max(...here.map(s => s.duration))) : 1;
+      afternoonSlots.push({ period: p, sessions: here, span });
     }
 
-    // Evening segment (P10 - P13)
-    const eveningSlots: Array<{ period: number; session?: ScheduledSession; span: number }> = [];
-    if (showEvening) {
-      for (let p = 10; p <= 13; p++) {
-        const s = daySessions.find(session => session.start_period === p);
-        eveningSlots.push({ period: p, session: s, span: 1 });
-      }
-    }
-
-    return { morningSlots, afternoonSlots, eveningSlots };
+    return { morningSlots, afternoonSlots };
   };
 
   return (
@@ -217,44 +222,40 @@ export function TimetableGrid({
               <Filter className="w-3 h-3 text-cyan-400" /> PIVOT:
             </span>
 
-            <TactileButton
-              size="sm"
-              variant={activePivot === "group" ? "primary" : "ghost"}
-              active={activePivot === "group"}
-              onClick={() => {
-                onPivotChange("group");
-                onSelectId("Y1-A");
-              }}
-              icon={<Users className="w-3.5 h-3.5" />}
-            >
-              STUDENT GROUP ({STUDENT_GROUPS.length})
-            </TactileButton>
+            {STUDENT_GROUPS.length > 0 && (
+              <TactileButton
+                size="sm"
+                variant={activePivot === "group" ? "primary" : "ghost"}
+                active={activePivot === "group"}
+                onClick={() => onPivotChange("group")}
+                icon={<Users className="w-3.5 h-3.5" />}
+              >
+                STUDENT GROUP ({STUDENT_GROUPS.length})
+              </TactileButton>
+            )}
 
-            <TactileButton
-              size="sm"
-              variant={activePivot === "faculty" ? "amber" : "ghost"}
-              active={activePivot === "faculty"}
-              onClick={() => {
-                onPivotChange("faculty");
-                onSelectId("F01");
-              }}
-              icon={<GraduationCap className="w-3.5 h-3.5" />}
-            >
-              FACULTY LOAD ({FACULTY_MEMBERS.length})
-            </TactileButton>
+            {FACULTY_MEMBERS.length > 0 && (
+              <TactileButton
+                size="sm"
+                variant={activePivot === "faculty" ? "amber" : "ghost"}
+                active={activePivot === "faculty"}
+                onClick={() => onPivotChange("faculty")}
+                icon={<GraduationCap className="w-3.5 h-3.5" />}
+              >
+                FACULTY ({FACULTY_MEMBERS.length})
+              </TactileButton>
+            )}
 
             <TactileButton
               size="sm"
               variant={activePivot === "room" ? "blue" : "ghost"}
               active={activePivot === "room"}
-              onClick={() => {
-                onPivotChange("room");
-                onSelectId("LH-1");
-              }}
+              onClick={() => onPivotChange("room")}
               icon={<MapPin className="w-3.5 h-3.5" />}
             >
-              VENUE & ROOMS ({ROOMS.length})
+              ROOMS ({ROOMS.length})
             </TactileButton>
+            {loading && <span className="font-mono text-[10px] text-neutral-400 px-2">loading...</span>}
           </div>
 
           {/* Quick Search & Entity Navigator */}
@@ -405,9 +406,10 @@ export function TimetableGrid({
         </div>
       </div>
 
-      {/* Main Timetable Matrix Board */}
-      <div className="bg-[#080A0C] border border-white/10 rounded-[4px] overflow-hidden shadow-xl">
-        
+      {/* Main Timetable Matrix Board (scrolls sideways on narrow screens) */}
+      <div className="bg-[#080A0C] border border-white/10 rounded-[4px] overflow-x-auto shadow-xl">
+      <div className="min-w-[980px]">
+
         {/* Column Time Period Headers */}
         <div className="grid grid-cols-[100px_repeat(5,1fr)_80px_repeat(4,1fr)] border-b border-white/10 bg-[#0E1216] font-mono text-center divide-x divide-white/5 select-none">
           
@@ -489,7 +491,7 @@ export function TimetableGrid({
             const grid = getDayGrid(day.id);
             const facultyLoad = dailyFacultyLoad[day.id];
             const maxFacultyLoad = currentFaculty?.max_hours_per_day || 4;
-            const isApproachingLimit = facultyLoad === 3;
+            const isApproachingLimit = facultyLoad === maxFacultyLoad - 1;
             const isMaxLimit = facultyLoad >= maxFacultyLoad;
 
             return (
@@ -545,13 +547,12 @@ export function TimetableGrid({
                   return (
                     <div 
                       key={`morning-${day.id}-${slot.period}`}
-                      className={`p-1 flex flex-col justify-center ${spanClass} min-h-[90px]`}
+                      className={`p-1 flex flex-col justify-center gap-1 ${spanClass} min-h-[90px]`}
                     >
-                      {slot.session ? (
-                        <SessionCard 
-                          session={slot.session} 
-                          onClick={setInspectedSession} 
-                        />
+                      {slot.sessions.length ? (
+                        slot.sessions.map((s) => (
+                          <SessionCard key={s.id} session={s} onClick={setInspectedSession} />
+                        ))
                       ) : (
                         <div className="w-full h-full border border-dashed border-white/5 rounded-[3px] flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity">
                           <span className="font-mono text-[9px] text-neutral-600">FREE</span>
@@ -588,13 +589,12 @@ export function TimetableGrid({
                   return (
                     <div 
                       key={`afternoon-${day.id}-${slot.period}`}
-                      className={`p-1 flex flex-col justify-center ${spanClass} min-h-[90px]`}
+                      className={`p-1 flex flex-col justify-center gap-1 ${spanClass} min-h-[90px]`}
                     >
-                      {slot.session ? (
-                        <SessionCard 
-                          session={slot.session} 
-                          onClick={setInspectedSession} 
-                        />
+                      {slot.sessions.length ? (
+                        slot.sessions.map((s) => (
+                          <SessionCard key={s.id} session={s} onClick={setInspectedSession} />
+                        ))
                       ) : (
                         <div className="w-full h-full border border-dashed border-white/5 rounded-[3px] flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity">
                           <span className="font-mono text-[9px] text-neutral-600">FREE</span>
@@ -609,41 +609,45 @@ export function TimetableGrid({
         </div>
       </div>
 
-      {/* Evening Events Grid (P10 - P13, 18:00 - 22:00) Optional Drawer */}
+      </div>
+
+      {/* Week 7 (Spectra) events in this room, including evening periods P10-P13, from the real decisions */}
       {showEvening && (
-        <div className="p-3 bg-[#130E1D] border border-purple-500/30 rounded-[4px] space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
-          <div className="flex items-center justify-between">
+        <div className="p-3 bg-[#130E1D] border border-purple-500/30 rounded-[4px] space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="p-1 rounded-[2px] bg-purple-950/80 text-purple-400 border border-purple-500/40">
                 <Moon className="w-3.5 h-3.5" />
               </span>
               <span className="font-mono text-xs font-bold uppercase tracking-wider text-purple-300">
-                SPECTRA EVENING EVENTS MATRIX // PERIODS P10 - P13 (18:00 - 22:00)
+                Week 7 (Spectra) events{activePivot === "room" ? ` in ${selectedId}` : ""}
               </span>
             </div>
-            <span className="font-mono text-[10px] text-purple-400/80">
-              Allocated For Non-Academic Campus Events & Culturals
-            </span>
+            <span className="font-mono text-[10px] text-purple-400/80">P10-P13 = 18:00-22:00, events only</span>
           </div>
-
-          <div className="grid grid-cols-4 gap-2 text-center font-mono text-xs pt-1">
-            <div className="p-2 bg-[#1A1329] border border-purple-500/20 rounded-[3px]">
-              <span className="text-purple-300 font-bold block">P10 [18:00 - 19:00]</span>
-              <span className="text-[10px] text-neutral-400 mt-1 block">Cultural Rehearsals & Soundchecks</span>
+          {activePivot !== "room" ? (
+            <p className="font-mono text-[11px] text-neutral-400">Switch to the ROOMS view to see the events booked in a room.</p>
+          ) : eveningEvents.length === 0 ? (
+            <p className="font-mono text-[11px] text-neutral-400">
+              No approved events in this room. (An Admin decides the Spectra requests from the Spectra Bookings screen.)
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 font-mono text-xs">
+              {[...eveningEvents]
+                .sort((a, b) => DAYS.findIndex((d) => d.id === a.day) - DAYS.findIndex((d) => d.id === b.day) || a.start - b.start)
+                .map((ev) => (
+                  <div key={ev.id} className="p-2 bg-[#1A1329] border border-purple-500/20 rounded-[3px]">
+                    <span className="text-purple-300 font-bold block">
+                      {ev.day} P{ev.start}{ev.end > ev.start ? `-P${ev.end}` : ""} <span className="text-neutral-500">({ev.id})</span>
+                    </span>
+                    <span className="text-[11px] text-neutral-300 block mt-0.5">{ev.title}</span>
+                    {ev.status !== "approved" && (
+                      <span className="text-[10px] text-cyan-300">{ev.status.replace(/_/g, " ")}</span>
+                    )}
+                  </div>
+                ))}
             </div>
-            <div className="p-2 bg-[#1A1329] border border-purple-500/20 rounded-[3px]">
-              <span className="text-purple-300 font-bold block">P11 [19:00 - 20:00]</span>
-              <span className="text-[10px] text-neutral-400 mt-1 block">Stage Play: Andha Yug (SH-1)</span>
-            </div>
-            <div className="p-2 bg-[#1A1329] border border-purple-500/20 rounded-[3px]">
-              <span className="text-purple-300 font-bold block">P12 [20:00 - 21:00]</span>
-              <span className="text-[10px] text-neutral-400 mt-1 block">Battle of the Bands (Main Auditorium)</span>
-            </div>
-            <div className="p-2 bg-[#1A1329] border border-purple-500/20 rounded-[3px]">
-              <span className="text-purple-300 font-bold block">P13 [21:00 - 22:00]</span>
-              <span className="text-[10px] text-neutral-400 mt-1 block">Night Jam Session & Awards</span>
-            </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -651,9 +655,6 @@ export function TimetableGrid({
       <SessionInspectModal
         session={inspectedSession}
         onClose={() => setInspectedSession(null)}
-        room={inspectedSession ? roomMap.get(inspectedSession.room_id) : undefined}
-        faculty={inspectedSession ? facMap.get(inspectedSession.faculty_id) : undefined}
-        groupObjects={inspectedSession ? inspectedSession.groups.map(gid => groupMap.get(gid)!).filter(Boolean) : []}
       />
     </div>
   );

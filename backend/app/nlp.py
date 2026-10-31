@@ -94,11 +94,17 @@ def _find_days(t, today):
         rel, delta, word = "day after tomorrow", 2, "parso"
     elif re.search(r"\b(aaj|today)\b", t):
         rel, delta, word = "today", 0, "aaj/today"
+    rolled = False
     if rel:
         dt = today + timedelta(days=delta)
-        d = WEEKDAYS[dt.weekday()]
-        notes.append(f"'{word}' means {rel}: {dt.strftime('%A %d %b %Y')} (Asia/Kolkata)")
-        found.append(d)
+        note = f"'{word}' means {rel}: {dt.strftime('%A %d %b %Y')} (Asia/Kolkata)"
+        if dt.weekday() >= 5:
+            # events run Monday to Friday: propose the next weekday and say so, rather than refusing
+            dt = dt + timedelta(days=7 - dt.weekday())
+            note += f". That is a weekend, so I proposed the next weekday, {dt.strftime('%A %d %b')}; change it if needed"
+            rolled = True
+        notes.append(note)
+        found.append(WEEKDAYS[dt.weekday()])
     if re.search(r"\b(daily|every ?day|all (of )?(the )?(fest )?week|whole week|each day|roz|rozana|weekdays?)\b", t):
         found = ["MON", "TUE", "WED", "THU", "FRI"]
         mode = "all"
@@ -110,6 +116,8 @@ def _find_days(t, today):
     for d in found:
         if d in ("SAT", "SUN"):
             weekend.append(d)
+    if rolled:
+        notes.append("ROLLED_TO_WEEKDAY")
     return [d for d in found if d not in ("SAT", "SUN")], mode, notes, weekend
 
 
@@ -272,6 +280,9 @@ def parse_booking_text(text, data, now=None, role=None):
 
     # days
     days, mode, dnotes, weekend = _find_days(t, today)
+    if "ROLLED_TO_WEEKDAY" in dnotes:
+        dnotes = [n for n in dnotes if n != "ROLLED_TO_WEEKDAY"]
+        draft["ambiguous_fields"].append("windows")
     draft["interpretation"] += dnotes
     draft["day_mode"] = mode
     if weekend:
@@ -313,7 +324,8 @@ def parse_booking_text(text, data, now=None, role=None):
                 break
 
     if not days:
-        asks.append("Which day (Monday to Friday) should it be on?")
+        if not weekend:   # the weekend question already asks for a day
+            asks.append("Which day (Monday to Friday) should it be on?")
         draft["ambiguous_fields"].append("windows")
     if win is None and not tm:
         asks.append("What time should it start (or roughly when: morning, afternoon, evening)?")
