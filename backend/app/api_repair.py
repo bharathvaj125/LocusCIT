@@ -157,3 +157,37 @@ def export_after():
         return fail(500, "CONSTRAINT_VIOLATION", "Export failed official validation",
                     details=rep["hard_violations"][:10], rule_ids=sorted(rep["hard_by_rule"]))
     return JSONResponse(content=sched)
+
+
+def _brief(rep):
+    b = rep.get("bookings") or {}
+    return {"hard_violation_count": rep["hard_violation_count"], "hard_by_rule": rep.get("hard_by_rule", {}),
+            "hard_violations": rep["hard_violations"][:5],
+            "soft_total": rep["soft_total"], "soft_penalties": rep["soft_penalties"],
+            "exam_soft_penalty": rep.get("exam_soft_penalty"),
+            "bookings": {"score": b.get("booking_score"), "max": b.get("booking_score_max_if_all_approved"),
+                         "approved": b.get("approved"), "alternatives": b.get("alternatives"), "rejected": b.get("rejected"),
+                         "priority_inversions": len(b.get("priority_inversions", [])),
+                         "inversions": b.get("priority_inversions", [])[:5]} if b else None,
+            "stability": rep.get("stability")}
+
+
+@router.get("/exports/report", dependencies=[Depends(require("admin"))])
+def export_report():
+    """What the official validator says about each export right now, so it can be read without a terminal."""
+    from .api import _fest_week
+    V = official_validator()
+    schedule = after = None
+    if WS.applied and WS.baseline_export is not None:
+        schedule = _brief(V.run(WS.baseline_dataset, WS.baseline_export))
+        schedule["sessions"] = len(WS.baseline_export["sessions"])
+    elif WS.schedule is not None and WS.bookings is not None and WS.exams is not None:
+        sched = timetable_export(TEAM, WS.dataset["dataset_id"], WS.schedule, fest_week=_fest_week(), exams=WS.exams)
+        schedule = _brief(V.run(WS.dataset, sched))
+        schedule["sessions"] = len(sched["sessions"])
+    if WS.applied and WS.baseline is not None and WS.schedule is not None:
+        sched = timetable_export(TEAM, WS.dataset["dataset_id"], WS.schedule,
+                                 fest_week=_fest_week() if WS.bookings else None, exams=WS.exams)
+        after = _brief(V.run(WS.dataset, sched, baseline=timetable_export(TEAM, WS.dataset["dataset_id"], WS.baseline)))
+        after["sessions"] = len(sched["sessions"])
+    return ok({"schedule": schedule, "schedule_after": after, "applied_disruptions": len(WS.applied)})

@@ -604,3 +604,14 @@ export async function fetchPriorityOrder(): Promise<PriorityOrder> {
 export async function savePriorityOrder(body: { order?: string[]; reset?: boolean }): Promise<PriorityOrder> {
   return request("/api/admin/priority-order", { method: "PUT", body });
 }
+
+// ------------------------------------------------------------------------------------------ validator report for the exports
+export interface ValidatorBrief {
+  hard_violation_count: number; hard_by_rule: Record<string, number>; hard_violations: Array<{ rule: string; detail: string }>;
+  soft_total: number; soft_penalties: Record<string, number>; exam_soft_penalty?: number | null; sessions: number;
+  bookings: { score: number; max: number; approved: number; alternatives: number; rejected: number; priority_inversions: number; inversions: string[] } | null;
+  stability: { sessions_moved: number; time_changed: number; room_only_changed: number } | null;
+}
+export async function fetchExportReport(): Promise<{ schedule: ValidatorBrief | null; schedule_after: ValidatorBrief | null; applied_disruptions: number }> {
+  return request("/api/exports/report", { timeoutMs: 120000 });
+}

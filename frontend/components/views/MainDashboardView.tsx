@@ -157,7 +157,7 @@ function Workspace({ initialNav, onSession, onSignOut }: { initialNav: NavRouteI
             {nav === "exams" && <ExamsBoard />}
             {nav === "spectra_clash" && <SpectraBoard />}
             {nav === "approvals" && <ApprovalsDeck onOpenChanges={() => go("disruptions")} />}
-            {nav === "disruptions" && <DisruptionDeck />}
+            {nav === "disruptions" && <DisruptionDeck onOpenExports={() => go("exports")} />}
             {nav === "ai_booking" && <AiBookingAssistant initialText={assistantText} onConsumedInitialText={() => setAssistantText(null)} />}
             {nav === "exports" && <ExportsDeck />}
           </>

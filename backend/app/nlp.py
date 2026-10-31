@@ -146,7 +146,7 @@ def _times(t):
     """Return (start24, end24, source) from explicit clock times, else None."""
     ctx_pm = bool(re.search(r"evening|shaam|sham|night|raat|afternoon|dopahar|after lunch|pm\b|baje.*(shaam|raat)", t))
     # range: "6 to 8 pm", "11 am to 1 pm", "between 2 and 6 pm", "10 pm to midnight", "8am-6pm"
-    rg = re.search(r"(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*(?:to|till|until|-|–|—|and|se)\s*"
+    rg = re.search(r"(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*(?:baje|bje)?\s*(?:to|till|until|-|–|—|and|se)\s*"
                    r"(?:(\d{1,2})(?::(\d{2}))?\s*(am|pm)?|(midnight))", t)
     if rg:
         sh, sm, sk, eh, em, ek, mid = rg.groups()

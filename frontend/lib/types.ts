@@ -378,6 +378,8 @@ export interface ServerProposal {
   understood?: Record<string, unknown>;
   request_text?: string | null;
   seconds?: number;
+  hard_violation_count?: number;
+  soft_total?: number;
 }
 
 export interface Explanation {

@@ -76,19 +76,23 @@ def _report():
 def dashboard(user=Depends(current_user)):
     d = WS.dataset
     rep = _report()
-    pending = [p for p in WS.proposals.values() if p.get("status") == "PENDING"]
-    subs = [s for s in WS.submissions.values() if s.get("status") == "PENDING_APPROVAL"]
     role = user["role"]
-    if role == "faculty":
-        pending = [p for p in pending if p.get("requested_by") == user["username"]]
-        subs = [s for s in subs if s.get("requester_username") == user["username"]]
-    elif role == "club":
-        pending = []
-        subs = [s for s in subs if s.get("requester_username") == user["username"]]
-    elif role == "department_coordinator":
-        from .permissions import can_see
-        pending = []
-        subs = [s for s in subs if can_see(user, s)]
+    # "needs your attention" and the notification count only include what this person can actually act on
+    from .permissions import can_see, check_decision
+    pending, subs, waiting_on_me = [], [], 0
+    if role in ("admin", "department_coordinator"):
+        subs = [s for s in WS.submissions.values()
+                if s.get("status") == "PENDING_APPROVAL" and can_see(user, s) and check_decision(user, s) is None]
+        if role == "admin":
+            pending = [p for p in WS.proposals.values()
+                       if p.get("status") == "PENDING" and p.get("requested_by") != user["username"]]
+    else:   # faculty and clubs act only when an alternative or a move offer is waiting for their answer
+        subs = [s for s in WS.submissions.values()
+                if s.get("requester_username") == user["username"] and s.get("status") == "ALTERNATIVE_OFFERED"]
+    for n in WS.negotiations.values():
+        holder = WS.submissions.get(n["holder_sub"])
+        if n["status"] == "awaiting_response" and holder and holder["requester_username"] == user["username"]:
+            waiting_on_me += 1
     book = (rep or {}).get("bookings", {})
     util = room_utilisation()
     return ok({
@@ -107,7 +111,7 @@ def dashboard(user=Depends(current_user)):
         "pending_proposals": [{"proposal_id": p["proposal_id"], "type": p.get("type"),
                                "moved_count": p.get("moved_count")} for p in pending],
         "pending_bookings": [{"id": s["id"], "title": s.get("title"), "requester": s.get("requester")} for s in subs],
-        "pending_approvals": len(pending) + len(subs),
+        "pending_approvals": len(pending) + len(subs) + waiting_on_me,
         "applied_disruptions": len(WS.applied),
         "utilisation": {"average_pct": round(sum(r["utilisation_pct"] for r in util) / max(1, len(util)), 1),
                         "busiest": sorted(util, key=lambda r: -r["utilisation_pct"])[:5]},

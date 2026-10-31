@@ -241,6 +241,27 @@ def test_admin_can_change_the_priority_order_and_restore_it(client, club, admin,
     assert back["changed"] is False and back["order"] == cur["official_order"]
 
 
+def test_notifications_count_only_what_the_person_can_act_on(client, club, coordinator, admin, admin2, faculty, ready):
+    dash = lambda who: client.get("/api/dashboard", headers=who).json()["data"]
+    ece = submit(client, club, "ECE lab session", ["lab_elec"], room="ELEC-LAB-2", windows=[{"day": "FRI", "from_period": 12, "to_period": 13}])
+    own = submit(client, admin, "Dean's own request", ["classroom"], windows=[{"day": "THU", "from_period": 2, "to_period": 3}])
+    ids = lambda who: {b["id"] for b in dash(who)["pending_bookings"]}
+    assert ece["id"] not in ids(coordinator)                       # a CSE coordinator cannot decide an ECE/EE lab
+    assert ece["id"] in ids(admin) and ece["id"] in ids(admin2)
+    assert own["id"] not in ids(admin) and own["id"] in ids(admin2)  # not your own
+    assert ece["id"] not in ids(club) and ece["id"] not in ids(faculty)
+    before = dash(admin)["pending_approvals"]
+    assert decide(client, admin, ece["id"]).status_code == 200
+    assert dash(admin)["pending_approvals"] == before - 1
+
+
+def test_validator_report_matches_the_exports(client, admin, coordinator, ready):
+    assert client.get("/api/exports/report", headers=coordinator).status_code == 403
+    r = client.get("/api/exports/report", headers=admin).json()["data"]
+    assert r["schedule"]["hard_violation_count"] == 0 and r["schedule"]["bookings"]["priority_inversions"] == 0
+    assert r["schedule"]["sessions"] == 189 and r["schedule_after"] is None
+
+
 # ------------------------------------------------------------------------------ exports and reset (keep these last)
 def test_exports_stay_valid_and_official(client, admin, ready):
     sched = client.get("/api/exports/schedule", headers=admin)
@@ -260,3 +281,4 @@ def test_admin_reset_leaves_no_stale_approvals(client, club, admin, admin2, read
     from app.state import WS
     assert WS.submissions == {} and WS.negotiations == {} and WS.app_overrides == []
     assert client.get("/api/bookings", headers=admin).json()["data"]["submitted"] == []
+

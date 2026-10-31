@@ -16,7 +16,7 @@ sample disruption approved by a second Admin.
 | Sample disruption: sessions moved | 12 (equals the proven lower bound for this timetable) |
 | Sample disruption: hard violations | 0 |
 | Self-approval | blocked (403); second Admin approves (200) |
-| Automated backend tests | 80 passing (`python -m pytest -q tests`, about 2 min) |
+| Automated backend tests | 84 passing (`python -m pytest -q tests`, about 2 min) |
 | Spectra decisions after the flexible-slot change | identical on the deployed timetable: 0 hard violations, booking score 67/70, 0 priority inversions |
 
 ## Timings on the free Render instance (about 0.1 CPU, 512 MB)
@@ -38,6 +38,27 @@ lowering anyone; an alternative never takes a later request's last slot; higher 
 role cap holds; cancelled never approved; approved bookings are never silently overwritten; offers: accept needs a fresh
 check and an approver, decline and timeout keep the holder, a stolen slot blocks the swap, one holder cannot be offered
 twice, cancelling closes the offer, nobody approves their own request, internal statuses never reach the export.
+
+## Change files (rescheduling), judge-style
+`backend/scripts/stress_change_files.py` resets the app, generates a timetable, applies a change file, tries to approve it as
+the proposer (refused with 403), approves it as the second Admin, exports `schedule_after.json` and runs the official
+`validator.py --disruption <file> --baseline schedule.json`. Results on the optimised timetable (soft penalty 3):
+
+| Case | Sessions moved | Fewest possible | Hard violations after |
+| --- | --- | --- | --- |
+| Official sample file | 9 | 9 (proven) | 0 |
+| Two teachers unavailable, partial days | 3 | 3 (proven) | 0 |
+| Big lecture hall closed all week | 3 | 3 (proven) | 0 |
+| Lab closed all week | 2 | 2 (proven) | 0 |
+| Add a teacher and a new session | 0 | 0 | 0 |
+| New session pinned to a slot | 0 | 0 | 0 |
+| Remove three sessions | 0 | 0 | 0 |
+| Combination (teacher, room, add, remove) | 6 | 6 (proven) | 0 |
+| Four rooms closed on one day | 8 | 8 (proven) | 0 |
+| Teacher unavailable four days | no timetable exists | n/a | nothing proposed, reason shown |
+| Extra fields and no reason | 0 | 0 | 0 |
+
+`schedule.json` stayed the baseline after every approval, and the booking score stayed 67/70 with no priority inversions.
 
 ## Still to measure
 Several simultaneous judges, and the frontend flows end to end.
