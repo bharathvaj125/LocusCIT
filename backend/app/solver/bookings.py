@@ -54,7 +54,7 @@ class Week:
     def add_event(self, req, room_id, d, a, b):
         for p in range(a, b + 1):
             self.room[room_id, d, p].append(req["id"])
-            for g in req["mandatory_for_groups"]:
+            for g in req.get("mandatory_for_groups", []):
                 self.ev_grp[g, d, p].add(req["id"])
 
     def snapshot(self):
@@ -70,7 +70,7 @@ class Week:
                 out.append(("maintenance", rid))
             for x in self.room.get((rid, d, p), []):
                 out.append(("class" if x in self.sess else "event", x))
-            for g in req["mandatory_for_groups"]:
+            for g in req.get("mandatory_for_groups", []):
                 if self.grp.get((g, d, p)):
                     out.append(("group", g))
         return out
@@ -110,43 +110,50 @@ class Week:
         return True
 
 
-def evaluate_bookings(data, base):
-    """Return (decisions in request order, week-7 session overrides, week-7 positions)."""
-    V = official_validator()
-    ctx = V.Ctx(data)
-    cands = build_candidates(data)
-    week = Week(ctx, base)
-    order = data["priority_order"]
-    cap = data["role_category_cap"]
-    rooms = data["rooms"]
-    days = data["calendar"]["days"]
-    inst = order.index("institute_event")
+class Decider:
+    """Decides one request at a time against a shared Week-7 state."""
 
-    def eff(r):
-        return V.effective_category(data, r)
+    def __init__(self, data, base, ctx=None, cands=None):
+        self.data = data
+        self.V = official_validator()
+        self.ctx = ctx or self.V.Ctx(data)
+        self.cands = cands or build_candidates(data)
+        self.week = Week(self.ctx, base)
+        self.order = data["priority_order"]
+        self.cap = data["role_category_cap"]
+        self.rooms = data["rooms"]
+        self.days = data["calendar"]["days"]
+        self.inst = self.order.index("institute_event")
+        self.overrides = []
 
-    reqs = sorted(data["booking_requests"],
-                  key=lambda r: (order.index(eff(r)), r["submitted_at"], r["id"]))
+    # -- helpers -------------------------------------------------------------------------------
+    def eff(self, r):
+        return self.V.effective_category(self.data, r)
 
+    def sort_key(self, r):
+        return (self.order.index(self.eff(r)), r["submitted_at"], r["id"])
+
+    @staticmethod
     def feats(r):
         return set(r["features"]) | ({"accessible"} if r["accessible"] else set())
 
-    def eligible(req):
-        return [r for r in rooms if "event" in r["allowed_uses"] and r["type"] in req["room_types"]
-                and r["capacity"] >= req["attendance"] and not set(req["needs"]) - feats(r)]
+    def eligible(self, req):
+        return [r for r in self.rooms if "event" in r["allowed_uses"] and r["type"] in req["room_types"]
+                and r["capacity"] >= req["attendance"] and not set(req["needs"]) - self.feats(r)]
 
+    @staticmethod
     def room_pref(req, r):
         return (r["id"] != req.get("requested_room"), r["capacity"], r["id"])
 
-    def priority_note(req):
-        note = f"Treated as {eff(req)}"
-        if eff(req) != req["requested_category"]:
+    def priority_note(self, req):
+        note = f"Treated as {self.eff(req)}"
+        if self.eff(req) != req["requested_category"]:
             note += (f" (requested {req['requested_category']}, but role '{req['role']}' "
-                     f"is capped at {cap[req['role']]})")
+                     f"is capped at {self.cap[req['role']]})")
         return note
 
-    def no_room_reason(req):
-        by_type = [r for r in rooms if "event" in r["allowed_uses"] and r["type"] in req["room_types"]]
+    def no_room_reason(self, req):
+        by_type = [r for r in self.rooms if "event" in r["allowed_uses"] and r["type"] in req["room_types"]]
         if not by_type:
             return f"No venue of type {req['room_types']} can host events"
         big = [r for r in by_type if r["capacity"] >= req["attendance"]]
@@ -154,33 +161,69 @@ def evaluate_bookings(data, base):
             top = max(by_type, key=lambda r: r["capacity"])
             return (f"No suitable venue seats {req['attendance']} "
                     f"(largest allowed: {top['id']} with {top['capacity']})")
-        if not any(not set(req["needs"]) - feats(r) for r in big):
+        if not any(not set(req["needs"]) - self.feats(r) for r in big):
             return f"No venue of the right type and size has all required facilities {sorted(req['needs'])}"
         return None
 
-    def slots(req, el):
-        """In-window candidate slots in preference order: window, start, room."""
+    def slots(self, req, el):
         dur = req["duration_periods"]
         for w in req["windows"]:
             for a in range(w["from_period"], min(w["to_period"], MAXP) - dur + 2):
                 for r in el:
                     yield r["id"], w["day"], a, a + dur - 1
 
-    decisions, overrides = {}, []
-    for req in reqs:
+    def check_slot(self, req, room_id, day, a, b):
+        """Hard-rule facts for a manually chosen slot. Returns a list of plain-language problems."""
+        room = next((r for r in self.rooms if r["id"] == room_id), None)
+        if room is None:
+            return [("H13", f"Unknown room {room_id}")]
+        bad = []
+        if day not in self.days:
+            bad.append(("H13", f"{day} is not a valid day"))
+        if not isinstance(a, int) or not isinstance(b, int) or a < 1 or b > MAXP or b < a:
+            bad.append(("H13", f"Periods P{a}-P{b} are outside P1-P{MAXP}"))
+        if bad:
+            return bad
+        if b - a + 1 != req["duration_periods"]:
+            bad.append(("H13", f"Booked {b - a + 1} period(s) but the event needs {req['duration_periods']}"))
+        if "event" not in room["allowed_uses"]:
+            bad.append(("H13", f"{room_id} cannot host events"))
+        if req["room_types"] and room["type"] not in req["room_types"]:
+            bad.append(("H13", f"{room_id} is a {room['type']}, not one of {req['room_types']}"))
+        if room["capacity"] < req["attendance"]:
+            bad.append(("H5", f"{room_id} seats {room['capacity']}, the event needs {req['attendance']}"))
+        miss = set(req["needs"]) - self.feats(room)
+        if miss:
+            bad.append(("H13", f"{room_id} lacks {sorted(miss)}"))
+        for kind, who in self.week.blockers(req, room_id, day, a, b):
+            if kind == "maintenance":
+                bad.append(("H8", f"{room_id} is unavailable (maintenance) during that time"))
+            elif kind == "class":
+                s = self.ctx.sessions[who]
+                bad.append(("H4", f"{room_id} is used by class {who} ({s['course_id']})"))
+            elif kind == "event":
+                bad.append(("H4", f"{room_id} is already booked by {who}"))
+            elif kind == "group":
+                bad.append(("H13", f"Group {who} is mandatory for this event but has a class then"))
+        seen, out = set(), []
+        for x in bad:
+            if x not in seen:
+                seen.add(x)
+                out.append(x)
+        return out
+
+    # -- decision ------------------------------------------------------------------------------
+    def decide(self, req, allow_displace=True):
         rid = req["id"]
-        note = priority_note(req)
-        if rid in ctx.cancelled:
-            decisions[rid] = {"request_id": rid, "status": "rejected",
-                              "reason": "Request was cancelled by the requester, so it is not scheduled",
-                              "effective_category": eff(req), "priority_rank": None}
-            continue
-        el = sorted(eligible(req), key=lambda r: room_pref(req, r))
+        eff = self.eff(req)
+        note = self.priority_note(req)
+        week, cands, order = self.week, self.cands, self.order
+        el = sorted(self.eligible(req), key=lambda r: self.room_pref(req, r))
         dur = req["duration_periods"]
         found, status, reason, pre_added = None, None, None, False
         held = defaultdict(int)
 
-        for (r_id, d, a, b) in slots(req, el):
+        for (r_id, d, a, b) in self.slots(req, el):
             bl = week.blockers(req, r_id, d, a, b)
             if not bl:
                 found = (r_id, d, a, b)
@@ -193,15 +236,15 @@ def evaluate_bookings(data, base):
             if req.get("requested_room") and req["requested_room"] != found[0]:
                 reason += f"; the requested room {req['requested_room']} was not suitable or free"
 
-        if not found and el and order.index(eff(req)) <= inst:
+        if not found and el and allow_displace and order.index(eff) <= self.inst:
             # only an institute-level event may displace regular classes (relocated, never dropped)
             best = None
-            for (r_id, d, a, b) in slots(req, el):
+            for (r_id, d, a, b) in self.slots(req, el):
                 bl = week.blockers(req, r_id, d, a, b)
                 if bl and all(k == "class" and not week.sess[x].get("basket_slot") for k, x in bl):
                     victims = sorted({x for _, x in bl})
                     rr = next(r for r in el if r["id"] == r_id)
-                    key = (len(victims), room_pref(req, rr), d, a)
+                    key = (len(victims), self.room_pref(req, rr), d, a)
                     if best is None or key < best[0]:
                         best = (key, r_id, d, a, b, victims)
             if best:
@@ -212,8 +255,8 @@ def evaluate_bookings(data, base):
                     found = (r_id, d, a, b)
                     pre_added = True
                     status = "approved"
-                    overrides += [{"session_id": x, "day": week.pos[x][0], "start_period": week.pos[x][1],
-                                   "room_id": week.pos[x][2], "displaced_by": rid} for x in victims]
+                    self.overrides += [{"session_id": x, "day": week.pos[x][0], "start_period": week.pos[x][1],
+                                        "room_id": week.pos[x][2], "displaced_by": rid} for x in victims]
                     reason = (f"Approved. {note}. {r_id} was in use by {len(victims)} regular class(es) "
                               f"({', '.join(victims)}), which were relocated for Week 7 only")
                 else:
@@ -222,14 +265,14 @@ def evaluate_bookings(data, base):
         if not found:
             alt = None
             for r in el:
-                for d in days:
+                for d in self.days:
                     for a in range(1, MAXP - dur + 2):
                         if week.blockers(req, r["id"], d, a, a + dur - 1):
                             continue
                         w0 = req["windows"][0]
                         k = (not any(w["day"] == d for w in req["windows"]),
-                             abs(days.index(d) - days.index(w0["day"])),
-                             abs(a - w0["from_period"]), room_pref(req, r))
+                             abs(self.days.index(d) - self.days.index(w0["day"])),
+                             abs(a - w0["from_period"]), self.room_pref(req, r))
                         if alt is None or k < alt[0]:
                             alt = (k, r["id"], d, a, a + dur - 1)
             if alt:
@@ -246,15 +289,34 @@ def evaluate_bookings(data, base):
             else:
                 status = "rejected"
                 reason = (f"Rejected. {note}. "
-                          + (no_room_reason(req) or "No suitable room is free at any time that week "
+                          + (self.no_room_reason(req) or "No suitable room is free at any time that week "
                              "after higher-priority bookings and classes"))
 
         dec = {"request_id": rid, "status": status, "reason": reason,
-               "effective_category": eff(req), "priority_rank": order.index(eff(req)) + 1}
+               "effective_category": eff, "priority_rank": order.index(eff) + 1}
         if found and status != "rejected":
             r_id, d, a, b = found
             dec.update({"day": d, "start_period": a, "end_period": b, "room_id": r_id})
             if not pre_added:
                 week.add_event(req, r_id, d, a, b)
-        decisions[rid] = dec
-    return [decisions[r["id"]] for r in data["booking_requests"]], overrides, dict(week.pos)
+        return dec
+
+    def place_existing(self, decision, req):
+        """Register an already-decided event (approved or alternative) in the week view."""
+        if decision.get("status") in ("approved", "alternative_offered") and decision.get("room_id"):
+            self.week.add_event(req, decision["room_id"], decision["day"], decision["start_period"],
+                                decision["end_period"])
+
+
+def evaluate_bookings(data, base):
+    """Return (decisions in request order, week-7 session overrides, week-7 positions)."""
+    D = Decider(data, base)
+    decisions = {}
+    for req in sorted(data["booking_requests"], key=D.sort_key):
+        if req["id"] in D.ctx.cancelled:
+            decisions[req["id"]] = {"request_id": req["id"], "status": "rejected",
+                                    "reason": "Request was cancelled by the requester, so it is not scheduled",
+                                    "effective_category": D.eff(req), "priority_rank": None}
+            continue
+        decisions[req["id"]] = D.decide(req)
+    return [decisions[r["id"]] for r in data["booking_requests"]], D.overrides, dict(D.week.pos)
