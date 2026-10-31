@@ -1,28 +1,29 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { AppShell } from "@/components/layout/AppShell";
-import { Header } from "@/components/layout/Header";
-import { InspectorDeck } from "@/components/layout/InspectorDeck";
+import { Loader2 } from "lucide-react";
+import { Shell } from "@/components/layout/Shell";
+import { CommandPalette, PaletteItem } from "@/components/layout/CommandPalette";
 import { LoginScreen } from "@/components/auth/LoginScreen";
-import { PipelinePanel } from "@/components/views/PipelinePanel";
-import { TimetableGrid, TimetableEntities, EveningEvent } from "@/components/timetable/TimetableGrid";
-import { ExamsDeck } from "@/components/exams/ExamsDeck";
-import { SpectraClashMatrix } from "@/components/spectra/SpectraClashMatrix";
+import { Overview } from "@/components/views/Overview";
+import { TimetableView, TimetableEntities, EveningEvent } from "@/components/timetable/TimetableView";
+import { ExamsBoard } from "@/components/exams/ExamsBoard";
+import { SpectraBoard } from "@/components/spectra/SpectraBoard";
 import { ApprovalsDeck } from "@/components/approvals/ApprovalsDeck";
 import { DisruptionDeck } from "@/components/disruptions/DisruptionDeck";
 import { AiBookingAssistant } from "@/components/assistant/AiBookingAssistant";
 import { ExportsDeck } from "@/components/exports/ExportsDeck";
 import { AppProvider, useApp } from "@/lib/appContext";
-import { ApiError, describeError, fetchBookings, fetchTimetable, login, logout, onUnauthorized, resetDemoData } from "@/lib/api";
+import { ToastProvider, useToast } from "@/lib/toast";
+import { ApiError, describeError, fetchBookings, fetchTimetable, login, logout, onUnauthorized } from "@/lib/api";
 import { loadSession, StoredSession } from "@/lib/session";
 import { NavRouteId, ReferenceData, ScheduledSession, SessionUser } from "@/lib/types";
 import { NAV_ROUTES, ROLE_CONFIGS } from "@/lib/uiConfig";
-import { CheckCircle2, Loader2, AlertTriangle } from "lucide-react";
+import { Skeleton } from "@/components/ui/primitives";
 
 type Pivot = "group" | "faculty" | "room";
 
-export function MainDashboardView({ initialNav = "timetable" }: { initialNav?: NavRouteId }) {
+export function MainDashboardView({ initialNav = "overview" }: { initialNav?: NavRouteId }) {
   const [session, setSession] = useState<StoredSession | null>(null);
   const [ready, setReady] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -30,253 +31,140 @@ export function MainDashboardView({ initialNav = "timetable" }: { initialNav?: N
   useEffect(() => {
     setSession(loadSession());
     setReady(true);
-    return onUnauthorized(() => {
-      setSession(null);
-      setNotice("Your session ended. Please sign in again.");
-    });
+    return onUnauthorized(() => { setSession(null); setNotice("Your session ended. Please sign in again."); });
   }, []);
 
-  if (!ready) {
-    return <div className="min-h-screen bg-[#080A0C]" />;
-  }
-  if (!session) {
-    return <LoginScreen notice={notice} onSignedIn={(s) => { setNotice(null); setSession(s); }} />;
-  }
+  if (!ready) return <div className="min-h-screen" />;
+  if (!session) return <LoginScreen notice={notice} onSignedIn={(s) => { setNotice(null); setSession(s); }} />;
   return (
-    <AppProvider key={session.user.username} user={session.user}>
-      <Workspace
-        initialNav={initialNav}
-        onSession={setSession}
-        onSignOut={() => {
-          logout();
-          setSession(null);
-        }}
-      />
-    </AppProvider>
+    <ToastProvider>
+      <AppProvider key={session.user.username} user={session.user}>
+        <Workspace initialNav={initialNav} onSession={setSession} onSignOut={() => { logout(); setSession(null); }} />
+      </AppProvider>
+    </ToastProvider>
   );
 }
 
 function allowedEntities(ref: ReferenceData | null, user: SessionUser): TimetableEntities {
   if (!ref) return { group: [], faculty: [], room: [] };
-  const rooms = ref.rooms;
-  if (user.role === "admin") return { group: ref.student_groups, faculty: ref.faculty, room: rooms };
-  if (user.role === "club") return { group: [], faculty: [], room: rooms };
+  if (user.role === "admin") return { group: ref.student_groups, faculty: ref.faculty, room: ref.rooms };
+  if (user.role === "club") return { group: [], faculty: [], room: ref.rooms };
   if (user.role === "faculty") {
     const taught = new Set(ref.sessions.filter((s) => s.faculty_id === user.faculty_id).flatMap((s) => s.groups));
-    return {
-      group: ref.student_groups.filter((g) => taught.has(g.id)),
-      faculty: ref.faculty.filter((f) => f.id === user.faculty_id),
-      room: rooms,
-    };
+    return { group: ref.student_groups.filter((g) => taught.has(g.id)), faculty: ref.faculty.filter((f) => f.id === user.faculty_id), room: ref.rooms };
   }
   return {
     group: ref.student_groups.filter((g) => g.department === user.department || g.department === "COMMON"),
     faculty: ref.faculty.filter((f) => f.department === user.department),
-    room: rooms,
+    room: ref.rooms,
   };
 }
 
-function Workspace({
-  initialNav,
-  onSession,
-  onSignOut,
-}: {
-  initialNav: NavRouteId;
-  onSession: (s: StoredSession) => void;
-  onSignOut: () => void;
-}) {
-  const { user, ref, dashboard, revision, refresh } = useApp();
-  const roleConfig = ROLE_CONFIGS[user.role];
-  const [activeNav, setActiveNav] = useState<NavRouteId>(
-    roleConfig.allowedNav.includes(initialNav) ? initialNav : "timetable"
-  );
-  const [isResetting, setIsResetting] = useState(false);
+function Workspace({ initialNav, onSession, onSignOut }: { initialNav: NavRouteId; onSession: (s: StoredSession) => void; onSignOut: () => void }) {
+  const { user, ref, dashboard, revision } = useApp();
+  const toast = useToast();
+  const allowed = ROLE_CONFIGS[user.role].allowedNav;
+  const [nav, setNav] = useState<NavRouteId>(allowed.includes(initialNav) ? initialNav : "overview");
   const [switching, setSwitching] = useState(false);
-  const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
+  const [palette, setPalette] = useState(false);
   const [assistantText, setAssistantText] = useState<string | null>(null);
 
   const entities = useMemo(() => allowedEntities(ref, user), [ref, user]);
-  const defaultPivot: Pivot = user.role === "club" ? "room" : user.role === "faculty" ? "faculty" : "group";
-  const [activePivot, setActivePivot] = useState<Pivot>(defaultPivot);
-  const [selectedId, setSelectedId] = useState<string>("");
-  const [showEvening, setShowEvening] = useState(false);
+  const [pivot, setPivot] = useState<Pivot>(user.role === "club" ? "room" : user.role === "faculty" ? "faculty" : "group");
+  const [selectedId, setSelectedId] = useState("");
   const [sessions, setSessions] = useState<ScheduledSession[]>([]);
-  const [ttState, setTtState] = useState<{ loading: boolean; error: string | null; empty: string | null }>({
-    loading: false, error: null, empty: null,
-  });
+  const [tt, setTt] = useState<{ loading: boolean; error: string | null; empty: string | null }>({ loading: false, error: null, empty: null });
   const [events, setEvents] = useState<EveningEvent[]>([]);
 
-  // pick a sensible first entity once reference data arrives, or when the pivot changes
-  useEffect(() => {
-    const list = entities[activePivot] as Array<{ id: string }>;
-    if (!list.length) return;
-    if (!list.some((e) => e.id === selectedId)) {
-      const preferred = activePivot === "group" ? "Y1-A" : activePivot === "room" ? (user.role === "club" ? "AUD" : "LH-1") : "";
-      setSelectedId(list.some((e) => e.id === preferred) ? preferred : list[0].id);
-    }
-  }, [entities, activePivot, selectedId, user.role]);
-
-  // keep the URL in step with the screen, so a reload or shared link opens the same place
-  const changeNav = useCallback((nav: NavRouteId) => {
-    setActiveNav(nav);
-    const href = NAV_ROUTES.find((r) => r.id === nav)?.href;
+  const go = useCallback((n: NavRouteId) => {
+    setNav(n);
+    const href = NAV_ROUTES.find((r) => r.id === n)?.href;
     if (href && typeof window !== "undefined") window.history.replaceState(null, "", href);
+    window.scrollTo({ top: 0 });
   }, []);
 
   useEffect(() => {
-    if (!ref || !selectedId) return;
+    const onKey = (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setPalette((p) => !p); } };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // choose a sensible first entity when reference data arrives or the pivot changes
+  useEffect(() => {
+    const list = entities[pivot] as Array<{ id: string }>;
+    if (!list.length) return;
+    if (!list.some((e) => e.id === selectedId)) {
+      const pref = pivot === "group" ? "Y1-A" : pivot === "room" ? (user.role === "club" ? "AUD" : "LH-1") : "";
+      setSelectedId(list.some((e) => e.id === pref) ? pref : list[0].id);
+    }
+  }, [entities, pivot, selectedId, user.role]);
+
+  useEffect(() => {
+    if (nav !== "timetable" || !ref || !selectedId) return;
     let alive = true;
-    setTtState((s) => ({ ...s, loading: true, error: null }));
-    fetchTimetable(activePivot, selectedId, ref)
-      .then((rows) => {
-        if (!alive) return;
-        setSessions(rows);
-        setTtState({ loading: false, error: null, empty: null });
-      })
+    setTt((s) => ({ ...s, loading: true, error: null }));
+    fetchTimetable(pivot, selectedId, ref)
+      .then((rows) => { if (alive) { setSessions(rows); setTt({ loading: false, error: null, empty: null }); } })
       .catch((e) => {
         if (!alive) return;
         setSessions([]);
-        if (e instanceof ApiError && e.status === 404) {
-          setTtState({ loading: false, error: null, empty: user.role === "admin"
-            ? "No timetable yet. Press 1. GENERATE TIMETABLE above."
-            : "No timetable has been generated yet. Ask an Admin to generate it." });
-        } else {
-          setTtState({ loading: false, error: describeError(e), empty: null });
-        }
+        if (e instanceof ApiError && e.status === 404) setTt({ loading: false, error: null, empty: user.role === "admin" ? "No timetable yet. Run step 1 on the Overview page." : "No timetable has been generated yet. An Admin has to do that first." });
+        else setTt({ loading: false, error: describeError(e), empty: null });
       });
-    return () => {
-      alive = false;
-    };
-  }, [ref, activePivot, selectedId, revision, dashboard?.schedule_version, user.role]);
+    return () => { alive = false; };
+  }, [nav, ref, pivot, selectedId, revision, dashboard?.schedule_version, user.role]);
 
-  // evening (P10-P13) and Week 7 events for the selected room, straight from the booking decisions
   useEffect(() => {
-    if (!showEvening || activePivot !== "room" || !selectedId) {
-      setEvents([]);
-      return;
-    }
-    fetchBookings()
-      .then((b) => {
-        const fromDataset: EveningEvent[] = b.requests
-          .filter((r) => r.assigned_room === selectedId && (r.status === "approved" || r.status === "alternative_offered"))
-          .map((r) => ({ id: r.id, title: r.title, day: r.day, start: r.start_period, end: r.end_period, status: r.status }));
-        const fromApp: EveningEvent[] = b.submitted
-          .filter((s) => s.placement?.room_id === selectedId && (s.status === "APPROVED" || s.status === "ALTERNATIVE_OFFERED"))
-          .map((s) => ({ id: s.id, title: s.title, day: s.placement!.day, start: s.placement!.start_period,
-                         end: s.placement!.end_period, status: s.status.toLowerCase() }));
-        setEvents([...fromDataset, ...fromApp]);
-      })
-      .catch(() => setEvents([]));
-  }, [showEvening, activePivot, selectedId, revision]);
-
-  const handleReset = async () => {
-    if (!window.confirm("Reset the shared demo data? Generated timetables, exams, bookings and proposals are cleared. Demo accounts are kept.")) return;
-    setIsResetting(true);
-    try {
-      const r = await resetDemoData();
-      setToast({ ok: true, text: `${r.message} (revision ${r.revision})` });
-      await refresh();
-    } catch (e) {
-      setToast({ ok: false, text: describeError(e) });
-    } finally {
-      setIsResetting(false);
-      setTimeout(() => setToast(null), 6000);
-    }
-  };
+    if (nav !== "timetable" || pivot !== "room" || !selectedId) { setEvents([]); return; }
+    fetchBookings().then((b) => {
+      const a: EveningEvent[] = b.requests.filter((r) => r.assigned_room === selectedId && (r.status === "approved" || r.status === "alternative_offered"))
+        .map((r) => ({ id: r.id, title: r.title, day: r.day, start: r.start_period, end: r.end_period, status: r.status }));
+      const c: EveningEvent[] = b.submitted.filter((s) => s.placement?.room_id === selectedId && (s.status === "APPROVED" || s.status === "ALTERNATIVE_OFFERED"))
+        .map((s) => ({ id: s.id, title: s.title, day: s.placement!.day, start: s.placement!.start_period, end: s.placement!.end_period, status: s.status.toLowerCase() }));
+      setEvents([...a, ...c]);
+    }).catch(() => setEvents([]));
+  }, [nav, pivot, selectedId, revision]);
 
   const switchAccount = async (u: string, p: string) => {
     setSwitching(true);
-    try {
-      onSession(await login(u, p));
-    } catch (e) {
-      setToast({ ok: false, text: describeError(e) });
-      setTimeout(() => setToast(null), 6000);
-    } finally {
-      setSwitching(false);
-    }
+    try { onSession(await login(u, p)); } catch (e) { toast.error(describeError(e)); } finally { setSwitching(false); }
   };
 
-  const header = (
-    <Header
-      user={user}
-      dashboard={dashboard}
-      workspaceRevision={dashboard?.revision ?? 0}
-      onReset={handleReset}
-      isResetting={isResetting}
-      activeNav={activeNav}
-      onNavChange={changeNav}
-      onSwitchAccount={switchAccount}
-      onSignOut={onSignOut}
-      switching={switching}
-    />
-  );
-
-  const inspector = (
-    <InspectorDeck
-      onOpenAssistant={(text) => {
-        setAssistantText(text);
-        changeNav("ai_booking");
-      }}
-      onOpenApprovals={() => changeNav("approvals")}
-    />
-  );
+  const items: PaletteItem[] = useMemo(() => {
+    const out: PaletteItem[] = NAV_ROUTES.filter((r) => allowed.includes(r.id)).map((r) => ({ id: "nav-" + r.id, label: r.label, hint: r.description, group: "Go to", run: () => go(r.id) }));
+    const open = (p: Pivot, id: string) => () => { setPivot(p); setSelectedId(id); go("timetable"); };
+    entities.group.forEach((g) => out.push({ id: "g-" + g.id, label: `${g.id}  ${g.name}`, hint: `${g.size} students`, group: "Student groups", run: open("group", g.id) }));
+    entities.faculty.forEach((f) => out.push({ id: "f-" + f.id, label: `${f.name}`, hint: `${f.id} · ${f.department}`, group: "Faculty", run: open("faculty", f.id) }));
+    entities.room.forEach((r) => out.push({ id: "r-" + r.id, label: `${r.id}  ${r.name}`, hint: `${r.type.replace(/_/g, " ")} · ${r.capacity} seats`, group: "Rooms", run: open("room", r.id) }));
+    out.push({ id: "signout", label: "Sign out", group: "Account", run: onSignOut });
+    return out;
+  }, [allowed, entities, go, onSignOut]);
 
   return (
-    <AppShell
-      header={header}
-      inspector={inspector}
-      footerRevision={`${dashboard?.dataset_id || "..."} // REV ${dashboard?.revision ?? "-"}`}
-      footerSummary={`ROLE: ${user.role.toUpperCase()} // SCREEN: ${activeNav.toUpperCase()}`}
-    >
-      <div className="space-y-4">
-        {toast && (
-          <div className={`p-3 rounded-[4px] border flex items-center gap-2 text-xs font-mono ${
-            toast.ok ? "bg-emerald-950/80 border-emerald-500/50 text-emerald-200" : "bg-rose-950/70 border-rose-500/50 text-rose-200"
-          }`} role="status">
-            {toast.ok ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
-            <span>{toast.text}</span>
-          </div>
-        )}
-
-        <PipelinePanel />
-
-        {!ref && (
-          <div className="p-6 flex items-center gap-2 font-mono text-xs text-neutral-400">
-            <Loader2 className="w-4 h-4 animate-spin" /> Loading campus data from the server...
-          </div>
-        )}
-
-        {ref && activeNav === "timetable" && (
-          <div className="space-y-2">
-            {ttState.error && (
-              <div className="p-2 bg-rose-950/50 border border-rose-500/40 rounded font-mono text-xs text-rose-200">{ttState.error}</div>
+    <>
+      <Shell user={user} dashboard={dashboard} nav={nav} onNav={go} onSwitch={switchAccount} onSignOut={onSignOut} onSearch={() => setPalette(true)} switching={switching}>
+        {!ref && nav !== "overview" ? (
+          <div className="space-y-4"><div className="flex items-center gap-2 text-sm text-ink-600"><Loader2 className="w-4 h-4 animate-spin" />Loading campus data...</div><Skeleton className="h-64" /></div>
+        ) : (
+          <>
+            {nav === "overview" && <Overview onNav={go} />}
+            {nav === "timetable" && (
+              <div className="space-y-3">
+                {tt.error && <p className="text-sm text-sunrise-600 bg-sunrise-50 rounded-xl px-4 py-3" role="alert">{tt.error}</p>}
+                {tt.empty && <p className="text-sm text-saffron-600 bg-saffron-50 rounded-xl px-4 py-3">{tt.empty}</p>}
+                <TimetableView sessions={sessions} loading={tt.loading} entities={entities} pivot={pivot} onPivot={setPivot} selectedId={selectedId} onSelect={setSelectedId} events={events} ref_={ref} />
+              </div>
             )}
-            {ttState.empty && (
-              <div className="p-3 bg-amber-950/30 border border-amber-500/40 rounded font-mono text-xs text-amber-200">{ttState.empty}</div>
-            )}
-            <TimetableGrid
-              sessions={sessions}
-              loading={ttState.loading}
-              entities={entities}
-              activePivot={activePivot}
-              onPivotChange={setActivePivot}
-              selectedId={selectedId}
-              onSelectId={setSelectedId}
-              showEvening={showEvening}
-              onToggleEvening={() => setShowEvening(!showEvening)}
-              eveningEvents={events}
-            />
-          </div>
+            {nav === "exams" && <ExamsBoard />}
+            {nav === "spectra_clash" && <SpectraBoard />}
+            {nav === "approvals" && <ApprovalsDeck onOpenChanges={() => go("disruptions")} />}
+            {nav === "disruptions" && <DisruptionDeck />}
+            {nav === "ai_booking" && <AiBookingAssistant initialText={assistantText} onConsumedInitialText={() => setAssistantText(null)} />}
+            {nav === "exports" && <ExportsDeck />}
+          </>
         )}
-        {ref && activeNav === "exams" && <ExamsDeck />}
-        {ref && activeNav === "spectra_clash" && <SpectraClashMatrix />}
-        {ref && activeNav === "approvals" && <ApprovalsDeck onOpenDisruptions={() => changeNav("disruptions")} />}
-        {ref && activeNav === "disruptions" && <DisruptionDeck />}
-        {ref && activeNav === "ai_booking" && (
-          <AiBookingAssistant initialText={assistantText} onConsumedInitialText={() => setAssistantText(null)} />
-        )}
-        {ref && activeNav === "exports" && <ExportsDeck />}
-      </div>
-    </AppShell>
+      </Shell>
+      <CommandPalette open={palette} onClose={() => setPalette(false)} items={items} />
+    </>
   );
 }

@@ -35,7 +35,7 @@ def fail(status, code, message, **extra):
 
 @router.get("/health")
 def health():
-    return ok({"status": "ok", "version": "0.4.0", "dataset_id": WS.dataset["dataset_id"],
+    return ok({"status": "ok", "version": "0.5.0", "dataset_id": WS.dataset["dataset_id"],
                "revision": WS.revision})
 
 
@@ -52,6 +52,8 @@ def _publish(job, expected_rev, assign, info, final):
         WS.applied = []
         WS.schedule_meta = {"solver_status": info["solver_status"], "soft_total": info["soft_total"],
                             "soft_penalties": info["soft_penalties"], "optimised": final}
+        from .api_bookings import reconcile_after_timetable_change
+        reconcile_after_timetable_change()      # Spectra decisions depend on the classes, so keep them in step
         WS.revision += 1
         job["_published"] = True
         job["_rev"] = WS.revision

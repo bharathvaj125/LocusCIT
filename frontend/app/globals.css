@@ -1,89 +1,91 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
 
+/* Locus design tokens: warm paper, ink and Chilika lagoon (see the Figma file "LocusCIT - Design System and Screens") */
 @theme {
-  --color-locus-void: #080A0C;
-  --color-locus-surface: #0E1216;
-  --color-locus-surface-raised: #161B22;
-  --color-locus-surface-overlay: #1C232B;
-  
-  --color-locus-border: rgba(255, 255, 255, 0.08);
-  --color-locus-border-subtle: rgba(255, 255, 255, 0.04);
-  --color-locus-border-active: rgba(255, 255, 255, 0.22);
-  
-  --color-locus-signal-amber: #F59E0B;
-  --color-locus-signal-amber-dim: rgba(245, 158, 11, 0.15);
-  --color-locus-signal-green: #10B981;
-  --color-locus-signal-green-dim: rgba(16, 185, 129, 0.15);
-  --color-locus-signal-blue: #06B6D4;
-  --color-locus-signal-blue-dim: rgba(6, 182, 212, 0.15);
-  --color-locus-signal-red: #EF4444;
-  --color-locus-signal-red-dim: rgba(239, 68, 68, 0.15);
-  
-  --color-locus-text-primary: #F3F4F6;
-  --color-locus-text-secondary: #9CA3AF;
-  --color-locus-text-muted: #6B7280;
+  --color-paper: #F4EFE6;
+  --color-raised: #FBF8F2;
+  --color-sunk: #EBE4D6;
 
-  --font-display: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --color-ink-900: #0E2230;
+  --color-ink-600: #44586A;
+  --color-ink-400: #7B8A97;
+  --color-line: #D9D1C0;
+  --color-line-strong: #BFB59E;
+
+  --color-lagoon-900: #0A3D4A;
+  --color-lagoon-700: #0E6270;
+  --color-lagoon-500: #1F8A96;
+  --color-lagoon-200: #BFE0DF;
+  --color-lagoon-50: #E6F3F1;
+
+  --color-sunrise-600: #C9431D;
+  --color-sunrise-500: #E4572E;
+  --color-sunrise-50: #FCE9E2;
+  --color-saffron-600: #B97E12;
+  --color-saffron-500: #E9A93A;
+  --color-saffron-50: #FBF0D9;
+  --color-mangrove-600: #1F6445;
+  --color-mangrove-500: #2E7D5B;
+  --color-mangrove-50: #DDF0E6;
+  --color-indigo-600: #2F4888;
+  --color-indigo-500: #3F5BA9;
+  --color-indigo-50: #E3E8F6;
+  --color-plum-600: #553A80;
+  --color-plum-500: #6B4C9A;
+  --color-plum-50: #ECE5F5;
+  --color-stone-600: #6A5F49;
+  --color-stone-500: #8A7F68;
+  --color-stone-50: #EDE7DA;
+
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --shadow-card: 0 1px 0 rgba(14, 34, 48, 0.04), 0 8px 24px -12px rgba(14, 34, 48, 0.18);
+  --shadow-pop: 0 2px 4px rgba(14, 34, 48, 0.06), 0 24px 48px -16px rgba(14, 34, 48, 0.32);
 }
 
-:root {
-  --background: #080A0C;
-  --foreground: #F3F4F6;
-}
-
+html { color-scheme: light; }
 body {
-  background-color: var(--background);
-  color: var(--foreground);
+  background: var(--color-paper);
+  color: var(--color-ink-900);
   font-family: var(--font-sans);
-  overflow-x: hidden;
+  font-size: 15px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+::selection { background: var(--color-lagoon-200); color: var(--color-lagoon-900); }
+
+/* a faint dot grid fading down the page: gives it a printed-timetable feel */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+  background-image: radial-gradient(rgba(14, 34, 48, 0.07) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), transparent 55%);
 }
 
-/* Custom Tactical Scrollbars */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: #080A0C;
-}
-::-webkit-scrollbar-thumb {
-  background: #1F2937;
-  border-radius: 2px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #374151;
-}
+:focus-visible { outline: 2px solid var(--color-lagoon-500); outline-offset: 2px; border-radius: 6px; }
+* { scrollbar-width: thin; scrollbar-color: var(--color-line-strong) transparent; }
 
-/* Tactile Micro-Bevels & Elevation */
-.tactile-bevel {
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.09);
-}
+@keyframes drift { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+@keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(46, 125, 91, 0.45); } 100% { box-shadow: 0 0 0 10px rgba(46, 125, 91, 0); } }
+.wave-drift { animation: drift 18s linear infinite; }
+.wave-drift-slow { animation: drift 30s linear infinite; }
+.bob { animation: bob 5s ease-in-out infinite; }
+.seal-pulse { animation: pulse-ring 2.4s ease-out infinite; }
+.skeleton { position: relative; overflow: hidden; background: var(--color-sunk); border-radius: 12px; }
+.skeleton::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent); animation: shimmer 1.4s infinite; }
+.tabular { font-variant-numeric: tabular-nums; }
 
-.tactile-bevel-pressed:active {
-  box-shadow: inset 0 1px 2px 0 rgba(0, 0, 0, 0.5);
-  transform: translateY(1px);
-}
-
-.tactile-glow-green {
-  box-shadow: 0 0 12px -2px rgba(16, 185, 129, 0.35);
-}
-
-.tactile-glow-amber {
-  box-shadow: 0 0 12px -2px rgba(245, 158, 11, 0.35);
-}
-
-.tactile-glow-blue {
-  box-shadow: 0 0 12px -2px rgba(6, 182, 212, 0.35);
-}
-
-/* Engineering Console Grid Texture */
-.console-grid {
-  background-size: 24px 24px;
-  background-image: 
-    linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
 }

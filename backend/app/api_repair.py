@@ -120,8 +120,8 @@ def approve(pid: str, user=Depends(require("admin"))):
         WS.schedule_version += 1
         WS.revision += 1
         WS.applied.append(pid)
-        decisions, overrides, _ = evaluate_bookings(after, WS.schedule)
-        WS.bookings = {"decisions": decisions, "overrides": overrides}
+        from .api_bookings import reconcile_after_timetable_change
+        reconcile_after_timetable_change()
         p.update(status="APPROVED", approved_by=user["username"], approved_at=time.time(),
                  hard_validation_result="0 hard violations")
     return ok(_public(p))

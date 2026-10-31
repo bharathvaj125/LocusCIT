@@ -12,6 +12,7 @@ export interface RoleConfig {
 }
 
 export type NavRouteId = 
+  | "overview"
   | "timetable" 
   | "exams" 
   | "spectra_clash" 
@@ -93,6 +94,7 @@ export interface ScheduledSession {
   id: string;
   course_id: string;
   course_title: string;
+  course_dept?: string;
   kind: "lecture" | "tutorial" | "lab";
   groups: string[];
   faculty_id: string;
@@ -339,7 +341,7 @@ export interface Submission {
   role: RoleType;
   department: string | null;
   title: string;
-  status: "PENDING_APPROVAL" | "APPROVED" | "ALTERNATIVE_OFFERED" | "REJECTED" | "CANCELLED" | "WITHDRAWN";
+  status: "PENDING_APPROVAL" | "APPROVED" | "ALTERNATIVE_OFFERED" | "REJECTED" | "CANCELLED" | "WITHDRAWN" | "NEEDS_REVIEW";
   manual: boolean;
   placement: { day: DayOfWeek; start_period: number; end_period: number; room_id: string } | null;
   proposed: { status: string; reason: string; effective_category?: string };

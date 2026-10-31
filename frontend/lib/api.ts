@@ -179,6 +179,7 @@ export function toScheduledSession(row: ScheduleRow, ref: ReferenceData): Schedu
     id: row.session_id,
     course_id: row.course_id,
     course_title: course?.title || row.course_id,
+    course_dept: course?.department,
     kind: row.kind,
     groups: row.groups,
     faculty_id: row.faculty_id,
@@ -528,4 +529,18 @@ export function describeError(e: unknown): string {
     return `${e.message}${rules}`;
   }
   return (e as Error)?.message || "Something went wrong";
+}
+
+// ------------------------------------------------------------------------------------------ venue board
+export interface VenueBoard {
+  days: DayOfWeek[];
+  rooms: Array<{ id: string; name: string; type: string; capacity: number; events_ok: boolean }>;
+  classes: Array<{ session_id: string; course_id: string; kind: string; room_id: string; day: DayOfWeek; start: number; end: number; groups: string[]; week7_override: boolean }>;
+  events: Array<{ id: string; title: string; requester: string; room_id: string; day: DayOfWeek; start: number; end: number; status: string; category: string; source: string }>;
+  closures: Array<{ room_id: string; day: DayOfWeek; periods: number[]; reason: string }>;
+  revision: number;
+}
+
+export async function fetchVenueBoard(): Promise<VenueBoard> {
+  return request("/api/venue-board");
 }
