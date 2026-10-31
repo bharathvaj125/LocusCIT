@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Header, RoleType, ScenarioType } from "./Header";
+import { Header, ScenarioType } from "./Header";
 import { Footer } from "./Footer";
 import { InspectorDeck } from "./InspectorDeck";
 import { TactileButton } from "@/components/tactile/TactileButton";
-import { PanelRightClose, PanelRightOpen, RefreshCw } from "lucide-react";
+import { RoleType, NavRouteId } from "@/lib/types";
+import { getLocalWorkspaceRevision } from "@/lib/api";
+import { PanelRightClose, PanelRightOpen } from "lucide-react";
 
 interface AppShellProps {
   children?: React.ReactNode;
@@ -15,7 +17,11 @@ interface AppShellProps {
   onScenarioChange: (scenario: ScenarioType) => void;
   currentRole: RoleType;
   onRoleChange: (role: RoleType) => void;
-  onReset: () => void;
+  workspaceRevision: number;
+  onReset: () => Promise<void> | void;
+  isResetting?: boolean;
+  activeNav: NavRouteId;
+  onNavChange: (nav: NavRouteId) => void;
 }
 
 export function AppShell({
@@ -24,7 +30,11 @@ export function AppShell({
   onScenarioChange,
   currentRole,
   onRoleChange,
+  workspaceRevision,
   onReset,
+  isResetting = false,
+  activeNav,
+  onNavChange,
 }: AppShellProps) {
   const [inspectorOpen, setInspectorOpen] = useState(true);
 
@@ -57,14 +67,18 @@ export function AppShell({
   }, [onScenarioChange, onReset]);
 
   return (
-    <div className="min-h-screen bg-[#080A0C] text-[#F3F4F6] flex flex-col font-sans antialiased console-grid selection:bg-emerald-500/30 selection:text-emerald-300">
-      {/* 1. Top Mission Telemetry Bar & Judge Presets */}
+    <div className="min-h-screen bg-[#080A0C] text-[#F3F4F6] flex flex-col font-sans antialiased console-grid selection:bg-cyan-500/30 selection:text-cyan-300">
+      {/* 1. Global Navigation & Persistent Judge Header Dock */}
       <Header
         currentScenario={currentScenario}
         onScenarioChange={onScenarioChange}
         currentRole={currentRole}
         onRoleChange={onRoleChange}
+        workspaceRevision={workspaceRevision}
         onReset={onReset}
+        isResetting={isResetting}
+        activeNav={activeNav}
+        onNavChange={onNavChange}
       />
 
       {/* 2. Main Dual-Workspace Viewport */}
@@ -89,9 +103,9 @@ export function AppShell({
           <div className="flex-1 p-3 md:p-4">{children}</div>
         </main>
 
-        {/* Action & Telemetry Inspector (Right 30%) */}
+        {/* Action & Telemetry Inspector (Right side dock) */}
         {inspectorOpen && (
-          <div className="fixed inset-y-0 right-0 z-40 lg:static lg:z-auto shadow-2xl lg:shadow-none">
+          <div className="hidden lg:block shrink-0 shadow-2xl">
             <InspectorDeck
               currentScenario={currentScenario}
               currentRole={currentRole}
@@ -102,9 +116,9 @@ export function AppShell({
 
       {/* 3. System Footer Strip */}
       <Footer
-        revision={`CIT-REV-${currentScenario === "default" ? "4029.0" : currentScenario === "spectra_surge" ? "4029.S7" : currentScenario === "disruption" ? "4029.DIS" : "4029.EXM"}`}
-        latencyMs={11}
-        activeFilterSummary={`SCENARIO: ${currentScenario.toUpperCase()} // ROLE: ${currentRole.toUpperCase()}`}
+        revision={`CIT-REV-${workspaceRevision}.0`}
+        latencyMs={12}
+        activeFilterSummary={`SCENARIO: ${currentScenario.toUpperCase()} // ROLE: ${currentRole.toUpperCase()} // ROUTE: ${activeNav.toUpperCase()}`}
       />
     </div>
   );
