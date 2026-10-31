@@ -11,6 +11,11 @@ where default settings made no progress. Wall time on a throttled host is CPU ti
 import os
 
 
+def negotiation_seconds():
+    """How long a booking holder has to answer a voluntary move offer (demo default: five minutes)."""
+    return float(os.getenv("NEGOTIATION_SECONDS", "300"))
+
+
 def workers():
     try:
         w = int(os.getenv("SOLVER_WORKERS", ""))

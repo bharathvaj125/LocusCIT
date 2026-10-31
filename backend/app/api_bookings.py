@@ -73,14 +73,17 @@ def _week_base():
     return base
 
 
-def _decider():
-    """Decider over the live Week-7 state: classes (with overrides), dataset decisions, reserved submissions."""
+def _decider(exclude=()):
+    """Decider over the live Week-7 state: classes (with overrides), dataset decisions, reserved submissions.
+    `exclude` leaves out the placements of those submission ids (used to test a move before it happens)."""
     D = Decider(WS.dataset, _week_base())
     reqs = {r["id"]: r for r in WS.dataset["booking_requests"]}
     for d in (WS.bookings or {}).get("decisions", []):
         if d["request_id"] in reqs:
             D.place_existing(d, reqs[d["request_id"]])
     for s in WS.submissions.values():
+        if s["id"] in exclude:
+            continue
         if s["status"] in ("APPROVED", "ALTERNATIVE_OFFERED") and s.get("placement"):
             D.place_existing({"status": "approved", **s["placement"]}, s["request"])
     return D
@@ -115,6 +118,8 @@ def reconcile_after_timetable_change():
                                     + "; ".join(m for _, m in problems))
         else:
             D.place_existing({"status": "approved", **p}, s["request"])
+    from .api_negotiation import void_stale
+    void_stale()
 
 
 def _request_dict(user, d, sid, window_list):
@@ -195,16 +200,22 @@ def suggest(draft: Draft, user=Depends(current_user)):
 
 
 def _official_hard(sub):
-    """Independent re-check by the official validator for one request placed on top of the live decisions."""
+    return _official_hard_many([sub])
+
+
+def _official_hard_many(subs):
+    """Independent re-check by the official validator for requests placed on top of the live decisions."""
     data = copy.deepcopy(WS.dataset)
-    data["booking_requests"].append(sub["request"])
+    for sub in subs:
+        data["booking_requests"].append(sub["request"])
     keys = ("request_id", "status", "day", "start_period", "end_period", "room_id", "reason")
     decisions = [{k: v for k, v in d.items() if k in keys} for d in (WS.bookings or {}).get("decisions", [])]
-    p = sub["placement"]
-    decisions.append({"request_id": sub["request"]["id"], "status": "approved", **p, "reason": "check"})
+    for sub in subs:
+        decisions.append({"request_id": sub["request"]["id"], "status": "approved", **sub["placement"], "reason": "check"})
     fest = {"bookings": decisions, "session_overrides": (WS.bookings or {}).get("overrides", [])}
     rep = official_validator().run(data, timetable_export(TEAM, data["dataset_id"], WS.schedule, fest_week=fest))
-    return [v for v in rep["hard_violations"] if sub["request"]["id"] in v["detail"]]
+    ids = [sub["request"]["id"] for sub in subs]
+    return [v for v in rep["hard_violations"] if any(i in v["detail"] for i in ids)]
 
 
 def _public_sub(s):
@@ -274,9 +285,14 @@ def decide(sid: str, body: DecisionBody, user=Depends(current_user)):
         if sub["status"] != "PENDING_APPROVAL":
             return fail(409, "INVALID_INPUT", f"Booking is {sub['status']}; only pending bookings can be decided")
         act = body.action
+        if sub.get("negotiation_id") and act in ("approve", "offer_alternative"):
+            from .api_negotiation import apply_negotiation
+            return apply_negotiation(sub, user, body.reason)
         if act == "reject":
             sub.update(status="REJECTED", decided_by=user["username"],
                        decision_reason=body.reason or "Rejected by approver")
+            from .api_negotiation import on_reject
+            on_reject(sub)
         elif act in ("approve", "offer_alternative"):
             p = sub["placement"]
             D = _decider()          # the live state excludes this pending booking, so its slot must be free
@@ -324,6 +340,8 @@ def cancel(sid: str, user=Depends(current_user)):
         if sub["status"] in ("CANCELLED", "REJECTED", "WITHDRAWN"):
             return fail(409, "INVALID_INPUT", f"Booking is already {sub['status']}")
         sub["status"] = "CANCELLED"
+        from .api_negotiation import on_cancel
+        on_cancel(sub)
         WS.revision += 1
     return ok(_public_sub(sub))
 
