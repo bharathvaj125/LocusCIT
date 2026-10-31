@@ -9,6 +9,43 @@ from .export import timetable_export
 from .soft import soft_objective
 
 
+def protected_slots(data):
+    """(room, day, period) cells that an institute-level event can only get in one specific room, at one exact time.
+
+    Keeping regular classes out of those cells costs almost nothing in the timetable but avoids having to
+    displace a class later, so the event can be approved in full instead of being offered an alternative.
+    """
+    V = official_validator()
+    order = data["priority_order"]
+    inst = order.index("institute_event")
+    cancelled = {c["request_id"] for c in data.get("cancellations", [])}
+    prot = set()
+    for r in data["booking_requests"]:
+        if r["id"] in cancelled or order.index(V.effective_category(data, r)) > inst:
+            continue
+        eligible = [room for room in data["rooms"]
+                    if "event" in room["allowed_uses"] and room["type"] in r["room_types"]
+                    and room["capacity"] >= r["attendance"]
+                    and not set(r["needs"]) - (set(room["features"]) | ({"accessible"} if room["accessible"] else set()))]
+        if len(eligible) != 1:
+            continue
+        for w in r["windows"]:
+            if w["to_period"] - w["from_period"] + 1 == r["duration_periods"]:
+                for pd in range(w["from_period"], min(w["to_period"], 9) + 1):
+                    prot.add((eligible[0]["id"], w["day"], pd))
+    return prot
+
+
+def _objective_with_protection(prot):
+    def objective(m, x, ctx):
+        base = soft_objective(m, x, ctx)
+        sess = ctx["sessions"]
+        hits = [v for (sid, c), v in x.items()
+                if any((c[2], c[0], pd) in prot for pd in range(c[1], c[1] + sess[sid]["duration"]))]
+        return base + sum(hits)
+    return objective
+
+
 def _check(data, assign):
     rep = official_validator().run(data, timetable_export("x", data["dataset_id"], assign))
     hard = {k: v for k, v in rep["hard_by_rule"].items() if not k.startswith("E")}
@@ -32,7 +69,8 @@ def generate_timetable(data, feasible_limit=60.0, optimize_limit=60.0, seed=1, w
     if optimize_limit > 0:
         small = prune_rooms(data, cands, assign, config.prune_rooms())
         st2, a2 = solve_timetable(data, time_limit=optimize_limit, seed=seed, workers=workers,
-                                  candidates=small, hint=assign, objective=soft_objective)
+                                  candidates=small, hint=assign,
+                                  objective=_objective_with_protection(protected_slots(data)))
         if a2 is not None:
             h2, s2, p2 = _check(data, a2)
             if not h2 and s2 <= best_soft:         # only ever keep a validator-verified improvement
