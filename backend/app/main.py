@@ -31,6 +31,12 @@ app.add_middleware(
 )
 
 
+@app.get("/", include_in_schema=False)
+def root():
+    return {"service": "LocusCIT API", "status": "ok", "docs": "/docs", "health": "/api/health",
+            "note": "This is the backend. Sign in through the web app, or use /docs to try the API."}
+
+
 @app.exception_handler(auth.AuthError)
 def auth_error(request: Request, e: auth.AuthError):
     return auth.err(e.status, e.code, e.message)
