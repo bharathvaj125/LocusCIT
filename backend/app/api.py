@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 
 from .solver.baseline import solve_timetable
 from .solver.exams import solve_exams
+from .solver.bookings import evaluate_bookings
 from .solver.export import timetable_export
 from .state import WS, TEAM
 
@@ -137,3 +138,53 @@ def exams_list(group: str | None = None):
         rows.append({**x, "course_ids": e["course_ids"], "groups": e["groups"], "size": e["size"],
                      "seats": sum(rooms[r]["capacity"] // 2 for r in x["rooms"])})
     return ok({"exams": rows, "revision": WS.revision})
+
+
+def _fest_week():
+    keys = ("request_id", "status", "day", "start_period", "end_period", "room_id", "reason")
+    return {"bookings": [{k: v for k, v in d.items() if k in keys} for d in WS.bookings["decisions"]],
+            "session_overrides": WS.bookings["overrides"]}
+
+
+@router.post("/bookings/evaluate-batch")
+def bookings_evaluate():
+    if WS.schedule is None:
+        return fail(409, "INVALID_INPUT", "Generate the timetable before evaluating bookings")
+    decisions, overrides, _ = evaluate_bookings(WS.dataset, WS.schedule)
+    prev = WS.bookings
+    WS.bookings = {"decisions": decisions, "overrides": overrides}
+    sched = timetable_export(TEAM, WS.dataset["dataset_id"], WS.schedule, fest_week=_fest_week())
+    rep = official_validator().run(WS.dataset, sched)
+    hard = [v for v in rep["hard_violations"] if not v["rule"].startswith("E") and v["where"] != "exams"]
+    if hard:
+        WS.bookings = prev
+        return fail(500, "CONSTRAINT_VIOLATION", "Booking decisions failed validation",
+                    details=hard[:10], rule_ids=sorted({v["rule"] for v in hard}))
+    with WS.lock:
+        WS.revision += 1
+    return ok({"decisions": decisions, "session_overrides": overrides, "booking_score": rep["bookings"]["booking_score"],
+               "booking_score_max_if_all_approved": rep["bookings"]["booking_score_max_if_all_approved"],
+               "priority_inversions": rep["bookings"]["priority_inversions"], "revision": WS.revision})
+
+
+@router.get("/bookings")
+def bookings_list():
+    reqs = {r["id"]: r for r in WS.dataset["booking_requests"]}
+    decisions = {d["request_id"]: d for d in (WS.bookings or {}).get("decisions", [])}
+    rows = [{"request": r, "decision": decisions.get(r["id"])} for r in reqs.values()]
+    return ok({"requests": rows, "decided": WS.bookings is not None, "revision": WS.revision})
+
+
+@router.get("/exports/schedule")
+def export_schedule():
+    if WS.schedule is None or WS.bookings is None or WS.exams is None:
+        return fail(409, "INVALID_INPUT", "Generate timetable, exams and booking decisions first",
+                    details={"timetable": WS.schedule is not None, "exams": WS.exams is not None,
+                             "bookings": WS.bookings is not None})
+    sched = timetable_export(TEAM, WS.dataset["dataset_id"], WS.schedule,
+                             fest_week=_fest_week(), exams=WS.exams)
+    rep = official_validator().run(WS.dataset, sched)
+    if rep["hard_violation_count"]:
+        return fail(500, "CONSTRAINT_VIOLATION", "Export failed official validation",
+                    details=rep["hard_violations"][:10], rule_ids=sorted(rep["hard_by_rule"]))
+    return JSONResponse(content=sched)
