@@ -81,7 +81,7 @@ def solve_timetable(data, time_limit=60.0, seed=1, workers=8, hint=None,
             m.AddAtMostOne(vs)
 
     ctx = {"sessions": sessions, "cands": cands, "t": t, "by_basket": by_basket,
-           "data": data}
+           "data": data, "grp_occ": grp_occ}
     if objective:
         m.Minimize(objective(m, x, ctx))
     if hint:

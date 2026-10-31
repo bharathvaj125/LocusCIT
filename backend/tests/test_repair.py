@@ -15,7 +15,7 @@ def _wait(url, key="status", bad="RUNNING"):
 
 
 def test_sample_disruption_end_to_end(tmp_path):
-    jid = c.post("/api/schedules/generate?time_limit=60").json()["data"]["job_id"]
+    jid = c.post("/api/schedules/generate?time_limit=20").json()["data"]["job_id"]
     assert _wait(f"/api/jobs/{jid}")["status"] == "DONE"
     assert c.post("/api/exams/generate").status_code == 200
     assert c.post("/api/bookings/evaluate-batch").status_code == 200

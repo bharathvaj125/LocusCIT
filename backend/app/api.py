@@ -4,7 +4,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 
-from .solver.baseline import solve_timetable
+from .solver.generate import generate_timetable
 from .solver.exams import solve_exams
 from .solver.bookings import evaluate_bookings
 from .solver.export import timetable_export
@@ -37,42 +37,58 @@ def health():
                "revision": WS.revision})
 
 
+def _publish(job, expected_rev, assign, info, final):
+    """Install a validator-clean timetable; False if the workspace changed since expected_rev."""
+    with WS.lock:
+        if WS.revision != expected_rev:
+            return False
+        WS.schedule = assign
+        WS.schedule_version += 1
+        WS.baseline = None
+        WS.applied = []
+        WS.schedule_meta = {"solver_status": info["solver_status"], "soft_total": info["soft_total"],
+                            "soft_penalties": info["soft_penalties"], "optimised": final}
+        WS.revision += 1
+        job["_published"] = True
+        job["_rev"] = WS.revision
+    return True
+
+
 def _run_generate(job_id, time_limit):
     job = WS.jobs[job_id]
     start_rev = WS.revision
     t0 = time.time()
     try:
-        status, assign = solve_timetable(WS.dataset, time_limit=time_limit)
+        def early(assign, info):
+            if _publish(job, start_rev, assign, info, False):
+                job.update(phase="optimising", soft_total=info["soft_total"], sessions=len(assign),
+                           hard_violation_count=0)
+        status, assign, info = generate_timetable(WS.dataset, feasible_limit=60.0, optimize_limit=time_limit,
+                                                  on_feasible=early)
         if assign is None:
-            job.update(status="INFEASIBLE" if status == "INFEASIBLE" else "UNKNOWN",
-                       error=f"Solver returned {status}")
+            if status == "FAILED_VALIDATION":
+                job.update(status="FAILED_VALIDATION", error=f"Hard violations: {info.get('hard')}")
+            else:   # a timeout (UNKNOWN) is never reported as impossible
+                job.update(status="INFEASIBLE" if status == "INFEASIBLE" else "UNKNOWN",
+                           error=f"Solver returned {status}")
             return
-        sched = timetable_export(TEAM, WS.dataset["dataset_id"], assign)
-        rep = official_validator().run(WS.dataset, sched)
-        teaching = {k: v for k, v in rep["hard_by_rule"].items() if not k.startswith("E")}
-        if teaching:
-            job.update(status="FAILED_VALIDATION", error=f"Hard violations: {teaching}")
+        expected = job["_rev"] if job.get("_published") else start_rev
+        if job.get("_published") and info["soft_total"] == WS.schedule_meta.get("soft_total"):
+            with WS.lock:
+                if WS.revision == expected:
+                    WS.schedule_meta["optimised"] = True
+        elif not _publish(job, expected, assign, info, True):
+            job.update(status="STALE", error="Workspace changed while solving; result discarded")
             return
-        with WS.lock:
-            if WS.revision != start_rev:
-                job.update(status="STALE", error="Workspace changed while solving")
-                return
-            WS.schedule = assign
-            WS.schedule_version += 1
-            WS.baseline = None
-            WS.applied = []
-            WS.schedule_meta = {"solver_status": status, "soft_total": rep["soft_total"],
-                                "soft_penalties": rep["soft_penalties"]}
-            WS.revision += 1
-        job.update(status="DONE", solver_status=status, soft_total=rep["soft_total"],
-                   hard_violation_count=len(teaching), sessions=len(assign),
-                   seconds=round(time.time() - t0, 1))
+        job.update(status="DONE", phase="done", solver_status=info["solver_status"],
+                   soft_total=info["soft_total"], soft_penalties=info["soft_penalties"],
+                   hard_violation_count=0, sessions=len(assign), seconds=round(time.time() - t0, 1))
     except Exception as e:  # keep the job pollable
         job.update(status="ERROR", error=str(e))
 
 
 @router.post("/schedules/generate", status_code=202)
-def generate(time_limit: float = Query(60, ge=5, le=300)):
+def generate(time_limit: float = Query(90, ge=0, le=300)):
     if any(j["status"] == "RUNNING" for j in WS.jobs.values()):
         return fail(409, "INVALID_INPUT", "A generation job is already running")
     jid = uuid.uuid4().hex[:12]
@@ -86,7 +102,7 @@ def job(job_id: str):
     j = WS.jobs.get(job_id)
     if not j:
         return fail(404, "INVALID_INPUT", "Unknown job")
-    return ok(j)
+    return ok({k: v for k, v in j.items() if not k.startswith("_")})
 
 
 @router.get("/schedules")

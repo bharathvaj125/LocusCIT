@@ -12,7 +12,7 @@ def test_health():
 
 def test_generate_then_read():
     assert c.get("/api/schedules").status_code == 404
-    jid = c.post("/api/schedules/generate?time_limit=60").json()["data"]["job_id"]
+    jid = c.post("/api/schedules/generate?time_limit=20").json()["data"]["job_id"]
     for _ in range(120):
         j = c.get(f"/api/jobs/{jid}").json()["data"]
         if j["status"] != "RUNNING":

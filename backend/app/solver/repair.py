@@ -123,21 +123,18 @@ def diagnose_session(data, s):
 
 
 def _soft_objective(el, sessions, free, base, cands):
+    """BIG per moved baseline session, plus the exact soft penalty as tie-breaker."""
+    from .soft import soft_objective
+
     def objective(m, x, ctx):
-        terms = []
-        for (sid, c), v in x.items():
-            if sid not in free:
+        moved = []
+        for sid in free:
+            if sid not in base:
                 continue
-            s = sessions[sid]
-            w = soft_cost(el, s, c)
-            if sid in base and tuple(base[sid]) != c:
-                w += BIG
-            elif sid in base and tuple(base[sid]) == c:
-                w += 0
-            if w:
-                terms.append(w * v)
-        # base placement no longer legal => a forced move; constant, not needed in the objective
-        return sum(terms) if terms else 0
+            v = x.get((sid, tuple(base[sid])))
+            if v is not None:
+                moved.append(BIG * (1 - v))
+        return sum(moved) + soft_objective(m, x, ctx)
     return objective
 
 
