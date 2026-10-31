@@ -57,6 +57,12 @@ class Week:
             for g in req.get("mandatory_for_groups", []):
                 self.ev_grp[g, d, p].add(req["id"])
 
+    def remove_event(self, req, room_id, d, a, b):
+        for p in range(a, b + 1):
+            self.room[room_id, d, p].remove(req["id"])
+            for g in req.get("mandatory_for_groups", []):
+                self.ev_grp[g, d, p].discard(req["id"])
+
     def snapshot(self):
         return copy.deepcopy((self.pos, self.room, self.fac, self.grp, self.ev_grp, self.hours))
 
@@ -125,6 +131,11 @@ class Decider:
         self.days = data["calendar"]["days"]
         self.inst = self.order.index("institute_event")
         self.overrides = []
+        self.placed = {}                            # request id -> (room, day, start, end) of events decided here
+        self.reqs = {}                              # request id -> request, for the ones in `placed`
+        self.seen = {}                              # request id -> request, every request decided here
+        self.weight = getattr(self.V, "CAT_WEIGHT", {"institute_event": 5, "guest_lecture": 4,
+                                                     "department_event": 3, "club_event": 2})
 
     # -- helpers -------------------------------------------------------------------------------
     def eff(self, r):
@@ -212,9 +223,136 @@ class Decider:
                 out.append(x)
         return out
 
+    # -- flexible-slot allocation ------------------------------------------------------------------
+    def free_slots(self, req):
+        """Every (room, day, start, end) inside the request's own windows that is free right now."""
+        return [(r, d, a, b) for (r, d, a, b) in self.slots(req, self.eligible(req))
+                if not self.week.blockers(req, r, d, a, b)]
+
+    def least_harmful(self, req, free, pending):
+        """Choose which of req's acceptable slots to use. req keeps an approved slot either way (priority is not
+        touched); we pick the one that takes the fewest options away from the requests still to be decided, so a
+        flexible request does not sit on the only slot a fixed one can use. Ties keep the requested room, then the
+        earliest window and start."""
+        if len(free) == 1:
+            return free[0]
+        opts = self.later_options(pending)
+        best = None
+        for i, c in enumerate(free):
+            hard, soft = self.harm(c, opts)
+            key = (hard, c[0] != req.get("requested_room"), soft, i)
+            if best is None or key < best[0]:
+                best = (key, c)
+        return best[1]
+
+    def later_options(self, pending):
+        """For each still-undecided request: (category weight, its free slots inside its own windows)."""
+        opts = []
+        for q in pending:
+            fs = self.free_slots(q)
+            if fs:
+                opts.append((self.weight[self.eff(q)], fs))
+        return opts
+
+    @staticmethod
+    def harm(c, opts):
+        """(weight of requests that would lose their last acceptable slot, weighted share of options lost)."""
+        r, d, a, b = c
+        hard, soft = 0, 0.0
+        for w, fs in opts:
+            lost = sum(1 for (r2, d2, a2, b2) in fs if r2 == r and d2 == d and not (b2 < a or b < a2))
+            if lost == len(fs):
+                hard += w
+            elif lost:
+                soft += w * lost / len(fs)
+        return hard, round(soft, 6)
+
+    def improve(self, decisions):
+        """Second pass over a finished batch. A request that got an alternative or a rejection may take a slot another
+        request holds, if that request can move to another free slot inside its own windows. The moved request stays
+        approved, so nobody ends up worse off and no priority is inverted. Returns the ids whose decision changed."""
+        changed = []
+        for req in sorted(self.seen.values(), key=self.sort_key):
+            dec = decisions.get(req["id"])
+            if not dec or dec["status"] == "approved":
+                continue
+            old = self.placed.get(req["id"])
+            el = sorted(self.eligible(req), key=lambda r: self.room_pref(req, r))
+            for (r_id, d, a, b) in self.slots(req, el):
+                bl = self.week.blockers(req, r_id, d, a, b)
+                if not bl or any(k != "event" or x == req["id"] or x not in self.placed for k, x in bl):
+                    continue
+                blockers = sorted({x for _, x in bl})
+                if any(decisions[x]["status"] != "approved" for x in blockers):
+                    continue
+                moved = [(x, self.placed[x]) for x in blockers]
+                if old:
+                    self.week.remove_event(req, *old)
+                for x, xp in moved:
+                    self.week.remove_event(self.reqs[x], *xp)
+                self.week.add_event(req, r_id, d, a, b)
+                new_places = {}
+                for x, xp in moved:
+                    spot = next(iter(self.free_slots(self.reqs[x])), None)
+                    if spot is None:
+                        break
+                    self.week.add_event(self.reqs[x], *spot)
+                    new_places[x] = spot
+                if len(new_places) != len(moved):
+                    for x, spot in new_places.items():
+                        self.week.remove_event(self.reqs[x], *spot)
+                    self.week.remove_event(req, r_id, d, a, b)
+                    for x, xp in moved:
+                        self.week.add_event(self.reqs[x], *xp)
+                    if old:
+                        self.week.add_event(req, *old)
+                    continue
+                for x, spot in new_places.items():
+                    self.placed[x] = spot
+                    dx = decisions[x]
+                    dx.update(room_id=spot[0], day=spot[1], start_period=spot[2], end_period=spot[3])
+                    dx["reason"] += (f"; moved within its own requested window to {spot[0]} {spot[1]} "
+                                     f"P{spot[2]}-P{spot[3]} so that {req['id']} could be approved")
+                self.placed[req["id"]] = (r_id, d, a, b)
+                dec.update(status="approved", room_id=r_id, day=d, start_period=a, end_period=b,
+                           reason=(f"Approved. {self.priority_note(req)}. {r_id} fits inside the requested window "
+                                   f"after {', '.join(blockers)} moved to another of its acceptable slots"))
+                changed += [req["id"], *blockers]
+                break
+        return changed
+
+    def suggestions(self, req, limit=8):
+        """Ranked options for a draft: free slots inside the windows first (these would be approved), then nearby
+        alternatives (these can only be offered as alternatives)."""
+        dur = req["duration_periods"]
+        inside = [{"room_id": r, "day": d, "start_period": a, "end_period": b, "kind": "inside_window"}
+                  for (r, d, a, b) in self.free_slots(req)]
+        inside.sort(key=lambda o: o["room_id"] != req.get("requested_room"))
+        out = inside[:limit]
+        if len(out) < limit:
+            w0 = req["windows"][0]
+            alts = []
+            for r in self.eligible(req):
+                for d in self.days:
+                    for a in range(1, MAXP - dur + 2):
+                        if self.week.blockers(req, r["id"], d, a, a + dur - 1):
+                            continue
+                        if any(w["day"] == d and w["from_period"] <= a and a + dur - 1 <= w["to_period"]
+                               for w in req["windows"]):
+                            continue
+                        key = (not any(w["day"] == d for w in req["windows"]),
+                               abs(self.days.index(d) - self.days.index(w0["day"])),
+                               abs(a - w0["from_period"]), self.room_pref(req, r))
+                        alts.append((key, {"room_id": r["id"], "day": d, "start_period": a,
+                                           "end_period": a + dur - 1, "kind": "alternative"}))
+            alts.sort(key=lambda t: t[0])
+            out += [o for _, o in alts[: limit - len(out)]]
+        return out
+
     # -- decision ------------------------------------------------------------------------------
-    def decide(self, req, allow_displace=True):
+    def decide(self, req, allow_displace=True, pending=None):
         rid = req["id"]
+        self.seen[rid] = req
         eff = self.eff(req)
         note = self.priority_note(req)
         week, cands, order = self.week, self.cands, self.order
@@ -223,13 +361,15 @@ class Decider:
         found, status, reason, pre_added = None, None, None, False
         held = defaultdict(int)
 
+        free = []
         for (r_id, d, a, b) in self.slots(req, el):
             bl = week.blockers(req, r_id, d, a, b)
             if not bl:
-                found = (r_id, d, a, b)
-                break
+                free.append((r_id, d, a, b))
             for k, x in bl:
                 held[x] += 1
+        if free:
+            found = self.least_harmful(req, free, pending or [])
         if found:
             status = "approved"
             reason = f"Approved. {note}. {found[0]} fits inside the requested window"
@@ -264,13 +404,15 @@ class Decider:
 
         if not found:
             alt = None
+            opts = self.later_options(pending) if pending else []
             for r in el:
                 for d in self.days:
                     for a in range(1, MAXP - dur + 2):
                         if week.blockers(req, r["id"], d, a, a + dur - 1):
                             continue
                         w0 = req["windows"][0]
-                        k = (not any(w["day"] == d for w in req["windows"]),
+                        k = (self.harm((r["id"], d, a, a + dur - 1), opts),
+                             not any(w["day"] == d for w in req["windows"]),
                              abs(self.days.index(d) - self.days.index(w0["day"])),
                              abs(a - w0["from_period"]), self.room_pref(req, r))
                         if alt is None or k < alt[0]:
@@ -299,6 +441,8 @@ class Decider:
             dec.update({"day": d, "start_period": a, "end_period": b, "room_id": r_id})
             if not pre_added:
                 week.add_event(req, r_id, d, a, b)
+            self.placed[rid] = (r_id, d, a, b)
+            self.reqs[rid] = req
         return dec
 
     def place_existing(self, decision, req):
@@ -312,11 +456,14 @@ def evaluate_bookings(data, base):
     """Return (decisions in request order, week-7 session overrides, week-7 positions)."""
     D = Decider(data, base)
     decisions = {}
-    for req in sorted(data["booking_requests"], key=D.sort_key):
+    ordered = sorted(data["booking_requests"], key=D.sort_key)
+    for i, req in enumerate(ordered):
         if req["id"] in D.ctx.cancelled:
             decisions[req["id"]] = {"request_id": req["id"], "status": "rejected",
                                     "reason": "Request was cancelled by the requester, so it is not scheduled",
                                     "effective_category": D.eff(req), "priority_rank": None}
             continue
-        decisions[req["id"]] = D.decide(req)
+        later = [q for q in ordered[i + 1:] if q["id"] not in D.ctx.cancelled]
+        decisions[req["id"]] = D.decide(req, pending=later)
+    D.improve(decisions)
     return [decisions[r["id"]] for r in data["booking_requests"]], D.overrides, dict(D.week.pos)

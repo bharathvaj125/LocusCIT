@@ -173,6 +173,27 @@ def parse(body: ParseBody, user=Depends(current_user)):
     return ok(draft)
 
 
+@router.post("/bookings/suggest")
+def suggest(draft: Draft, user=Depends(current_user)):
+    """Dry run: which rooms and times fit this draft right now, and what the engine would say. Changes nothing."""
+    if WS.schedule is None:
+        return fail(409, "INVALID_INPUT", "The timetable has not been generated yet, so rooms cannot be checked")
+    errs = _validate_draft(draft)
+    if errs:
+        return fail(422, "INVALID_INPUT", "; ".join(errs), details=errs)
+    req = _request_dict(user, draft, "DRAFT", draft.windows)
+    with WS.lock:
+        D = _decider()
+        options = D.suggestions(req, limit=10)
+        dec = D.decide(req, allow_displace=False)
+    inside = [o for o in options if o["kind"] == "inside_window"]
+    return ok({"outcome": dec["status"], "reason": dec["reason"], "effective_category": dec["effective_category"],
+               "options": options,
+               "message": ("These rooms and times fit inside what you asked for." if inside else
+                           "Nothing is free inside the requested windows; the closest alternatives are listed."
+                           if options else dec["reason"])})
+
+
 def _official_hard(sub):
     """Independent re-check by the official validator for one request placed on top of the live decisions."""
     data = copy.deepcopy(WS.dataset)
