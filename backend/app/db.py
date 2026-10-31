@@ -10,10 +10,13 @@ from sqlalchemy.pool import NullPool
 
 _default = "sqlite:///" + str(Path(__file__).resolve().parents[1] / "locuscit.db").replace("\\", "/")
 URL = os.getenv("DATABASE_URL", _default)
-if URL.startswith("postgresql://"):
-    URL = URL.replace("postgresql://", "postgresql+psycopg://", 1)
+URL = URL.strip()
+for _prefix in ("postgres://", "postgresql://"):
+    if URL.startswith(_prefix):
+        URL = "postgresql+psycopg://" + URL[len(_prefix):]
 
-_kw = {"connect_args": {"check_same_thread": False}} if URL.startswith("sqlite") else {"pool_pre_ping": True, "pool_size": 3, "max_overflow": 2}
+_kw = {"connect_args": {"check_same_thread": False}} if URL.startswith("sqlite") else {"pool_pre_ping": True, "pool_size": 3, "max_overflow": 2,
+                                                                                      "connect_args": {"prepare_threshold": None}}
 engine = create_engine(URL, **_kw)
 meta = MetaData()
 
