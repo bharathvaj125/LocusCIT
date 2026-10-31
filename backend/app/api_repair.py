@@ -19,11 +19,11 @@ def _public(p):
     return {k: v for k, v in p.items() if not k.startswith("_")}
 
 
-def _compute(pid, changes, time_limit):
+def _compute(pid, changes, time_limit, restrict=None):
     p = WS.proposals[pid]
     try:
         after = apply_changes(WS.dataset, changes)
-        res = repair(after, WS.schedule, time_limit=time_limit)
+        res = repair(after, WS.schedule, time_limit=time_limit, restrict=restrict)
         if res["status"] != "OK":
             p.update(status=res["status"], message=res["message"], diagnostics=res.get("diagnostics", []),
                      moved=[], moved_count=0, new_sessions=res.get("new_sessions", []),

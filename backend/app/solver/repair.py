@@ -169,8 +169,12 @@ def _neighbours(free, cands, base, sessions, k):
     return out
 
 
-def repair(data_after, baseline, time_limit=60.0, workers=8, seed=1):
-    """Return a result dict.  `baseline`: sid -> (day, start, room) before the disruption."""
+def repair(data_after, baseline, time_limit=60.0, workers=8, seed=1, restrict=None):
+    """Return a result dict.  `baseline`: sid -> (day, start, room) before the disruption.
+
+    restrict: optional {session_id: predicate(candidate) -> bool} limiting where those sessions may go
+    (used for "move my class off Monday morning" requests; nothing else about the dataset changes).
+    """
     t0 = time.time()
     sessions = {s["id"]: s for s in data_after["sessions"]}
     el = Eligibility(data_after)
@@ -191,6 +195,16 @@ def repair(data_after, baseline, time_limit=60.0, workers=8, seed=1):
         return {"status": "INFEASIBLE", "assignment": None, "diagnostics": empty,
                 "message": "Some sessions have no legal placement after the change", "moved": [],
                 "new_sessions": new, "removed_sessions": removed}
+
+    for sid, pred in (restrict or {}).items():
+        cands[sid] = [c for c in cands[sid] if pred(c)]
+        if not cands[sid]:
+            return {"status": "INFEASIBLE", "assignment": None, "moved": [], "new_sessions": new,
+                    "removed_sessions": removed,
+                    "diagnostics": [{"session_id": sid, "reasons": [
+                        "no legal slot is left once your restrictions are applied (faculty/room availability and "
+                        "the lab and lunch rules already remove many slots)"]}],
+                    "message": f"{sid} has no legal slot that satisfies the restrictions"}
 
     invalid = sorted(sid for sid, c in base.items() if c not in set(cands[sid]))
     lower_bound = len(invalid)

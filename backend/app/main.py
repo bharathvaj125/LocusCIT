@@ -9,6 +9,8 @@ from . import auth, db
 from .api import router
 from .api_admin import router as admin_router
 from .api_bookings import router as bookings_router
+from .api_explain import router as explain_router
+from .api_faculty import router as faculty_router
 from .api_repair import router as repair_router
 from .state import WS
 
@@ -56,3 +58,5 @@ app.include_router(router)
 app.include_router(admin_router)
 app.include_router(repair_router)
 app.include_router(bookings_router)
+app.include_router(faculty_router)
+app.include_router(explain_router)
