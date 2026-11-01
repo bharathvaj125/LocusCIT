@@ -173,3 +173,17 @@ def test_no_second_admin_is_seeded_by_default(client, monkeypatch):
     monkeypatch.setenv("SEED_SECOND_ADMIN", "true")
     auth.seed_users()
     assert client.post("/api/auth/login", json={"username": "admin2", "password": "Admin@123"}).status_code == 200
+
+
+def test_every_stored_value_fits_its_column_so_postgres_accepts_it(client, admin):
+    """SQLite ignores VARCHAR lengths, Postgres (the live database) refuses longer values: check them against the table definition."""
+    from app import db
+    new_user(client, admin, username="u" * 32, full_name="N" * 120)
+    with db.engine.begin() as c:
+        for table in (db.organisations, db.users):
+            for row in c.execute(table.select()).mappings():
+                for col in table.columns:
+                    limit = getattr(col.type, "length", None)
+                    v = row[col.name]
+                    if limit and isinstance(v, str):
+                        assert len(v) <= limit, f"{table.name}.{col.name} = {v!r} is longer than {limit}"

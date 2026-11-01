@@ -66,7 +66,7 @@ def seed_organisations():
                 continue
             slug = slugify(name)
             c.execute(db.organisations.insert().values(
-                id="org-" + slug, name=name, slug=slug, type=t, department=dept, description="", status="active",
+                id=("org-" + slug)[:32], name=name, slug=slug, type=t, department=dept, description="", status="active",
                 is_seed=1, created_by=None, created_at=_now(), updated_at=_now()))
 
 
