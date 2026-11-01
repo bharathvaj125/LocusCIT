@@ -12,7 +12,7 @@ Design language and Figma link: `docs/DESIGN.md`.
 - **Midsem exams**: exam-week calendar with rooms and seat math.
 - **Venues and Spectra**: decisions with reasons and a Week 7 venue board; manual event scheduling.
 - **Approvals**: decide bookings (never your own), follow your own requests and change requests.
-- **Changes**: upload a change file, review the minimal repair as before/after, approve as a second Admin.
+- **Changes**: upload a change file, review the minimal repair as before/after, approve as a different Admin (create one under **Users**).
 - **Assistant**: English/Hinglish booking drafts; faculty can ask to move a class.
 - **Exports**: `schedule.json` and `schedule_after.json`, re-validated by the server.
 - **Ctrl K** opens a palette to jump anywhere.

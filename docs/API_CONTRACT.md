@@ -61,6 +61,19 @@ Optional header `If-Match: <revision>` on writes: a stale value returns 409 `STA
 | `POST /admin/reset` | admin | restores demo data, keeps accounts, bumps `revision` |
 | `POST /admin/dataset/import` | admin | validates structure and that every session has a legal slot |
 
+## Accounts and organisations (Admin only unless noted)
+| Endpoint | Notes |
+| --- | --- |
+| `GET /admin/users?role=&status=&q=` | accounts (no password data). `GET /admin/users/meta` lists roles, departments, faculty (with who they are linked to) and active organisations for the forms |
+| `POST /admin/users` | `{username, full_name, role, email?, department?, faculty_id?, organisation_id?, password?}`. Faculty need `faculty_id` (one account per faculty member), coordinators a `department`, club representatives a club `organisation_id`. Answers with `temporary_password` once; `must_change_password` is set |
+| `PATCH /admin/users/{username}` | edit name, email, role, links, `is_active`. An Admin cannot deactivate or demote themselves, nor the last active Admin |
+| `POST /admin/users/{username}/reset-password` | new one-time temporary password |
+| `GET /admin/organisations`, `POST`, `PATCH /{id}`, `POST /{id}/status` (`active`/`archived`), `DELETE /{id}` | types `club`, `department`, `institute`; delete only without members or requests, otherwise archive |
+| `GET /organisations` | any signed-in role: id, name, type of active organisations |
+| `POST /auth/change-password` | `{current_password, new_password}` (8+ characters, a letter and a digit). While `must_change_password` is true every other endpoint answers `403 PASSWORD_CHANGE_REQUIRED` |
+
+A deactivated account gets `403` at sign-in and `401` on any existing token. `POST /admin/reset` also restores the demo accounts and organisations.
+
 ## Who may decide a booking (`POST /bookings/{id}/decision`)
 Permissions are checked in the backend (`app/permissions.py`) at the moment of the decision, from the stored request and the
 verified token, never from anything the client sends.

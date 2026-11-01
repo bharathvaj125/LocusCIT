@@ -19,7 +19,9 @@ export type NavRouteId =
   | "approvals" 
   | "disruptions" 
   | "ai_booking"
-  | "exports";
+  | "exports"
+  | "users"
+  | "organisations";
 
 export interface NavRoute {
   id: NavRouteId;
@@ -249,6 +251,9 @@ export interface SessionUser {
   department: string | null;
   faculty_id: string | null;
   org: string | null;
+  email?: string | null;
+  organisation_id?: string | null;
+  must_change_password?: boolean;
 }
 
 export interface Window {

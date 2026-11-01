@@ -7,6 +7,7 @@ import pytest
 _tmp = tempfile.mkdtemp()
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(_tmp, "test.db").replace("\\", "/")
 os.environ["JWT_SECRET"] = "test-secret"
+os.environ["SEED_SECOND_ADMIN"] = "true"      # approval tests need a different Admin; the real app does not seed one
 
 from fastapi.testclient import TestClient  # noqa: E402
 from app.main import app  # noqa: E402

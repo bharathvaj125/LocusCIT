@@ -108,7 +108,7 @@ export function ChangePreview({ text, refData }: { text: string; refData: Refere
       )}
       {lines.length > 0 && (
         <div className="rounded-xl bg-paper px-4 py-3 text-sm space-y-1">
-          <Eyebrow className="text-ink-400 flex items-center gap-1.5">{issues.length === 0 && <CircleCheck className="w-3.5 h-3.5 text-mangrove-500" />}What this file does</Eyebrow>
+          <Eyebrow className="text-ink-400 flex items-center gap-1.5">{issues.length === 0 && <CircleCheck className="w-3.5 h-3.5 text-mangrove-600" />}What this file does</Eyebrow>
           {lines.map((l, i) => <p key={i} className="text-ink-900">{i + 1}. {l}</p>)}
         </div>
       )}
@@ -191,7 +191,7 @@ export function ChangeBuilder({ refData, text, setText }: { refData: ReferenceDa
           <div><span className="text-xs font-semibold text-ink-600">Days</span>
             <div className="flex flex-wrap gap-1.5 mt-1">{(refData.calendar.days || DAYS).map((d) => (
               <button type="button" key={d} aria-pressed={days.includes(d)} onClick={() => toggle(days, d, setDays)}
-                className={cn("px-3 py-1.5 rounded-full text-xs font-semibold border cursor-pointer", days.includes(d) ? "bg-lagoon-700 text-onprimary border-lagoon-700" : "bg-raised text-ink-600 border-line hover:border-line-strong")}>{d}</button>))}</div></div>
+                className={cn("px-3 py-1.5 rounded-full text-xs font-semibold border cursor-pointer", days.includes(d) ? "bg-primary text-onprimary border-primary" : "bg-raised text-ink-600 border-line hover:border-line-strong")}>{d}</button>))}</div></div>
           <div className="flex flex-wrap items-end gap-3">
             <label><span className="text-xs font-semibold text-ink-600">From period</span><select value={from} onChange={(e) => setFrom(Number(e.target.value))} className={cn(field, "w-28")}>{Array.from({ length: 9 }, (_, i) => i + 1).map((p) => <option key={p} value={p}>P{p}</option>)}</select></label>
             <label><span className="text-xs font-semibold text-ink-600">To period</span><select value={to} onChange={(e) => setTo(Number(e.target.value))} className={cn(field, "w-28")}>{Array.from({ length: 9 }, (_, i) => i + 1).map((p) => <option key={p} value={p}>P{p}</option>)}</select></label>
@@ -213,7 +213,7 @@ export function ChangeBuilder({ refData, text, setText }: { refData: ReferenceDa
           <div><span className="text-xs font-semibold text-ink-600">Student groups</span>
             <div className="flex flex-wrap gap-1.5 mt-1">{refData.student_groups.map((g) => (
               <button type="button" key={g.id} aria-pressed={groupIds.includes(g.id)} onClick={() => toggle(groupIds, g.id, setGroupIds)}
-                className={cn("px-3 py-1.5 rounded-full text-xs font-semibold border cursor-pointer", groupIds.includes(g.id) ? "bg-lagoon-700 text-onprimary border-lagoon-700" : "bg-raised text-ink-600 border-line hover:border-line-strong")}>{g.id}</button>))}</div></div>
+                className={cn("px-3 py-1.5 rounded-full text-xs font-semibold border cursor-pointer", groupIds.includes(g.id) ? "bg-primary text-onprimary border-primary" : "bg-raised text-ink-600 border-line hover:border-line-strong")}>{g.id}</button>))}</div></div>
           <label className="flex items-center gap-2 text-sm text-ink-600"><input type="checkbox" checked={pin} onChange={(e) => setPin(e.target.checked)} />Pin it to an exact slot</label>
           {pin && <div className="flex gap-3">
             <select value={pinDay} onChange={(e) => setPinDay(e.target.value)} className={cn(field, "w-28")} aria-label="Pinned day">{(refData.calendar.days || DAYS).map((d) => <option key={d}>{d}</option>)}</select>

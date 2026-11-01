@@ -59,7 +59,7 @@ export function ExamsBoard() {
     <div className="space-y-6">
       <PageTitle
         eyebrow="Midsem exams"
-        title={<>Exam week, <span className="italic font-medium text-lagoon-700">Monday to Saturday</span></>}
+        title={<>Exam week, <span className="italic font-medium text-gold">Monday to Saturday</span></>}
         subtitle="Each paper gets one slot and as many rooms as it needs. A room seats half its capacity, and no room or student group has two papers in a slot."
         actions={<><Chip tone="mangrove" dot>{exams.length} of {dashboard?.exams_total ?? "?"} scheduled</Chip>{dashboard?.exam_soft_penalty != null && <Chip tone="lagoon">{dashboard.exam_soft_penalty === 0 ? "No group has two on one day" : `same-day penalty ${dashboard.exam_soft_penalty}`}</Chip>}</>}
       />

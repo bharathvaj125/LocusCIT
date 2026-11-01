@@ -6,14 +6,17 @@ import { useApp } from "@/lib/appContext";
 import { ValidatorBrief, describeError, fetchExport, fetchExportReport } from "@/lib/api";
 import { useToast } from "@/lib/toast";
 import { Button, Card, Chip, Eyebrow, PageTitle, Skeleton } from "@/components/ui/primitives";
+import { StatCard } from "@/components/ui/StatCard";
 import { cn } from "@/lib/utils";
 
 function Report({ r, title, after }: { r: ValidatorBrief | null | undefined; title: string; after?: boolean }) {
   if (!r) return null;
   const clean = r.hard_violation_count === 0;
-  const cell = (label: string, value: React.ReactNode, tone = "text-ink-900", hint?: string) => (
-    <div className="rounded-xl bg-paper px-3 py-2.5"><Eyebrow className="text-ink-400">{label}</Eyebrow><p className={cn("font-display text-2xl font-semibold mt-0.5 tabular", tone)}>{value}</p>{hint && <p className="text-[11px] text-ink-600">{hint}</p>}</div>
-  );
+  let n = 0;
+  const cell = (label: string, value: React.ReactNode, tone = "text-ink-900", hint?: string) => {
+    const t = tone.includes("mangrove") ? "mangrove" : tone.includes("sunrise") ? "sunrise" : tone.includes("lagoon") ? "indigo" : "lagoon";
+    return <StatCard index={n++} label={label} tone={t} {...(typeof value === "number" ? { value } : { valueText: String(value) })} hint={hint} />;
+  };
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2"><p className="text-sm font-semibold">{title}</p><Chip tone={clean ? "mangrove" : "sunrise"} dot>{clean ? "Passes the official validator" : "Has hard violations"}</Chip></div>
@@ -58,7 +61,7 @@ export function ExportsDeck() {
 
   return (
     <div className="space-y-6">
-      <PageTitle eyebrow="Exports" title={<>Files the judges can <span className="italic font-medium text-lagoon-700">check themselves</span></>}
+      <PageTitle eyebrow="Exports" title={<>Files the judges can <span className="italic font-medium text-gold">check themselves</span></>}
         subtitle="Both files are built from the live state of the app and re-validated by the unmodified official validator before they are sent." />
       <div className="grid md:grid-cols-2 gap-5">
         <Card className="p-6 space-y-4">
@@ -68,7 +71,7 @@ export function ExportsDeck() {
           <Button icon={<Download className="w-4 h-4" />} loading={busy === "schedule"} disabled={busy !== null} onClick={() => download("schedule")}>Download schedule.json</Button>
         </Card>
         <Card className="p-6 space-y-4">
-          <div className="flex items-center justify-between"><h2 className="font-display text-2xl font-semibold flex items-center gap-2"><FileCheck2 className="w-6 h-6 text-sunrise-500" />schedule_after.json</h2><Chip tone={applied ? "mangrove" : "saffron"} dot>{applied ? `${d!.applied_disruptions} change applied` : "No change applied"}</Chip></div>
+          <div className="flex items-center justify-between"><h2 className="font-display text-2xl font-semibold flex items-center gap-2"><FileCheck2 className="w-6 h-6 text-sunrise-600" />schedule_after.json</h2><Chip tone={applied ? "mangrove" : "saffron"} dot>{applied ? `${d!.applied_disruptions} change applied` : "No change applied"}</Chip></div>
           <p className="text-sm text-ink-600">The timetable after the approved disruption, measured against the timetable before the first one.</p>
           {!applied && <p className="text-sm text-saffron-600">Propose and approve a change first (Changes screen).</p>}
           <Button variant="sunrise" icon={<Download className="w-4 h-4" />} loading={busy === "schedule-after"} disabled={busy !== null} onClick={() => download("schedule-after")}>Download schedule_after.json</Button>
@@ -87,11 +90,11 @@ export function ExportsDeck() {
           : report?.schedule && <p className="text-sm text-ink-600">schedule_after.json appears after a change has been proposed and approved on the Changes page.</p>}
       </Card>
       <Card className="p-6 space-y-3">
-        <h2 className="font-display text-xl font-semibold flex items-center gap-2"><Terminal className="w-5 h-5 text-mangrove-500" />Check them with the official validator</h2>
+        <h2 className="font-display text-xl font-semibold flex items-center gap-2"><Terminal className="w-5 h-5 text-mangrove-600" />Check them with the official validator</h2>
         {([["base", base], ["after", after]] as const).map(([id, cmd]) => (
           <div key={id} className="flex items-center gap-2 rounded-xl bg-deep text-lagoon-200 pl-4 pr-2 py-2.5">
             <code className="font-mono text-xs overflow-x-auto whitespace-nowrap flex-1">{cmd}</code>
-            <button onClick={() => copy(cmd, id)} aria-label="Copy command" className="p-2 rounded-lg hover:bg-lagoon-700/50 cursor-pointer shrink-0">{copied === id ? <Check className="w-4 h-4 text-mangrove-500" /> : <Copy className="w-4 h-4" />}</button>
+            <button onClick={() => copy(cmd, id)} aria-label="Copy command" className="p-2 rounded-lg hover:bg-lagoon-700/50 cursor-pointer shrink-0">{copied === id ? <Check className="w-4 h-4 text-mangrove-600" /> : <Copy className="w-4 h-4" />}</button>
           </div>
         ))}
         <p className="text-xs text-ink-600">In the second command, use the change file you actually applied instead of <span className="font-mono">sample_disruption.json</span>. Expect <span className="font-mono">Hard violations: 0</span>.</p>

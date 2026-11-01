@@ -6,7 +6,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from . import auth, db
+from . import accounts, auth, db
 from .api import router
 from .api_admin import router as admin_router
 from .api_bookings import router as bookings_router
@@ -21,6 +21,7 @@ from .state import WS
 @asynccontextmanager
 async def lifespan(app):
     db.init()
+    accounts.seed_organisations()
     auth.seed_users()
     WS.load()
     yield
@@ -105,6 +106,7 @@ async def revision_and_persist(request: Request, call_next):
 
 
 app.include_router(auth.router)
+app.include_router(accounts.router)
 app.include_router(router)
 app.include_router(admin_router)
 app.include_router(repair_router)

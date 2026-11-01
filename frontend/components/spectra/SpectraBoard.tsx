@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowDown, ArrowRight, ArrowUp, CalendarPlus, CheckCircle2, HelpCircle, Info, ListOrdered, RotateCcw, Search, TriangleAlert, XCircle } from "lucide-react";
+import { ArrowDown, ArrowLeftRight, ArrowRight, ArrowUp, CalendarPlus, CheckCircle2, FileText, HelpCircle, Info, ListOrdered, MinusCircle, RotateCcw, Search, TriangleAlert, XCircle } from "lucide-react";
 import { askedText, cleanReason, placedText } from "@/lib/reason";
 import { BookingRequest, DayOfWeek, Explanation } from "@/lib/types";
 import { useApp } from "@/lib/appContext";
@@ -10,6 +10,7 @@ import { ApiError, PriorityOrder, VenueBoard, describeError, explainBooking, fet
 import { CATEGORY_LABEL, CATEGORY_TONE, DAY_LABEL, TONES } from "@/lib/dept";
 import { PERIOD_CLOCK, periodRange } from "@/lib/uiConfig";
 import { Button, Card, Chip, Drawer, EmptyState, Eyebrow, PageTitle, Skeleton, Tabs } from "@/components/ui/primitives";
+import { StatCard } from "@/components/ui/StatCard";
 import { useToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
@@ -31,7 +32,7 @@ export function SpectraBoard() {
     <div className="space-y-6">
       <PageTitle
         eyebrow="Venues and Spectra, Week 7"
-        title={<>Who gets which room, <span className="italic font-medium text-lagoon-700">and why</span></>}
+        title={<>Who gets which room, <span className="italic font-medium text-gold">and why</span></>}
         subtitle="Requests are decided by priority: institute events, then guest lectures, department events and clubs. A role can never claim a higher category than it holds."
         actions={<div className="flex flex-wrap gap-2">
           {user.role === "admin" && <Button variant="ghost" icon={<ListOrdered className="w-4 h-4" />} onClick={() => setPriority(true)}>Priority order</Button>}
@@ -80,9 +81,11 @@ function Decisions() {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        {([["Requests", bookings.length, "text-ink-900"], ["Approved", count("approved"), "text-mangrove-500"], ["Alternatives", count("alternative_offered"), "text-lagoon-500"], ["Rejected", count("rejected"), "text-sunrise-500"], ["Cancelled", count("cancelled"), "text-stone-500"]] as const).map(([l, n, c]) => (
-          <Card key={l} className="p-4"><Eyebrow className="text-ink-400">{l}</Eyebrow><p className={cn("font-display text-4xl font-semibold mt-1", c)}>{n}</p></Card>
-        ))}
+        <StatCard index={0} label="Requests" value={bookings.length} tone="lagoon" icon={<FileText className="w-4 h-4" />} active={status === "all"} onClick={() => setStatus("all")} />
+        <StatCard index={1} label="Approved" value={count("approved")} tone="mangrove" icon={<CheckCircle2 className="w-4 h-4" />} progress={bookings.length ? count("approved") / bookings.length : 0} active={status === "approved"} onClick={() => setStatus(status === "approved" ? "all" : "approved")} />
+        <StatCard index={2} label="Alternatives" value={count("alternative_offered")} tone="saffron" icon={<ArrowLeftRight className="w-4 h-4" />} progress={bookings.length ? count("alternative_offered") / bookings.length : 0} active={status === "alternative_offered"} onClick={() => setStatus(status === "alternative_offered" ? "all" : "alternative_offered")} />
+        <StatCard index={3} label="Rejected" value={count("rejected")} tone="sunrise" icon={<XCircle className="w-4 h-4" />} progress={bookings.length ? count("rejected") / bookings.length : 0} active={status === "rejected"} onClick={() => setStatus(status === "rejected" ? "all" : "rejected")} />
+        <StatCard index={4} label="Cancelled" value={count("cancelled")} tone="stone" icon={<MinusCircle className="w-4 h-4" />} progress={bookings.length ? count("cancelled") / bookings.length : 0} active={status === "cancelled"} onClick={() => setStatus(status === "cancelled" ? "all" : "cancelled")} />
       </div>
       {!decided && <p className="text-sm text-saffron-600 bg-saffron-50 rounded-xl px-4 py-3">These requests have not been decided yet. An Admin runs step 3 on the Overview page.</p>}
       <Card className="p-3 flex flex-wrap items-center gap-3">
@@ -311,7 +314,7 @@ function ManualDrawer({ open, onClose, canAutoBook }: { open: boolean; onClose: 
         <fieldset><legend className="text-xs font-semibold text-ink-600 mb-1.5">Needs</legend>
           <div className="flex flex-wrap gap-2">{FEATURES.map((n) => (
             <button type="button" key={n} onClick={() => setNeeds((s) => (s.includes(n) ? s.filter((x) => x !== n) : [...s, n]))} aria-pressed={needs.includes(n)}
-              className={cn("px-3 py-1.5 rounded-full text-xs font-semibold border cursor-pointer", needs.includes(n) ? "bg-lagoon-700 text-onprimary border-lagoon-700" : "bg-raised text-ink-600 border-line hover:border-line-strong")}>{n.replace(/_/g, " ")}</button>
+              className={cn("px-3 py-1.5 rounded-full text-xs font-semibold border cursor-pointer", needs.includes(n) ? "bg-primary text-onprimary border-primary" : "bg-raised text-ink-600 border-line hover:border-line-strong")}>{n.replace(/_/g, " ")}</button>
           ))}</div></fieldset>
         {problem && (
           <div className="rounded-xl bg-sunrise-50 text-sunrise-600 p-3.5 text-sm space-y-1" role="alert">

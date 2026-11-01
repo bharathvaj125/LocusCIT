@@ -91,14 +91,14 @@ export function ApprovalsDeck({ onOpenChanges }: { onOpenChanges: () => void }) 
 
   return (
     <div className="space-y-7">
-      <PageTitle eyebrow="Approvals" title={<>Decisions, <span className="italic font-medium text-lagoon-700">made by someone else</span></>}
+      <PageTitle eyebrow="Approvals" title={<>Decisions, <span className="italic font-medium text-gold">made by someone else</span></>}
         subtitle="Every approval re-checks the room and time against the hard rules at that moment, so two requests for the same slot can never both be approved. Nobody can approve their own request." />
       {error && <p className="text-sm text-sunrise-600">{error}</p>}
       {!subs && !error && <div className="space-y-3"><Skeleton className="h-28" /><Skeleton className="h-28" /></div>}
 
       {user.role === "admin" && (
         <section className="space-y-3">
-          <h2 className="font-display text-2xl font-semibold flex items-center gap-2"><Wrench className="w-5 h-5 text-sunrise-500" />Timetable changes waiting <Chip tone={pendingProposals.length ? "sunrise" : "stone"}>{pendingProposals.length}</Chip></h2>
+          <h2 className="font-display text-2xl font-semibold flex items-center gap-2"><Wrench className="w-5 h-5 text-sunrise-600" />Timetable changes waiting <Chip tone={pendingProposals.length ? "sunrise" : "stone"}>{pendingProposals.length}</Chip></h2>
           {pendingProposals.length === 0 && <p className="text-sm text-ink-600">None.</p>}
           {pendingProposals.map((p) => (
             <Card key={p.proposal_id} className="p-4 flex flex-wrap items-center justify-between gap-3">

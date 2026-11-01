@@ -18,6 +18,8 @@
   --color-deep: #0A1020;        /* side rail, sign-in panel, hero: dark in both modes */
   --color-onbrand: #FBF8F2;     /* text on deep and on coloured fills: cream in both modes */
   --color-onprimary: #FBF8F2;   /* text on the primary fill */
+  --color-primary: #2F4297;     /* buttons, active tabs, selected chips */
+  --color-gold: #9A6F18;        /* italic accent words in page titles (large text) */
 
   --color-lagoon-900: #0A1020;
   --color-lagoon-700: #1C2F66;
@@ -58,45 +60,47 @@
 
 /* ------------------------------------------------------------------ dark mode */
 :root[data-theme="dark"] {
-  --color-paper: #0B0F1A;
-  --color-raised: #121829;
-  --color-sunk: #1A2236;
+  --color-paper: #0B1220;
+  --color-raised: #111B2E;
+  --color-sunk: #19243B;
 
-  --color-ink-900: #EDE8DA;
-  --color-ink-600: #AEB5C5;
-  --color-ink-400: #7F89A0;
-  --color-line: #263049;
-  --color-line-strong: #36435F;
+  --color-ink-900: #F3EFE3;
+  --color-ink-600: #C9D0DE;
+  --color-ink-400: #A0AAC0;
+  --color-line: #2B3752;
+  --color-line-strong: #3E4E72;
 
   --color-deep: #060912;
-  --color-onprimary: #0B0F1A;
+  --color-onprimary: #FFFFFF;
+  --color-primary: #3B5BDB;
+  --color-gold: #E3B650;
 
   --color-lagoon-900: #F4EBD0;
   --color-lagoon-700: #E0B24A;
   --color-lagoon-500: #E9C468;
   --color-lagoon-200: #A89A72;
-  --color-lagoon-50: #1B2542;
+  --color-lagoon-50: #17223F;
 
-  --color-teal-700: #5FD0DA;
+  --color-teal-700: #6FDCE5;
   --color-teal-500: #2BA3AF;
   --color-teal-50: #0F2D31;
 
-  --color-sunrise-600: #FF8A66;
-  --color-sunrise-500: #F26A3F;
+  --color-sunrise-600: #FF9373;
+  --color-sunrise-500: #E4572E;
   --color-sunrise-50: #3A1F19;
-  --color-saffron-600: #E9B24F;
+  --color-saffron-600: #F5B547;
   --color-saffron-500: #E9A93A;
   --color-saffron-50: #33290F;
-  --color-mangrove-600: #5FC79A;
-  --color-mangrove-500: #3FA877;
+  --color-mangrove-600: #46D39A;
+  --color-mangrove-500: #2E7D5B;
   --color-mangrove-50: #12301F;
-  --color-indigo-600: #8FA6E8;
+  --color-indigo-600: #9DB2F0;
   --color-indigo-500: #5F7ED1;
   --color-indigo-50: #1A2342;
-  --color-plum-600: #B79AE0;
+  --color-plum-600: #C3A8EA;
   --color-plum-500: #7A58B8;
   --color-plum-50: #271B3D;
-  --color-stone-600: #C2B79D;
+  --color-stone-600: #D2C8AE;
   --color-stone-500: #9A8F78;
   --color-stone-50: #25221B;
 

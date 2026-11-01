@@ -37,7 +37,7 @@ export function AiBookingAssistant({ initialText, onConsumedInitialText }: Props
   const [tab, setTab] = useState<"book" | "change">("book");
   return (
     <div className="space-y-6">
-      <PageTitle eyebrow="Assistant" title={<>Say it the way you would <span className="italic font-medium text-lagoon-700">say it</span></>}
+      <PageTitle eyebrow="Assistant" title={<>Say it the way you would <span className="italic font-medium text-gold">say it</span></>}
         subtitle="Write in English or Hinglish. The assistant turns it into a draft you can edit; the rules and an approver decide, never the AI. Instructions hidden in your text are ignored."
         actions={canChange ? <Tabs id="assist" value={tab} onChange={setTab} items={[{ id: "book", label: <>Book a venue</> }, { id: "change", label: <>Change my class</> }]} /> : undefined} />
       {tab === "book" || !canChange ? <BookingTab initialText={initialText} onConsumedInitialText={onConsumedInitialText} /> : <ChangeTab />}
@@ -254,7 +254,7 @@ function BookingTab({ initialText, onConsumedInitialText }: Props) {
 }
 
 function Pill({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
-  return <button type="button" aria-pressed={on} onClick={onClick} className={cn("px-3 py-1.5 rounded-full text-xs font-semibold border cursor-pointer capitalize transition-colors", on ? "bg-lagoon-700 text-onprimary border-lagoon-700" : "bg-raised text-ink-600 border-line hover:border-line-strong")}>{children}</button>;
+  return <button type="button" aria-pressed={on} onClick={onClick} className={cn("px-3 py-1.5 rounded-full text-xs font-semibold border cursor-pointer capitalize transition-colors", on ? "bg-primary text-onprimary border-primary" : "bg-raised text-ink-600 border-line hover:border-line-strong")}>{children}</button>;
 }
 
 function ChangeTab() {

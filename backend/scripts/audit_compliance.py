@@ -3,7 +3,7 @@
 Usage:  python backend/scripts/audit_compliance.py [part ...]      (parts: pipeline roles booking manual nlp ai perf)
         API=https://host python backend/scripts/audit_compliance.py roles
 
-The backend is RESET at the start of the pipeline part, so never point this at a demo you want to keep.
+Start the backend with SEED_SECOND_ADMIN=true first (the checks need a second Admin). The backend is RESET at the start of the pipeline part, so never point this at a demo you want to keep.
 Every check prints PASS / FAIL with the evidence; the full record is written to audit_results.json in a temp folder.
 Nothing here edits the app's output: files are only downloaded and handed to the unmodified validator.py.
 """

@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import {
-  Bell, Building2, CalendarDays, CheckSquare, ChevronsUpDown, Download, GraduationCap, LayoutDashboard, LogOut, Menu, MessageSquareText,
+  Bell, Building2, Landmark, Users as UsersIcon, CalendarDays, CheckSquare, ChevronsUpDown, Download, GraduationCap, LayoutDashboard, LogOut, Menu, MessageSquareText,
   Search, Sparkles, Wrench, X,
 } from "lucide-react";
 import { Dashboard, NavRouteId, SessionUser } from "@/lib/types";
@@ -22,6 +22,8 @@ const ICONS: Record<NavRouteId, React.ReactNode> = {
   disruptions: <Wrench className="w-[18px] h-[18px]" />,
   ai_booking: <MessageSquareText className="w-[18px] h-[18px]" />,
   exports: <Download className="w-[18px] h-[18px]" />,
+  users: <UsersIcon className="w-[18px] h-[18px]" />,
+  organisations: <Landmark className="w-[18px] h-[18px]" />,
 };
 
 function Waves() {

@@ -9,10 +9,10 @@ import { TONES, Tone } from "@/lib/dept";
 /* ------------------------------------------------------------------ Button */
 type ButtonVariant = "primary" | "secondary" | "ghost" | "success" | "danger" | "sunrise";
 const BUTTON: Record<ButtonVariant, string> = {
-  primary: "bg-lagoon-700 text-onprimary hover:brightness-110 shadow-[0_1px_0_rgba(255,255,255,0.15)_inset]",
+  primary: "bg-primary text-onprimary hover:brightness-110 shadow-[0_1px_0_rgba(255,255,255,0.15)_inset]",
   secondary: "bg-raised text-ink-900 border border-line hover:border-line-strong hover:bg-sunk",
   ghost: "text-ink-600 hover:bg-sunk hover:text-ink-900",
-  success: "bg-mangrove-500 text-onprimary hover:brightness-110",
+  success: "bg-mangrove-500 text-onbrand hover:brightness-110",
   danger: "bg-raised text-sunrise-600 border border-sunrise-500/60 hover:bg-sunrise-50",
   sunrise: "bg-lagoon-500 text-deep hover:brightness-110",   // the accent call to action is gold (the name is kept for existing screens)
 };
@@ -176,8 +176,8 @@ export function Tabs<T extends string>({ value, onChange, items, id }: { value: 
         const active = it.id === value;
         return (
           <button key={it.id} role="tab" aria-selected={active} onClick={() => onChange(it.id)}
-            className={cn("relative px-3.5 py-1.5 text-[13px] font-semibold rounded-lg cursor-pointer transition-colors", active ? "text-ink-900" : "text-ink-600 hover:text-ink-900")}>
-            {active && <motion.span layoutId={`tab-${id}`} className="absolute inset-0 rounded-lg bg-raised shadow-card" transition={{ type: "spring", stiffness: 500, damping: 36 }} />}
+            className={cn("relative px-3.5 py-1.5 text-[13px] font-semibold rounded-lg cursor-pointer transition-colors", active ? "text-onprimary" : "text-ink-600 hover:text-ink-900")}>
+            {active && <motion.span layoutId={`tab-${id}`} className="absolute inset-0 rounded-lg bg-primary shadow-card" transition={{ type: "spring", stiffness: 500, damping: 36 }} />}
             <span className="relative z-10 flex items-center gap-1.5">{it.label}</span>
           </button>
         );
@@ -266,7 +266,7 @@ export function Banner({ tone = "lagoon", children, onClose }: { tone?: Tone; ch
 export function StepDot({ state, n }: { state: "done" | "active" | "todo"; n: number }) {
   return (
     <span className={cn("w-8 h-8 rounded-full flex items-center justify-center text-[13px] font-bold shrink-0 transition-colors",
-      state === "done" ? "bg-mangrove-500 text-onprimary" : state === "active" ? "bg-lagoon-700 text-onprimary ring-4 ring-lagoon-200" : "bg-sunk text-ink-400")}>
+      state === "done" ? "bg-mangrove-500 text-onbrand" : state === "active" ? "bg-primary text-onprimary ring-4 ring-lagoon-200" : "bg-sunk text-ink-400")}>
       {state === "done" ? <Check className="w-4 h-4" /> : n}
     </span>
   );
