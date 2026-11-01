@@ -83,8 +83,9 @@ export function ApprovalsDeck({ onOpenChanges }: { onOpenChanges: () => void }) 
 
   const canDecide = user.role === "admin" || user.role === "department_coordinator";
   const all = subs || [];
-  const toDecide = all.filter((s) => s.status === "PENDING_APPROVAL" && s.requester_username !== user.username);
-  const ownPending = all.filter((s) => s.status === "PENDING_APPROVAL" && s.requester_username === user.username);
+  const isAdmin = user.role === "admin";      // an Admin reviews and accepts their own request; nobody else decides their own
+  const toDecide = all.filter((s) => s.status === "PENDING_APPROVAL" && (isAdmin || s.requester_username !== user.username));
+  const ownPending = all.filter((s) => s.status === "PENDING_APPROVAL" && !isAdmin && s.requester_username === user.username);
   const needsReview = all.filter((s) => s.status === "NEEDS_REVIEW");
   const mine = all.filter((s) => s.requester_username === user.username);
   const pendingProposals = proposals.filter((p) => p.status === "PENDING");
@@ -105,7 +106,7 @@ export function ApprovalsDeck({ onOpenChanges }: { onOpenChanges: () => void }) 
               <div>
                 <p className="font-semibold capitalize">{p.type.replace(/_/g, " ")} <span className="font-mono text-xs text-ink-400">{p.proposal_id}</span></p>
                 <p className="text-sm text-ink-600">Requested by {p.requested_by} · {p.moved_count} session(s) move{p.proven_minimum ? ", the fewest possible" : ""}</p>
-                {p.requested_by === user.username && <p className="text-xs text-sunrise-600 mt-1">You proposed this, so another Admin has to approve it.</p>}
+                <p className="text-xs text-ink-600 mt-1">Nothing has changed yet. Open it to see each move and why, then approve to apply.</p>
               </div>
               <Button variant="secondary" size="sm" onClick={onOpenChanges}>Review the diff</Button>
             </Card>
@@ -116,7 +117,7 @@ export function ApprovalsDeck({ onOpenChanges }: { onOpenChanges: () => void }) 
       {canDecide && (
         <section className="space-y-3">
           <h2 className="font-display text-2xl font-semibold flex items-center gap-2">Bookings waiting for a decision <Chip tone={toDecide.length ? "sunrise" : "stone"}>{toDecide.length}</Chip></h2>
-          {subs && toDecide.length === 0 && <EmptyState title="Nothing to decide" body={ownPending.length ? "Your own pending requests need another approver." : "New requests from clubs, faculty and departments show up here."} />}
+          {subs && toDecide.length === 0 && <EmptyState title="Nothing to decide" body={ownPending.length ? "Your own pending requests are decided by an Admin." : "New requests from clubs, faculty and departments show up here."} />}
           <AnimatePresence initial={false}>
             {toDecide.map((s) => (
               <motion.div key={s.id} layout initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: 60 }}>
@@ -136,12 +137,13 @@ export function ApprovalsDeck({ onOpenChanges }: { onOpenChanges: () => void }) 
                     </div>
                   )}
                   <p className="text-sm text-ink-600"><strong className="text-ink-900">Rules engine:</strong> {cleanReason(s.proposed.reason)}</p>
+                  {isAdmin && s.requester_username === user.username && <p className="text-sm rounded-xl bg-lagoon-50 text-lagoon-900 px-3 py-2">This is your own request. It was not applied automatically because it {s.affected_classes?.length ? "moves classes" : "cannot be placed exactly as asked"}: review the suggestion above, then accept it to apply it.</p>}
                   {offerFor(s)?.status === "accepted" && <p className="text-sm rounded-xl bg-lagoon-50 text-lagoon-900 px-3 py-2">Approving this also moves <strong>{offerFor(s)!.holder.title}</strong> from {slotOf(offerFor(s)!.a_from)} to {slotOf(offerFor(s)!.a_to)}, as its owner agreed. Both are re-checked first.</p>}
                   {s.routing && <p className="text-sm rounded-xl bg-paper px-3 py-2 flex items-start gap-2"><ShieldAlert className="w-4 h-4 mt-0.5 shrink-0 text-lagoon-700" /><span><strong>Who can decide:</strong> {s.routing.why}</span></p>}
                   {s.affected_classes && s.affected_classes.length > 0 && (
                     <div className="rounded-xl bg-saffron-50 text-saffron-600 px-3 py-2 text-sm space-y-1">
                       <p className="font-semibold">Moves {s.affected_classes.length} class{s.affected_classes.length === 1 ? "" : "es"} in Week 7 only:</p>
-                      {s.affected_classes.map((a) => <p key={a.session_id}>• <span className="font-mono text-xs">{a.course_id}</span> {a.old ? `${a.old.day} P${a.old.start_period} ${a.old.room_id}` : "now"} <ArrowRight className="inline w-3.5 h-3.5" /> <strong>{a.new.day} P{a.new.start_period} {a.new.room_id}</strong></p>)}
+                      {s.affected_classes.map((a) => <p key={a.session_id}>• <span className="font-mono text-xs">{a.course_id}</span> {a.old ? `${a.old.day} P${a.old.start_period} ${a.old.room_id}` : "now"} <ArrowRight className="inline w-3.5 h-3.5" /> <strong>{a.new.day} P{a.new.start_period} {a.new.room_id}</strong> <span className="text-xs">(its room and time are needed for {s.title}; moved for Week 7 only)</span></p>)}
                     </div>
                   )}
                   {s.can_decide === false ? (
@@ -162,7 +164,7 @@ export function ApprovalsDeck({ onOpenChanges }: { onOpenChanges: () => void }) 
           {ownPending.length > 0 && (
             <div className="rounded-2xl border border-line bg-raised px-4 py-3 space-y-1.5">
               <p className="text-sm font-semibold flex items-center gap-2"><Clock className="w-4 h-4 text-lagoon-700" />Your requests waiting for someone else <Chip tone="stone">{ownPending.length}</Chip></p>
-              {ownPending.map((s) => <p key={s.id} className="text-sm text-ink-600"><span className="font-mono text-xs text-ink-400">{s.id}</span> {s.title}: another approver decides it, never the person who asked.</p>)}
+              {ownPending.map((s) => <p key={s.id} className="text-sm text-ink-600"><span className="font-mono text-xs text-ink-400">{s.id}</span> {s.title}: an Admin decides it, never the person who asked.</p>)}
             </div>
           )}
         </section>

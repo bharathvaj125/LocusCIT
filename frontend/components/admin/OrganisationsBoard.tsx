@@ -10,8 +10,8 @@ import { cn } from "@/lib/utils";
 
 const FIELD = "w-full h-10 px-3 rounded-xl bg-paper border border-line text-sm focus:border-lagoon-500 outline-none";
 const TYPE_TONE = { club: "plum", department: "indigo", institute: "saffron" } as const;
-interface Form { name: string; type: string; department: string; description: string }
-const BLANK: Form = { name: "", type: "club", department: "", description: "" };
+interface Form { name: string; type: string; department: string; description: string; members: string }
+const BLANK: Form = { name: "", type: "club", department: "", description: "", members: "" };
 
 export function OrganisationsBoard({ onOpenUsers }: { onOpenUsers: () => void }) {
   const toast = useToast();
@@ -38,11 +38,11 @@ export function OrganisationsBoard({ onOpenUsers }: { onOpenUsers: () => void })
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
 
   const openCreate = () => { setForm(BLANK); setFormError(null); setEdit({ mode: "create" }); };
-  const openEdit = (o: OrganisationRow) => { setForm({ name: o.name, type: o.type, department: o.department || "", description: o.description || "" }); setFormError(null); setEdit({ mode: "edit", target: o }); };
+  const openEdit = (o: OrganisationRow) => { setForm({ name: o.name, type: o.type, department: o.department || "", description: o.description || "", members: String(o.members) }); setFormError(null); setEdit({ mode: "edit", target: o }); };
 
   const submit = async () => {
     setBusy(true); setFormError(null);
-    const body = { name: form.name, type: form.type, department: form.type === "department" ? form.department || null : null, description: form.description };
+    const body = { name: form.name, type: form.type, department: form.type === "department" ? form.department || null : null, description: form.description, member_count: form.members.trim() === "" ? undefined : Number(form.members) };
     try {
       if (edit?.mode === "create") { await createOrganisation(body); toast.success(`Created ${form.name}`); }
       else if (edit?.target) { await updateOrganisation(edit.target.id, body); toast.success(`Saved ${form.name}`); }
@@ -106,13 +106,14 @@ export function OrganisationsBoard({ onOpenUsers }: { onOpenUsers: () => void })
             </div>
             <div className="flex items-center gap-5 text-sm">
               <span><Eyebrow className="text-ink-400">Members</Eyebrow><span className="font-display text-xl font-semibold tabular">{o.members}</span></span>
+              <span><Eyebrow className="text-ink-400">Logins</Eyebrow><span className="font-display text-xl font-semibold tabular">{o.accounts}</span></span>
               <span><Eyebrow className="text-ink-400">Requests</Eyebrow><span className="font-display text-xl font-semibold tabular">{o.requests}</span></span>
               {o.department && <span><Eyebrow className="text-ink-400">Department</Eyebrow><span className="font-semibold">{o.department}</span></span>}
             </div>
             <div className="flex items-center gap-1.5 flex-wrap">
               <Button size="sm" variant="secondary" icon={<Pencil className="w-3.5 h-3.5" />} onClick={() => openEdit(o)}>Edit</Button>
               <Button size="sm" variant="secondary" icon={o.status === "active" ? <Archive className="w-3.5 h-3.5" /> : <ArchiveRestore className="w-3.5 h-3.5" />} onClick={() => archive(o)}>{o.status === "active" ? "Archive" : "Restore"}</Button>
-              <Button size="sm" variant="danger" icon={<Trash2 className="w-3.5 h-3.5" />} disabled={o.members > 0 || o.requests > 0} title={o.members || o.requests ? "It has members or requests: archive it instead" : undefined} onClick={() => remove(o)}>Delete</Button>
+              <Button size="sm" variant="danger" icon={<Trash2 className="w-3.5 h-3.5" />} disabled={o.accounts > 0 || o.requests > 0} title={o.accounts || o.requests ? "It has logins or requests: archive it instead" : undefined} onClick={() => remove(o)}>Delete</Button>
             </div>
           </Card>
         ))}
@@ -129,6 +130,9 @@ export function OrganisationsBoard({ onOpenUsers }: { onOpenUsers: () => void })
             <label className="block space-y-1.5"><Eyebrow className="text-ink-400">Department (optional)</Eyebrow>
               <select value={form.department} onChange={(e) => set("department", e.target.value)} className={cn(FIELD, "cursor-pointer")}><option value="">Not tied to one department</option>{departments.map((d) => <option key={d} value={d}>{d}</option>)}</select></label>
           )}
+          <label className="block space-y-1.5"><Eyebrow className="text-ink-400">Members (people in it)</Eyebrow>
+            <input value={form.members} onChange={(e) => set("members", e.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" className={FIELD} placeholder="40" />
+            <span className="text-xs text-ink-400">How many students or staff belong to it. Logins are the accounts that can sign in for it.</span></label>
           <label className="block space-y-1.5"><Eyebrow className="text-ink-400">Description (optional)</Eyebrow>
             <textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={3} maxLength={500} className="w-full p-3 rounded-xl bg-paper border border-line text-sm focus:border-lagoon-500 outline-none" placeholder="What the organisation does" /></label>
           {formError && <p className="text-sm text-sunrise-600 bg-sunrise-50 rounded-xl px-4 py-3" role="alert">{formError}</p>}

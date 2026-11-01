@@ -50,6 +50,24 @@ def _now():
 
 
 # ------------------------------------------------------------------------------------------------ organisations
+# The organiser's dataset names the clubs and offices that make requests but gives no member counts, so these sizes are our own
+# placeholders for the demo (an Admin can change any of them under Organisations). Departments use the real student numbers.
+CLUB_MEMBERS = {"Astronomy Club": 45, "Coding Club": 120, "Dance Club": 60, "Dramatics Society": 55, "E-Cell": 90, "Gaming Society": 70,
+                "Literary Society": 40, "Music Club": 65, "Photography Club": 50, "Quiz Club": 35, "Robotics Club": 80}
+OFFICE_MEMBERS = {"Spectra Core Team": 30, "Training and Placement Cell": 12, "Office of the Dean of Academics": 8}
+DEPT_OF = {"CSE Department": "CSE", "ECE Department": "ECE", "EE Department": "EE", "ME Department": "ME", "Civil Engineering Department": "CE"}
+
+
+def default_members(name, otype, ds):
+    if name in DEPT_OF:
+        return sum(g["size"] for g in ds["student_groups"] if g["department"] == DEPT_OF[name])
+    if name in CLUB_MEMBERS:
+        return CLUB_MEMBERS[name]
+    if name in OFFICE_MEMBERS:
+        return OFFICE_MEMBERS[name]
+    return {"club": 40, "department": 0, "institute": 10}.get(otype, 0)
+
+
 def seed_organisations():
     """Create the organisations behind the demo data: every club, department and institute body that appears as a
     requester in the dataset, plus the two that the demo accounts belong to. Existing rows are left alone."""
@@ -67,7 +85,10 @@ def seed_organisations():
             slug = slugify(name)
             c.execute(db.organisations.insert().values(
                 id=("org-" + slug)[:32], name=name, slug=slug, type=t, department=dept, description="", status="active",
-                is_seed=1, created_by=None, created_at=_now(), updated_at=_now()))
+                is_seed=1, created_by=None, created_at=_now(), updated_at=_now(), member_count=default_members(name, t, ds)))
+        for r in c.execute(select(db.organisations)).mappings().all():        # organisations created before member counts existed
+            if r["member_count"] is None:
+                c.execute(db.organisations.update().where(db.organisations.c.id == r["id"]).values(member_count=default_members(r["name"], r["type"], ds) if r["is_seed"] else 0))
 
 
 def _org_row(c, org_id):
@@ -87,7 +108,7 @@ def org_view(c, row):
     return {"id": row["id"], "name": row["name"], "slug": row["slug"], "type": row["type"], "type_label": ORG_TYPES.get(row["type"], row["type"]),
             "department": row["department"], "description": row["description"] or "", "status": row["status"],
             "is_seed": bool(row["is_seed"]), "created_by": row["created_by"], "created_at": row["created_at"], "updated_at": row["updated_at"],
-            "members": _members(c, row["id"]), "requests": _requests_by(row["name"])}
+            "members": row["member_count"] or 0, "accounts": _members(c, row["id"]), "requests": _requests_by(row["name"])}
 
 
 def departments():
@@ -101,6 +122,7 @@ class OrgBody(BaseModel):
     type: str
     department: str | None = None
     description: str | None = Field(default=None, max_length=500)
+    member_count: int | None = Field(default=None, ge=0, le=100000)
 
 
 class OrgPatch(BaseModel):
@@ -108,6 +130,7 @@ class OrgPatch(BaseModel):
     type: str | None = None
     department: str | None = None
     description: str | None = Field(default=None, max_length=500)
+    member_count: int | None = Field(default=None, ge=0, le=100000)
 
 
 def _check_org(name, otype, dept):
@@ -153,7 +176,7 @@ def organisation_create(body: OrgBody, user=Depends(require("admin"))):
         oid = "org-" + uuid.uuid4().hex[:8]
         c.execute(db.organisations.insert().values(id=oid, name=name, slug=slug, type=body.type, department=body.department if body.type == "department" else None,
                                                    description=(body.description or "").strip(), status="active", is_seed=0, created_by=user["username"],
-                                                   created_at=_now(), updated_at=_now()))
+                                                   created_at=_now(), updated_at=_now(), member_count=body.member_count or 0))
         row = _org_row(c, oid)
         out = org_view(c, row)
     db.log(user["username"], "organisation_create", f"{oid} {name}")
@@ -181,7 +204,8 @@ def organisation_update(oid: str, body: OrgPatch, user=Depends(require("admin"))
             return fail(409, "INVALID_INPUT", f"An organisation called '{name}' already exists")
         c.execute(db.organisations.update().where(db.organisations.c.id == oid).values(
             name=name, slug=slugify(name), type=otype, department=dept if otype == "department" else None,
-            description=(body.description if body.description is not None else row["description"]) or "", updated_at=_now()))
+            description=(body.description if body.description is not None else row["description"]) or "", updated_at=_now(),
+            member_count=body.member_count if body.member_count is not None else row["member_count"]))
         if name != row["name"]:        # members sign requests with the organisation name
             c.execute(db.users.update().where(db.users.c.organisation_id == oid).values(org=name, updated_at=_now()))
         out = org_view(c, _org_row(c, oid))

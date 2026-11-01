@@ -261,7 +261,8 @@ def repair(data_after, baseline, time_limit=60.0, workers=None, seed=1, restrict
         if assign[sid] != base[sid]:
             moved.append({"session_id": sid, "old": _slot(base[sid]), "new": _slot(assign[sid]),
                           "reason": ("Moved as requested" if restrict and sid in restrict
-                                     else _reason(data_after, sessions[sid], base[sid], sid in invalid))})
+                                     else _reason(data_after, sessions[sid], base[sid], sid in invalid)
+                                     if sid in invalid else _knock_on(data_after, sessions, sid, base, assign, invalid))})
     return {"status": "OK", "assignment": assign, "moved": moved, "moved_count": moved_count,
             "directly_affected": invalid, "new_sessions": new, "removed_sessions": removed,
             "proven_minimum": bool(proven), "lower_bound": lower_bound, "strategy": level_used,
@@ -283,3 +284,32 @@ def _reason(data, s, old, directly):
             return f"Room {rid} is no longer available on {day}"
         return "Its previous slot is no longer legal after the change"
     return "Moved to free a room or time slot needed by another changed session"
+
+
+def _span(c, s):
+    return c[0], range(c[1], c[1] + s["duration"])
+
+
+def _knock_on(data, sessions, sid, base, assign, invalid):
+    """Why a class that was not itself broken had to move: name the class that now needs what it held."""
+    s = sessions[sid]
+    day, per = _span(base[sid], s)
+    for oid in sorted(assign):
+        if oid == sid or (oid in base and assign[oid] == base[oid]):
+            continue
+        o = sessions[oid]
+        od, oper = _span(assign[oid], o)
+        if od != day or not set(per) & set(oper):
+            continue
+        shared = []
+        if assign[oid][2] == base[sid][2]:
+            shared.append(f"room {base[sid][2]}")
+        if o["faculty_id"] == s["faculty_id"]:
+            shared.append(f"teacher {s['faculty_id']}")
+        if set(o["groups"]) & set(s["groups"]):
+            shared.append("student group " + "/".join(sorted(set(o["groups"]) & set(s["groups"]))))
+        if shared:
+            cause = (" (itself broken: " + _reason(data, o, base[oid], True).lower() + ")") if oid in invalid and oid in base else ""
+            return (f"Moved to make room for {oid}{cause}: its new slot {assign[oid][0]} P{assign[oid][1]} needs "
+                    f"{' and '.join(shared)}, which this class held")
+    return "Moved so another changed session could keep a valid slot (the solver found no smaller set of moves)"

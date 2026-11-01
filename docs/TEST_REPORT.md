@@ -3,7 +3,7 @@
 Dataset `cit-public-v1`. Numbers below come from the app and were checked with the **unmodified** official `validator.py`.
 `exports/schedule.json` and `exports/schedule_after.json` were downloaded from the **deployed** backend
 (https://locuscit.onrender.com, Render free instance, Singapore) after a reset, generate, exams, booking evaluation and the
-sample disruption approved by a second Admin.
+sample disruption reviewed and approved by an Admin.
 
 | Check | Result (deployed) |
 | --- | --- |
@@ -15,7 +15,7 @@ sample disruption approved by a second Admin.
 | Unreachable booking points | BR-09 wants 1,200 seats (largest venue 800); BR-17's window ends past P13 |
 | Sample disruption: sessions moved | 12 (equals the proven lower bound for this timetable) |
 | Sample disruption: hard violations | 0 |
-| Self-approval | blocked (403); second Admin approves (200) |
+| Self-approval | blocked for faculty, club and coordinator (403); an Admin accepts their own after review; a valid Admin booking is applied at once |
 | Automated backend tests | 128 tests (`python -m pytest -q tests`, about 2 min) |
 | Spectra decisions after the flexible-slot change | identical on the deployed timetable: 0 hard violations, booking score 67/70, 0 priority inversions |
 
@@ -41,7 +41,7 @@ twice, cancelling closes the offer, nobody approves their own request, internal 
 
 ## Change files (rescheduling), judge-style
 `backend/scripts/stress_change_files.py` resets the app, generates a timetable, applies a change file, tries to approve it as
-the proposer (refused with 403), approves it as the second Admin, exports `schedule_after.json` and runs the official
+the proposer, approves it, exports `schedule_after.json` and runs the official
 `validator.py --disruption <file> --baseline schedule.json`. Results on the optimised timetable (soft penalty 3):
 
 | Case | Sessions moved | Fewest possible | Hard violations after |

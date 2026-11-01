@@ -32,7 +32,8 @@ organisations = Table("organisations", meta,
                       Column("id", String(32), primary_key=True), Column("name", String(120), unique=True),
                       Column("slug", String(80), unique=True), Column("type", String(24)), Column("department", String(32)),
                       Column("description", Text), Column("status", String(16)), Column("is_seed", Integer, default=0),
-                      Column("created_by", String(64)), Column("created_at", Float), Column("updated_at", Float))
+                      Column("created_by", String(64)), Column("created_at", Float), Column("updated_at", Float),
+                      Column("member_count", Integer))
 workspace = Table("workspace", meta,
                   Column("id", String(32), primary_key=True), Column("revision", Integer),
                   Column("data", Text), Column("updated_at", Float))
@@ -56,6 +57,8 @@ def migrate():
         for name, ddl in _NEW_USER_COLUMNS.items():
             if name not in have:
                 c.execute(text(f"ALTER TABLE users ADD COLUMN {name} {ddl.replace('DOUBLE PRECISION', kind)}"))
+        if "member_count" not in {x["name"] for x in inspect(engine).get_columns("organisations")}:
+            c.execute(text("ALTER TABLE organisations ADD COLUMN member_count INTEGER"))
         c.execute(text("UPDATE users SET is_active = 1 WHERE is_active IS NULL"))
         c.execute(text("UPDATE users SET must_change_password = 0 WHERE must_change_password IS NULL"))
         c.execute(text("UPDATE users SET is_seed = 0 WHERE is_seed IS NULL"))

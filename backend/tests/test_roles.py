@@ -42,16 +42,13 @@ def classes(client, who):
 
 
 # ------------------------------------------------------------------------------ admin and coordinator authority
-def test_admin_approves_another_users_request_and_not_their_own(client, club, admin, admin2, ready):
+def test_admin_approves_another_users_request_and_applies_their_own_valid_booking(client, club, admin, admin2, ready):
     s = submit(client, club, "Quiz night", ["classroom"], windows=[{"day": "FRI", "from_period": 2, "to_period": 3}])
     assert s["routing"]["approver"] == "admin" and s["can_decide"] is False       # the owner cannot decide it
     ok = decide(client, admin, s["id"])
     assert ok.status_code == 200 and ok.json()["data"]["status"] == "APPROVED"
     own = submit(client, admin, "Dean's briefing", ["classroom"], windows=[{"day": "FRI", "from_period": 4, "to_period": 5}])
-    r = decide(client, admin, own["id"])
-    assert r.status_code == 403 and "own request" in r.json()["errors"][0]["message"]
-    assert find(client, admin, own["id"])["status"] == "PENDING_APPROVAL"          # no eligible approver: stays pending
-    assert decide(client, admin2, own["id"]).status_code == 200
+    assert own["status"] == "APPROVED" and "applied at once" in own["decision_reason"]   # meets every rule: no second look needed
 
 
 def test_coordinator_decides_their_own_departments_lab_without_a_second_approver(client, club, coordinator, ready):
@@ -116,10 +113,7 @@ def test_a_booking_that_moves_classes_needs_an_admin_other_than_the_requester(cl
     assert s["routing"]["approver"] == "admin" and s["affected_classes"]
     assert classes(client, admin) == before                                        # proposed only, nothing moved yet
     assert decide(client, coordinator, s["id"]).status_code == 403                 # a coordinator is never enough
-    own = decide(client, admin, s["id"])
-    assert own.status_code == 403 and "own request" in own.json()["errors"][0]["message"]
-    assert classes(client, admin) == before
-    r = decide(client, admin2, s["id"])
+    r = decide(client, admin, s["id"])                                            # the Admin who asked reviews the shifting and accepts it
     assert r.status_code == 200 and r.json()["data"]["status"] == "APPROVED"
     after = classes(client, admin)
     moved = {o["session_id"] for o in s["overrides"]}
@@ -256,11 +250,11 @@ def test_admin_can_change_the_priority_order_and_restore_it(client, club, admin,
 def test_notifications_count_only_what_the_person_can_act_on(client, club, coordinator, admin, admin2, faculty, ready):
     dash = lambda who: client.get("/api/dashboard", headers=who).json()["data"]
     ece = submit(client, club, "ECE lab session", ["lab_elec"], room="ELEC-LAB-2", windows=[{"day": "FRI", "from_period": 12, "to_period": 13}])
-    own = submit(client, admin, "Dean's own request", ["classroom"], windows=[{"day": "THU", "from_period": 2, "to_period": 3}])
+    own = submit(client, club, "The club's own request", ["classroom"], windows=[{"day": "THU", "from_period": 2, "to_period": 3}])
     ids = lambda who: {b["id"] for b in dash(who)["pending_bookings"]}
     assert ece["id"] not in ids(coordinator)                       # a CSE coordinator cannot decide an ECE/EE lab
     assert ece["id"] in ids(admin) and ece["id"] in ids(admin2)
-    assert own["id"] not in ids(admin) and own["id"] in ids(admin2)  # not your own
+    assert own["id"] not in ids(club) and own["id"] in ids(admin) and own["id"] in ids(admin2)   # the requester never sees it as theirs to decide
     assert ece["id"] not in ids(club) and ece["id"] not in ids(faculty)
     before = dash(admin)["pending_approvals"]
     assert decide(client, admin, ece["id"]).status_code == 200

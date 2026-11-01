@@ -123,7 +123,7 @@ def test_password_reset_is_one_time_and_forces_a_change(client, admin):
 def test_organisations_lifecycle(client, admin):
     orgs = client.get("/api/admin/organisations", headers=admin).json()["data"]
     names = {o["name"]: o for o in orgs["organisations"]}
-    assert names["Dramatics Society"]["type"] == "club" and names["Dramatics Society"]["members"] == 1
+    assert names["Dramatics Society"]["type"] == "club" and names["Dramatics Society"]["members"] == 55 and names["Dramatics Society"]["accounts"] == 1
     assert names["CSE Department"]["type"] == "department" and names["Office of the Dean of Academics"]["type"] == "institute"
     r = post(client, admin, "/api/admin/organisations", {"name": "Chess Club", "type": "club", "description": "Boards and clocks"})
     assert r.status_code == 200

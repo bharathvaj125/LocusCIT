@@ -46,9 +46,10 @@ def test_generate_exams_bookings_export_disruption(client, admin, admin2, tmp_pa
     assert p["status"] == "PENDING", p
     assert p["hard_violation_count"] == 0 and p["moved_count"] >= 1
     assert client.get("/api/exports/schedule-after", headers=admin).status_code == 409   # nothing applied yet
-    assert client.post(f"/api/proposals/{pid}/approve", headers=admin).status_code == 403  # no self-approval
-    assert client.post(f"/api/proposals/{pid}/approve", headers=admin2).json()["data"]["status"] == "APPROVED"
-    assert client.post(f"/api/proposals/{pid}/approve", headers=admin2).status_code == 409  # not twice
+    prop = client.get(f"/api/proposals/{pid}", headers=admin).json()["data"]
+    assert prop["moved"] and all(c["reason"] for c in prop["moved"])                   # every move says why
+    assert client.post(f"/api/proposals/{pid}/approve", headers=admin).json()["data"]["status"] == "APPROVED"   # the proposing Admin reviews and applies it
+    assert client.post(f"/api/proposals/{pid}/approve", headers=admin).status_code == 409  # not twice
 
     (tmp_path / "schedule_after.json").write_text(json.dumps(client.get("/api/exports/schedule-after", headers=admin).json()))
     # schedule.json must still be the original baseline after the change was applied

@@ -654,7 +654,7 @@ export interface AccountUser {
 }
 export interface OrganisationRow {
   id: string; name: string; slug: string; type: "club" | "department" | "institute"; type_label: string; department: string | null;
-  description: string; status: "active" | "archived"; is_seed: boolean; created_by: string | null; members: number; requests: number;
+  description: string; status: "active" | "archived"; is_seed: boolean; created_by: string | null; members: number; accounts: number; requests: number;
 }
 export interface AccountMeta {
   roles: Array<{ id: RoleType; label: string }>; departments: string[];
@@ -680,10 +680,10 @@ export async function resetUserPassword(username: string): Promise<{ username: s
 export async function fetchOrganisations(): Promise<{ organisations: OrganisationRow[]; types: Array<{ id: string; label: string }>; departments: string[] }> {
   return request("/api/admin/organisations");
 }
-export async function createOrganisation(body: { name: string; type: string; department?: string | null; description?: string }): Promise<OrganisationRow> {
+export async function createOrganisation(body: { name: string; type: string; department?: string | null; description?: string; member_count?: number }): Promise<OrganisationRow> {
   return request("/api/admin/organisations", { method: "POST", body });
 }
-export async function updateOrganisation(id: string, body: { name?: string; type?: string; department?: string | null; description?: string }): Promise<OrganisationRow> {
+export async function updateOrganisation(id: string, body: { name?: string; type?: string; department?: string | null; description?: string; member_count?: number }): Promise<OrganisationRow> {
   return request(`/api/admin/organisations/${encodeURIComponent(id)}`, { method: "PATCH", body });
 }
 export async function setOrganisationStatus(id: string, status: "active" | "archived"): Promise<OrganisationRow> {

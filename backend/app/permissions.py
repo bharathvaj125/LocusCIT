@@ -1,6 +1,7 @@
 """Who may do what with a booking request (problem statement, section 4). Every booking permission lives here.
 
-* Admin: decides any request except their own; the only role that can approve a booking that moves classes.
+* Admin: decides any request, including their own after reviewing it (a valid Admin booking is applied at once; one that moves
+  classes is suggested to the Admin first); the only role that can approve a booking that moves classes.
 * Department coordinator: decides requests for the labs their own department owns, never their own request and never
   one that moves classes.
 * Faculty and club representatives: no approval authority at all.
@@ -41,8 +42,8 @@ def routing(sub):
 
 def check_decision(user, sub):
     """None if `user` may decide `sub` right now, else the plain-language reason they may not."""
-    if user["username"] == sub["requester_username"]:
-        return "You cannot approve or reject your own request; another approver has to decide it."
+    if user["username"] == sub["requester_username"] and user["role"] != "admin":
+        return "You cannot approve or reject your own request; an Admin has to decide it."
     role = user["role"]
     r = routing(sub)
     if role == "admin":

@@ -72,7 +72,7 @@ sequenceDiagram
   participant API as API
   participant S as CP-SAT repair
   participant V as Official validator
-  actor A2 as A different Admin
+  actor A2 as Admin (reviews and approves)
   A1->>W: upload change file / sample / form
   W->>API: POST /api/disruptions/propose
   API->>S: minimise moved sessions (hard rules kept, soft penalty kept)

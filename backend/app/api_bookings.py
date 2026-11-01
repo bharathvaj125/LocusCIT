@@ -391,6 +391,10 @@ def submit(draft: Draft, user=Depends(current_user)):
             WS.submissions[sid] = sub
             made.append(sub)
         reconcile_pending()           # earlier or higher-priority requests that are still unconfirmed keep their slots
+        if user["role"] == "admin":   # an Admin's booking that meets every rule needs no second look: apply it and say why
+            for s in made:
+                if s["status"] == "PENDING_APPROVAL" and not s["overrides"] and s["proposed"]["status"] == "approved":
+                    decide(s["id"], DecisionBody(action="approve", reason="Booked by an Admin: it meets every rule, so it was applied at once. " + s["proposed"]["reason"]), user)
         out = [view_for(user, s, _public_sub(s)) for s in made]
         WS.revision += 1
     db.log(user["username"], "booking_submit", ",".join(s["id"] for s in out))
@@ -561,8 +565,8 @@ def manual_event(ev: ManualEvent, user=Depends(current_user)):
                         details=[{"rule": r, "detail": m} for r, m in problems],
                         rule_ids=sorted({r for r, _ in problems}))
         placement = {"day": ev.day, "start_period": ev.start_period, "end_period": ev.end_period, "room_id": ev.room_id}
-        reason = ("Manually scheduled; moves classes in Week 7, so a second Admin has to approve it" if moves
-                  else "Manually scheduled")
+        reason = (f"Manually scheduled. The slot is held by {len(moves)} regular class(es) that would be moved for Week 7 only: "
+                  "review the suggested shifting and accept it to apply" if moves else "Manually scheduled")
         sub = {"id": sid, "requester_username": user["username"], "requester": req["requester"], "role": user["role"],
                "department": user["department"], "title": ev.title, "request": req, "created_at": time.time(),
                "manual": True, "placement": placement, "overrides": moves,

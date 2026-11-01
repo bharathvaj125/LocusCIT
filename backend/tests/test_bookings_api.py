@@ -60,11 +60,13 @@ def test_cannot_approve_own_and_conflicting_slot_is_blocked(client, club, coordi
     assert client.post(f"/api/bookings/{b['id']}/decision", headers=admin2, json={"action": "approve"}).status_code == 409
 
 
-def test_admin_cannot_approve_own_booking(client, admin, admin2, ready):
+def test_an_admins_valid_booking_is_applied_at_once_with_the_reason(client, admin, club, ready):
     s = submit(client, admin, title="Dean's briefing", windows=[{"day": "WED", "from_period": 10, "to_period": 11}]
                ).json()["data"]["submissions"][0]
-    assert client.post(f"/api/bookings/{s['id']}/decision", headers=admin, json={"action": "approve"}).status_code == 403
-    assert client.post(f"/api/bookings/{s['id']}/decision", headers=admin2, json={"action": "approve"}).status_code == 200
+    assert s["status"] == "APPROVED" and s["decided_by"] == "admin1" and "applied at once" in s["decision_reason"]
+    own = submit(client, club, title="Club asks", windows=[{"day": "THU", "from_period": 10, "to_period": 11}]).json()["data"]["submissions"][0]
+    assert own["status"] == "PENDING_APPROVAL"                                      # anyone else still waits for an approver
+    assert client.post(f"/api/bookings/{own['id']}/decision", headers=club, json={"action": "approve"}).status_code == 403
 
 
 def test_impossible_request_is_rejected_with_a_reason(client, club, ready):

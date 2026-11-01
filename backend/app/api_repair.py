@@ -37,7 +37,7 @@ def _compute(pid, changes, time_limit, restrict=None):
             p.update(status="FAILED_VALIDATION", message="Proposed repair failed the hard-rule check",
                      diagnostics=hard[:10], moved=[], moved_count=0)
             return
-        p.update(status="PENDING", message="Awaiting Admin approval", moved=res["moved"],
+        p.update(status="PENDING", message="Suggested shifting ready: review every move and its reason, then approve to apply it", moved=res["moved"],
                  moved_count=res["moved_count"], directly_affected=res["directly_affected"],
                  new_sessions=res["new_sessions"], removed_sessions=res["removed_sessions"],
                  added=[{"session_id": sid, "new": {"day": res["assignment"][sid][0], "start_period": res["assignment"][sid][1],
@@ -94,8 +94,6 @@ def approve(pid: str, user=Depends(require("admin"))):
     with WS.lock:
         if p["status"] != "PENDING":
             return fail(409, "INVALID_INPUT", f"Proposal is {p['status']}, only PENDING proposals can be approved")
-        if p.get("requested_by") == user["username"]:
-            return fail(403, "FORBIDDEN", "You cannot approve your own request; ask another Admin")
         if p["base_schedule_version"] != WS.schedule_version:
             p["status"] = "STALE"
             return fail(409, "STALE_PROPOSAL", "The timetable changed after this proposal was made; propose again")
@@ -124,7 +122,7 @@ def approve(pid: str, user=Depends(require("admin"))):
         WS.applied.append(pid)
         from .api_bookings import reconcile_after_timetable_change
         reconcile_after_timetable_change()
-        p.update(status="APPROVED", message="Approved and applied", approved_by=user["username"], approved_at=time.time(),
+        p.update(status="APPROVED", message=f"Approved by {user['username']} and applied: {p.get('moved_count', 0)} session(s) moved", approved_by=user["username"], approved_at=time.time(),
                  hard_validation_result="0 hard violations")
     return ok(_public(p))
 

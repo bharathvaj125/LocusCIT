@@ -285,7 +285,7 @@ export function ManualDrawer({ open = true, onClose, canAutoBook, inline = false
         attendance: f.attendance, needs, mandatory_for_groups: f.groups.split(/[ ,]+/).map((g) => g.trim().toUpperCase()).filter(Boolean), requested_category: f.category,
       });
       toast.success(s.status === "APPROVED" ? `${s.id} is booked in ${f.room}.`
-        : s.overrides && s.overrides.length ? `${s.id} would move ${s.overrides.length} class(es) in Week 7, so a second Admin has to approve it. Nothing has moved yet.`
+        : s.overrides && s.overrides.length ? `${s.id} would move ${s.overrides.length} class(es) in Week 7. Review the suggested shifting in Approvals and accept it to apply; nothing has moved yet.`
         : `${s.id} passed every rule. It is pending until an approver decides; nothing is booked yet.`);
       refresh(); onClose();
     } catch (err) {
@@ -294,7 +294,7 @@ export function ManualDrawer({ open = true, onClose, canAutoBook, inline = false
   }, [f, needs, toast, refresh, onClose]);
 
   const input = "w-full h-10 px-3 rounded-xl bg-paper border border-line text-sm";
-  const footer = (<div className="flex items-center justify-between gap-3"><span className="text-xs text-ink-600">{canAutoBook ? "A valid event is booked at once. One that would move classes needs a second Admin." : "A valid request goes to an approver; it is pending until then."}</span><Button type="submit" form="manual-form" loading={busy}>Check rules and schedule</Button></div>);
+  const footer = (<div className="flex items-center justify-between gap-3"><span className="text-xs text-ink-600">{canAutoBook ? "A valid event is booked at once. One that would move classes is suggested to you first, with the reason for each move." : "A valid request goes to an approver; it is pending until then."}</span><Button type="submit" form="manual-form" loading={busy}>Check rules and schedule</Button></div>);
   const form = (
       <form id="manual-form" onSubmit={submit} className="space-y-4">
         <label className="block"><span className="text-xs font-semibold text-ink-600">Title</span><input required value={f.title} onChange={(e) => set("title", e.target.value)} className={input} placeholder="e.g. Robotics workshop" /></label>

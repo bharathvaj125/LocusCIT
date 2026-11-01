@@ -21,7 +21,7 @@ export function ScheduleEvent({ onOpenBoard }: { onOpenBoard: () => void }) {
             <div className="flex items-center gap-2"><CalendarCheck className="w-4 h-4 text-lagoon-700" /><h3 className="font-display text-xl font-semibold">What happens next</h3></div>
             <ul className="text-sm text-ink-600 space-y-1.5 list-disc pl-5">
               <li>A valid ordinary event is booked at once and shows on the venue board and in the room timetable.</li>
-              <li>An institute event that needs a class moved for Week 7 waits for a different Admin, and nothing moves until then.</li>
+              <li>An institute event that needs a class moved for Week 7 is not applied automatically: you get the suggested shifting with the reason for each move, and nothing moves until you accept it in Approvals.</li>
               <li>Your category is capped by your role, and an event cannot take a slot an earlier or higher-priority request already holds.</li>
             </ul>
           </Card>

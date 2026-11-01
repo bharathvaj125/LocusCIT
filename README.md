@@ -3,7 +3,7 @@
 Crunch Week, TechZephyr 4.0 (IIT Bhubaneswar). A role-aware platform for the Chilika Institute of Technology (CIT) that
 generates the semester timetable and midsem exams, decides Spectra-week venue bookings by priority, accepts
 English/Hinglish booking requests, repairs the timetable after a change with the fewest moved sessions, and
-applies a change only after a second Admin approves it. Every schedule is checked by the **official validator** before it is saved.
+applies a change only after an Admin has reviewed the suggested shifting, with the reason for every move, and approved it. Every schedule is checked by the **official validator** before it is saved.
 
 * **Live app:** https://locus-cit.vercel.app
 * API: https://locuscit.onrender.com (health: `/api/health`, docs: `/docs`)
@@ -50,7 +50,7 @@ The requester can never decide their own request.
 * The page reads the file back in plain words and flags anything the app will refuse, then press *Propose a repair*.
 * The solver finds a valid timetable that moves the fewest sessions (it tells you when that is proven minimal) and shows every
   session before and after. **Nothing changes yet.**
-* A change `admin1` proposed has to be approved by a **different** Admin. There is no second Admin in the demo data: open *Users*, press *Add a user*, choose the role Admin, give it a name and a username and copy the temporary password. Sign out, sign in as that user, choose a new password, then open *Changes* (or *Approvals*) and press *Approve and apply*. The timetable is re-checked first.
+* **You review, then you apply.** The suggestion lists every moved session with its reason (for example "Room CR-102 is no longer available on THU", or which other class it makes room for). Press *Approve and apply*; the timetable is re-checked first. *Reject* leaves everything as it was.
 
 **7. Check the exports.** As `admin1`, *Exports*. The page shows what the official validator says about `schedule.json` and
 `schedule_after.json` (hard violations, soft penalty, booking score, sessions moved) and downloads both files.
@@ -74,9 +74,9 @@ removes the ones an Admin added.
 | Overview, rooms, approved events, any timetable (read-only) | yes | yes | yes | yes |
 | Generate timetable / exams, reset, exports, priority order | yes | no | no | no |
 | Create accounts and organisations (*Users*, *Organisations*) | yes | no | no | no |
-| Decide a venue booking | yes (not their own) | only their department's labs | no | no |
-| Approve a booking that moves classes | yes (another Admin) | never | no | no |
-| Propose / approve a timetable change | yes (a different Admin approves) | request for own department | request for own classes | no |
+| Decide a venue booking | yes (an Admin's own valid booking is applied at once) | only their department's labs | no | no |
+| Approve a booking that moves classes | yes (an Admin, after reviewing the suggested shifting) | never | no | no |
+| Propose / approve a timetable change | yes (reviews the suggested shifting, then approves) | request for own department | request for own classes | no |
 | Submit venue requests, see their status | via Venues & Spectra | yes | yes | yes |
 
 The rules are enforced in the backend (`backend/app/permissions.py`); hiding a button is never the only protection.

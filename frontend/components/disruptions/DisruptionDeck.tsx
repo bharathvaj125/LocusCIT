@@ -82,7 +82,6 @@ export function DisruptionDeck({ onOpenExports }: { onOpenExports?: () => void }
     return { n: ids.length, top };
   }, [selected, ref]);
 
-  const own = view?.requested_by === user.username;
   const byDay = useMemo(() => {
     const m: Record<string, number> = {};
     (view?.changes || []).forEach((c) => { m[c.new.day] = (m[c.new.day] || 0) + 1; });
@@ -92,7 +91,7 @@ export function DisruptionDeck({ onOpenExports }: { onOpenExports?: () => void }
   return (
     <div className="space-y-6">
       <PageTitle eyebrow="Changes" title={<>When the campus changes, <span className="italic font-medium text-gold">move as little as possible</span></>}
-        subtitle="Upload a change file: faculty leave, a closed room, a new or removed session. The solver finds a valid timetable that moves the fewest classes, shows exactly what changes, and waits for a different Admin to approve. If you are the only Admin, add a second one under Users." />
+        subtitle="Upload a change file: faculty leave, a closed room, a new or removed session. The solver finds a valid timetable that moves the fewest classes, shows exactly what changes, and waits for you to review every move and its reason. Nothing changes until you press Approve and apply." />
 
       <ChangeBuilder refData={ref} text={text} setText={setText} />
 
@@ -136,13 +135,10 @@ export function DisruptionDeck({ onOpenExports }: { onOpenExports?: () => void }
               {view.status === "PENDING" && (
                 <div className="flex gap-2">
                   <Button variant="danger" icon={<X className="w-4 h-4" />} disabled={!!working} onClick={() => decide(false)}>Reject</Button>
-                  <Button variant="success" icon={<Check className="w-4 h-4" />} loading={working === "approve"} disabled={!!working || own} onClick={() => decide(true)}>Approve and apply</Button>
+                  <Button variant="success" icon={<Check className="w-4 h-4" />} loading={working === "approve"} disabled={!!working} onClick={() => decide(true)}>Approve and apply</Button>
                 </div>
               )}
             </div>
-            {view.status === "PENDING" && own && (
-              <div className="rounded-xl bg-sunrise-50 text-sunrise-600 px-4 py-3 text-sm flex items-center gap-2"><ShieldAlert className="w-4 h-4 shrink-0" />You proposed this, so you cannot approve it. Switch to the Second Admin account (bottom of the left menu).</div>
-            )}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="rounded-2xl bg-lagoon-50 p-4"><Eyebrow>Sessions moved</Eyebrow><p className="font-display text-5xl font-semibold text-lagoon-900 mt-1">{view.status === "COMPUTING" ? "..." : <CountUp value={view.moved_count} />}</p><p className="text-xs text-ink-600 mt-1">{view.status === "COMPUTING" ? "" : view.proven_minimum ? "proven minimum" : "best found in the time limit"}</p></div>
               <div className="rounded-2xl bg-paper p-4"><Eyebrow className="text-ink-400">Directly broken</Eyebrow><p className="font-display text-5xl font-semibold mt-1">{view.lower_bound}</p><p className="text-xs text-ink-600 mt-1">must move at least this many</p></div>
@@ -173,7 +169,7 @@ export function DisruptionDeck({ onOpenExports }: { onOpenExports?: () => void }
                 {onOpenExports && <Button size="sm" variant="success" icon={<ArrowRight className="w-4 h-4" />} onClick={onOpenExports}>Open exports</Button>}
               </div>
             )}
-            {view.status === "PENDING" && <p className="text-sm text-ink-600">Nothing has changed yet. Another Admin has to approve this; the timetable is checked again at that moment, and a stale proposal is refused.</p>}
+            {view.status === "PENDING" && <p className="text-sm text-ink-600">Nothing has changed yet. This is the suggested shifting: each moved class below says why it moves. Approve to apply it; the timetable is checked again at that moment, and a stale proposal is refused. Reject leaves everything as it is.</p>}
             {blocked && (
               <div className="rounded-xl bg-sunrise-50 text-sunrise-600 px-4 py-3 text-sm space-y-1" role="alert">
                 <p className="font-semibold">No valid timetable exists with this change, so nothing was proposed and nothing changed.</p>

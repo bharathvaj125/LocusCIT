@@ -105,7 +105,7 @@ export function UsersBoard({ onOpenOrganisations }: { onOpenOrganisations: () =>
   return (
     <div className="space-y-6">
       <PageTitle eyebrow="Users" title={<>Everyone who can sign in, <span className="italic font-medium text-gold">in one place</span></>}
-        subtitle="Nobody can sign up on their own: an Admin creates each account, gives it one role and, where the role needs it, links it to a faculty member, a department or a club. A second Admin is how a change you proposed gets approved."
+        subtitle="Nobody can sign up on their own: an Admin creates each account, gives it one role and, where the role needs it, links it to a faculty member, a department or a club."
         actions={<>
           <Button variant="secondary" icon={<UsersIcon className="w-4 h-4" />} onClick={onOpenOrganisations}>Organisations</Button>
           <Button icon={<Plus className="w-4 h-4" />} onClick={openCreate}>Add a user</Button>
@@ -117,7 +117,7 @@ export function UsersBoard({ onOpenOrganisations }: { onOpenOrganisations: () =>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <StatCard index={0} label="Accounts" value={total} tone="lagoon" icon={<UsersIcon className="w-4 h-4" />} hint="click to show all" active={role === "all" && status === "all"} onClick={() => { setRole("all"); setStatus("all"); }} />
           <StatCard index={1} label="Active" value={count((u) => u.is_active)} tone="mangrove" icon={<UserCheck className="w-4 h-4" />} progress={total ? count((u) => u.is_active) / total : 0} hint="can sign in" active={status === "active"} onClick={() => setStatus(status === "active" ? "all" : "active")} />
-          <StatCard index={2} label="Admins" value={count((u) => u.role === "admin" && u.is_active)} tone="indigo" icon={<ShieldCheck className="w-4 h-4" />} hint={count((u) => u.role === "admin" && u.is_active) < 2 ? "add a second Admin to approve changes" : "can approve each other's changes"} active={role === "admin"} onClick={() => setRole(role === "admin" ? "all" : "admin")} />
+          <StatCard index={2} label="Admins" value={count((u) => u.role === "admin" && u.is_active)} tone="indigo" icon={<ShieldCheck className="w-4 h-4" />} hint={count((u) => u.role === "admin" && u.is_active) < 2 ? "the account that approves changes and bookings" : "any of them can approve changes and bookings"} active={role === "admin"} onClick={() => setRole(role === "admin" ? "all" : "admin")} />
           <StatCard index={3} label="Deactivated" value={count((u) => !u.is_active)} tone="sunrise" icon={<UserX className="w-4 h-4" />} hint="locked out" active={status === "inactive"} onClick={() => setStatus(status === "inactive" ? "all" : "inactive")} />
         </div>
       )}

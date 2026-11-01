@@ -81,9 +81,9 @@ verified token, never from anything the client sends.
 | Request | Who can decide | Anyone else |
 | --- | --- | --- |
 | Booking of a lab owned by a department (CS-LAB-1/2 CSE, ELEC-LAB-1/2 ECE and EE, PHY-LAB PH, MECH-WS ME, CIVIL-LAB CE) | that department's coordinator, or an Admin | 403 |
-| Booking that moves classes in Week 7 (institute-level requests only) | an Admin other than the requester; a coordinator alone is never enough | 403 |
-| Any other venue booking | an Admin other than the requester | 403 |
-| Anyone's own request | nobody: 403 `You cannot approve or reject your own request` | |
+| Booking that moves classes in Week 7 (institute-level requests only) | an Admin, after the suggested shifting is shown; a coordinator alone is never enough | 403 |
+| Any other venue booking | an Admin (an Admin's own valid booking is applied at once at submission) | 403 |
+| Anyone's own request | not faculty, club or coordinator: 403 `You cannot approve or reject your own request`; an Admin may accept their own after reviewing it | |
 | Cancelled, rejected or already decided request | 409 | |
 
 A refused attempt is recorded in the audit log (`approval_denied`). Every request in the list carries `routing`
