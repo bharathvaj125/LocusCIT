@@ -156,3 +156,20 @@ redeploy after it.
 10. **Disqualification risks?** One: the missing video (I1). Also keep the deadline in mind for any push.
 11. **Remaining issues:** I1-I10 above.
 12. **Fix before submission:** I1, I2, I4 (owner actions or your go-ahead). **Leave unchanged:** the solver and booking engine unless you choose I3, `requirements.txt`, the committed exports.
+
+
+## 7. Final export and constraint verification (1 Nov 2026, latest code)
+
+| Check | Result |
+| --- | --- |
+| Original `exports/schedule.json` | **189** sessions (189 unique ids), 41 exams, 25 booking decisions (statuses only `approved`, `alternative_offered`, `rejected`; the cancelled BR-04 is `rejected` with its reason) |
+| `exports/schedule_after.json` | **190** sessions: the original plus `CS202-T2` from the official `sample_disruption.json`; `CS202-T2` is not in the original |
+| Official validator, original (`python starter_pack/validator.py --data starter_pack/data/cit_public.json --schedule exports/schedule.json`) | exit 0. Hard violations **0**; soft penalty 3 (S4 = 3); bookings score 67.0, 22 approved, 1 alternative, 2 rejected, 0 priority inversions; exam penalty 0 |
+| Official validator, repaired (`... --schedule exports/schedule_after.json --disruption starter_pack/examples/sample_disruption.json --baseline exports/schedule.json`) | exit 0. Hard violations **0**; soft penalty 3; bookings 67.0, 0 inversions; **8 sessions moved** (4 changed time, 4 room only) |
+| Minimum changes | the repair reports `lower_bound 8`, `moved 8`, `proven_minimum true`: 8 sessions were directly broken by the change, and no valid timetable can move fewer |
+| Soft-penalty optimum | 3 is optimal: with every room option kept (no pruning) the solver also proves OPTIMAL at 3 |
+| Contamination | none in the normal flow: `tests/test_exports_integrity.py` approves the sample change and shows `schedule.json` is byte-for-byte the same 189-session file. The 190/190 on the old live Exports page came from a live workspace where a change had been applied before the original was saved; the page also read its session counts from the live timetable instead of the files |
+| Fixes | the Exports page now reads the counts from the files it describes; `GET /exports/schedule` answers 409 (and the report says `baseline_missing`) when the original was not saved, instead of serving the changed timetable; the validator badge is computed from a real validator run on exactly those files |
+| Official files | `starter_pack/` is unchanged (`git diff` empty); `validator.py` is the organisers' file |
+| Full audit harness on the final code | 88 of 88 checks pass; backend suite 123 tests pass |
+| Vague and hostile booking text (`backend/scripts/vague_inputs_probe.py`, 33 inputs) | no crash; nothing is invented (a missing day, time or headcount is asked for). Four gaps found and fixed: "ek ghante" was read as two hours, a headcount of 0 or -5 was accepted, "midnight" was read as an evening window, and "25 pm" produced a period that does not exist |

@@ -242,6 +242,9 @@ def bookings_list(user=Depends(current_user)):
 
 @router.get("/exports/schedule", dependencies=[Depends(require("admin"))])
 def export_schedule():
+    if WS.applied and WS.baseline_export is None:
+        return fail(409, "INVALID_INPUT", "A change was applied before the original timetable was saved, so the original schedule.json can no "
+                                          "longer be rebuilt. Press Reset demo data on the Overview page and run the steps again.")
     if WS.applied and WS.baseline_export is not None:
         # after an approved disruption, schedule.json stays the original baseline (schedule-after is the new one)
         rep = official_validator().run(WS.baseline_dataset, WS.baseline_export)

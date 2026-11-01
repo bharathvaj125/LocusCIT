@@ -66,13 +66,13 @@ export function ExportsDeck() {
       <div className="grid md:grid-cols-2 gap-5">
         <Card className="p-6 space-y-4">
           <div className="flex items-center justify-between"><h2 className="font-display text-2xl font-semibold flex items-center gap-2"><FileCheck2 className="w-6 h-6 text-lagoon-700" />schedule.json</h2><Chip tone={d?.ready_for_export ? "mangrove" : "saffron"} dot>{d?.ready_for_export ? "Ready" : "Not ready"}</Chip></div>
-          <p className="text-sm text-ink-600">{applied ? "The baseline: timetable, Week 7 decisions and exams exactly as they were before the first approved change." : `Timetable (${d?.sessions_scheduled ?? 0}/${d?.sessions_total ?? "?"} sessions), Week 7 decisions (${d?.booking_decisions ?? 0}/${d?.booking_requests ?? "?"}) with any class overrides, and exams (${d?.exams_scheduled ?? 0}/${d?.exams_total ?? "?"}).`}</p>
+          <p className="text-sm text-ink-600">{applied ? `The original: ${report?.schedule?.sessions ?? "..."} sessions, with the Week 7 decisions and exams, exactly as they were before the first approved change.` : `Timetable (${report?.schedule?.sessions ?? d?.sessions_scheduled ?? 0} sessions in the file), Week 7 decisions (${d?.booking_decisions ?? 0}/${d?.booking_requests ?? "?"}) with any class overrides, and exams (${d?.exams_scheduled ?? 0}/${d?.exams_total ?? "?"}).`}</p>
           {!d?.ready_for_export && <p className="text-sm text-saffron-600">Run the three steps on the Overview page first.</p>}
           <Button icon={<Download className="w-4 h-4" />} loading={busy === "schedule"} disabled={busy !== null} onClick={() => download("schedule")}>Download schedule.json</Button>
         </Card>
         <Card className="p-6 space-y-4">
           <div className="flex items-center justify-between"><h2 className="font-display text-2xl font-semibold flex items-center gap-2"><FileCheck2 className="w-6 h-6 text-sunrise-600" />schedule_after.json</h2><Chip tone={applied ? "mangrove" : "saffron"} dot>{applied ? `${d!.applied_disruptions} change applied` : "No change applied"}</Chip></div>
-          <p className="text-sm text-ink-600">The timetable after the approved disruption, measured against the timetable before the first one.</p>
+          <p className="text-sm text-ink-600">{applied ? `The timetable after the approved change: ${report?.schedule_after?.sessions ?? "..."} sessions, ${report?.schedule_after?.stability?.sessions_moved ?? "..."} of them moved from schedule.json.` : "The timetable after the approved disruption, measured against the timetable before the first one."}</p>
           {!applied && <p className="text-sm text-saffron-600">Propose and approve a change first (Changes screen).</p>}
           <Button variant="sunrise" icon={<Download className="w-4 h-4" />} loading={busy === "schedule-after"} disabled={busy !== null} onClick={() => download("schedule-after")}>Download schedule_after.json</Button>
         </Card>
@@ -84,7 +84,8 @@ export function ExportsDeck() {
         </div>
         {!report && !reportError && <Skeleton className="h-28" />}
         {reportError && <p className="text-sm text-sunrise-600" role="alert">{reportError}</p>}
-        {report && !report.schedule && <p className="text-sm text-saffron-600">schedule.json is not ready yet: generate the timetable, schedule the exams and decide the Spectra requests on the Overview page.</p>}
+        {report?.baseline_missing && <p className="text-sm text-sunrise-600" role="alert">A change was applied before the original timetable was saved, so schedule.json cannot be rebuilt. Press Reset demo data on the Overview page and run the steps again.</p>}
+        {report && !report.schedule && !report.baseline_missing && <p className="text-sm text-saffron-600">schedule.json is not ready yet: generate the timetable, schedule the exams and decide the Spectra requests on the Overview page.</p>}
         <Report r={report?.schedule} title="schedule.json" />
         {report?.schedule_after ? <Report r={report.schedule_after} title="schedule_after.json, compared with schedule.json" after />
           : report?.schedule && <p className="text-sm text-ink-600">schedule_after.json appears after a change has been proposed and approved on the Changes page.</p>}

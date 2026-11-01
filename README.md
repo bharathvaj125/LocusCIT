@@ -127,6 +127,12 @@ py -3.13 -m venv .venv
 Open http://localhost:8000/docs. Copy `.env.example` to `.env` to use Supabase and your own `JWT_SECRET`.
 Frontend: `cd frontend && npm install && npm run dev`, with `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000`. Tests: `cd backend && python -m pytest -q tests`.
 
+## The two export files (repository and app)
+The problem statement asks for `exports/schedule.json` and `exports/schedule_after.json` **in the public repository**, and for an **Export** in the app. Both exist and come from the same code:
+* `exports/` in this repository holds the files committed for submission. They were produced by the app itself (`backend/scripts/generate_exports.py` drives the real API: reset, generate, exams, Spectra decisions, export, propose the official `sample_disruption.json`, approve it as a different Admin, export again) and nothing was edited by hand.
+* The **Exports** page in the app downloads the same kind of files from the live workspace, with the official validator's result and the session counts of the files themselves (189 sessions in `schedule.json`, 190 in `schedule_after.json`, which adds `CS202-T2`).
+* If a change was applied before the original timetable was saved, the app refuses to serve `schedule.json` and tells the Admin to press *Reset demo data*, instead of serving the changed timetable under the original's name.
+
 ## Regenerate the exports
 `cd backend && python scripts/generate_exports.py 90` drives the real API, writes `exports/*.json` and runs the validator.
 

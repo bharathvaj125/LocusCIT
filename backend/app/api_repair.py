@@ -180,10 +180,11 @@ def export_report():
     from .api import _fest_week
     V = official_validator()
     schedule = after = None
+    baseline_missing = bool(WS.applied) and WS.baseline_export is None
     if WS.applied and WS.baseline_export is not None:
         schedule = _brief(V.run(WS.baseline_dataset, WS.baseline_export))
         schedule["sessions"] = len(WS.baseline_export["sessions"])
-    elif WS.schedule is not None and WS.bookings is not None and WS.exams is not None:
+    elif not baseline_missing and WS.schedule is not None and WS.bookings is not None and WS.exams is not None:
         sched = timetable_export(TEAM, WS.dataset["dataset_id"], WS.schedule, fest_week=_fest_week(), exams=WS.exams)
         schedule = _brief(V.run(WS.dataset, sched))
         schedule["sessions"] = len(sched["sessions"])
@@ -192,4 +193,4 @@ def export_report():
                                  fest_week=_fest_week() if WS.bookings else None, exams=WS.exams)
         after = _brief(V.run(WS.dataset, sched, baseline=timetable_export(TEAM, WS.dataset["dataset_id"], WS.baseline)))
         after["sessions"] = len(sched["sessions"])
-    return ok({"schedule": schedule, "schedule_after": after, "applied_disruptions": len(WS.applied)})
+    return ok({"schedule": schedule, "schedule_after": after, "applied_disruptions": len(WS.applied), "baseline_missing": baseline_missing})

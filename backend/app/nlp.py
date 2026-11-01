@@ -260,7 +260,11 @@ def parse_booking_text(text, data, now=None, role=None):
          or re.search(r"(?:audience|attendance|expecting|around|about|approx(?:imately)?|maybe|nearly|roughly)\s*"
                       r"(?:of\s*)?(\d{2,4})\b(?!\s*(?:am|pm|:|baje))", t))
     if m:
-        draft["attendance"] = int(m.group(1))
+        n = int(m.group(1))
+        if (m.start() > 0 and t[m.start() - 1] == "-") or n < 1:
+            draft["warnings"].append("The number of people has to be at least 1, so I did not use that number.")
+        else:
+            draft["attendance"] = n
         t = t.replace(m.group(0), " <ATT> ", 1)
 
     # duration
@@ -269,6 +273,10 @@ def parse_booking_text(text, data, now=None, role=None):
     if dm:
         dur_text = float(dm.group(1))
         t = t.replace(dm.group(0), " <DUR> ", 1)
+    elif re.search(r"\b(?:ek|do|teen|char|chaar|paanch|panch|chhe|saat|aath)\s+(?:ghante|ghanta|ghantey)\b", t):
+        hm = re.search(r"\b(ek|do|teen|char|chaar|paanch|panch|chhe|saat|aath)\s+(?:ghante|ghanta|ghantey)\b", t)
+        dur_text = float({"ek": 1, "do": 2, "teen": 3, "char": 4, "chaar": 4, "paanch": 5, "panch": 5, "chhe": 6, "saat": 7, "aath": 8}[hm.group(1)])
+        t = t.replace(hm.group(0), " <DUR> ", 1)
     elif re.search(r"\ball day\b|\bfull day\b|\bpura din\b", t):
         dur_text = 9.0
     elif re.search(r"\bhalf an hour\b|\b30 ?min", t):
@@ -397,8 +405,12 @@ def parse_booking_text(text, data, now=None, role=None):
             asks.append("Events must end by 22:00 (P13); please choose an earlier time.")
             draft["warnings"].append("The requested time runs past 22:00, the last event period.")
             draft["ambiguous_fields"].append("windows")
+            win = None                   # a period that does not exist is not proposed
     else:
-        for rx, a, b, label in VAGUE_WINDOWS:
+        if re.search(r"\bmidnight\b", t):
+            asks.append("Events must end by 22:00 (P13); midnight is outside the booking hours. What earlier time do you want?")
+            draft["ambiguous_fields"].append("windows")
+        for rx, a, b, label in ([] if re.search(r"\bmidnight\b", t) else VAGUE_WINDOWS):
             if re.search(rx, t):
                 win = (a, b)
                 draft["assumptions"].append(f"Vague time: proposed {label}. Edit the window if you meant something else.")

@@ -641,7 +641,7 @@ export interface ValidatorBrief {
   bookings: { score: number; max: number; approved: number; alternatives: number; rejected: number; priority_inversions: number; inversions: string[] } | null;
   stability: { sessions_moved: number; time_changed: number; room_only_changed: number } | null;
 }
-export async function fetchExportReport(): Promise<{ schedule: ValidatorBrief | null; schedule_after: ValidatorBrief | null; applied_disruptions: number }> {
+export async function fetchExportReport(): Promise<{ schedule: ValidatorBrief | null; schedule_after: ValidatorBrief | null; applied_disruptions: number; baseline_missing?: boolean }> {
   return request("/api/exports/report", { timeoutMs: 120000 });
 }
 

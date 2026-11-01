@@ -133,3 +133,19 @@ def test_impossible_past_and_weekend_dates_are_questioned_not_guessed():
 def test_ordinary_words_are_not_read_as_dates():
     d = p("we may need 50 people on friday 6pm")
     assert d["windows"] == [{"day": "FRI", "from_period": 10, "to_period": 10}] and d["attendance"] == 50
+
+
+def test_hindi_number_words_and_bad_numbers():
+    d = p("ek ghante ke liye lab chahiye shukravar subah, 30 students")
+    assert d["duration_periods"] == 1 and d["attendance"] == 30
+    assert p("do ghante seminar hall kal shaam 50 log")["duration_periods"] == 2
+    for text in ("room for 0 people monday 9am", "room for -5 people monday 9am"):
+        d = p(text)
+        assert d["attendance"] is None and any("at least 1" in w for w in d["warnings"]) and any("people" in q for q in d["follow_ups"])
+
+
+def test_times_outside_event_hours_are_questioned_not_invented():
+    d = p("Thursday midnight")
+    assert d["windows"] == [] and any("midnight" in q for q in d["follow_ups"])
+    d = p("wednesday 25 pm 50 people")
+    assert d["windows"] == [] and any("22:00" in q for q in d["follow_ups"])

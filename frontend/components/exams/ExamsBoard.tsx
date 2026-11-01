@@ -101,11 +101,11 @@ export function ExamsBoard() {
       )}
 
       {!state.loading && !state.empty && !state.error && (
-        <Card className="p-4 overflow-x-auto">
+        <Card className="p-4 overflow-x-auto min-[1180px]:overflow-x-clip">
           <div className="min-w-[1000px] grid gap-2" style={{ gridTemplateColumns: `96px repeat(${days.length}, minmax(0, 1fr))` }}>
-            <div />
+            <div className="sticky top-[68px] z-10 bg-raised" />
             {days.map((d) => (
-              <div key={d} className="px-2 pb-1"><p className="font-display text-xl font-semibold leading-none">{d}</p><p className="text-[11px] text-ink-400">{DAY_LABEL[d]}</p></div>
+              <div key={d} className="sticky top-[68px] z-10 bg-raised px-2 pt-2 pb-2 border-b border-line"><p className="font-display text-xl font-semibold leading-none">{d}</p><p className="text-[11px] text-ink-400">{DAY_LABEL[d]}</p></div>
             ))}
             {slots.map((slot) => (
               <React.Fragment key={slot.id}>
