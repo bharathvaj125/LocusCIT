@@ -3,7 +3,7 @@
 Usage:  python backend/scripts/stress_change_files.py [case numbers, e.g. 01 05 09]
         API=https://locuscit.onrender.com python backend/scripts/stress_change_files.py 01
 
-The backend must be running. It is RESET for every case, so do not point this at a demo you want to keep.
+The backend must be running, started with SEED_SECOND_ADMIN=true (it needs a second Admin to approve changes). It is RESET for every case, so do not point this at a demo you want to keep.
 For each case: reset, generate the timetable, export schedule.json, propose the change as `admin`, try to approve it as
 `admin` (must be refused), approve it as `admin2`, export schedule_after.json, then run validator.py with
 --disruption and --baseline. A summary is printed per case and written to a temporary folder.

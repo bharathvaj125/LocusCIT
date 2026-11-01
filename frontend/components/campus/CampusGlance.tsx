@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { CalendarDays, DoorOpen, Eye, MapPin } from "lucide-react";
+import { CalendarCheck, CalendarDays, DoorOpen, Eye, GraduationCap, MapPin } from "lucide-react";
 import { useApp } from "@/lib/appContext";
 import { CampusOverview, RoomAvailability, describeError, fetchAvailability, fetchCampusOverview } from "@/lib/api";
 import { CATEGORY_LABEL, CATEGORY_TONE, DAY_LABEL } from "@/lib/dept";
 import { PERIOD_CLOCK, periodRange } from "@/lib/uiConfig";
 import { NavRouteId } from "@/lib/types";
 import { Card, Chip, CountUp, Eyebrow, Skeleton } from "@/components/ui/primitives";
+import { StatCard } from "@/components/ui/StatCard";
 import { cn } from "@/lib/utils";
 
 const sel = "h-9 px-2 rounded-lg bg-paper border border-line text-sm font-semibold cursor-pointer";
@@ -44,13 +45,6 @@ export function CampusGlance({ onNav }: { onNav: (n: NavRouteId) => void }) {
   if (!ov) return <Skeleton className="h-64" />;
 
   const s = ov.stats;
-  const tiles: Array<[string, React.ReactNode, string]> = [
-    ["Sessions placed", <><CountUp value={s.sessions_scheduled} /> <span className="text-base text-ink-400">/ {s.sessions_total}</span></>, "timetable"],
-    ["Rooms", <><CountUp value={s.rooms} /> <span className="text-base text-ink-400">({s.event_rooms} host events)</span></>, "campus"],
-    ["Approved events", <CountUp value={s.approved_events} />, "Week 7"],
-    ["Midsem papers placed", <><CountUp value={s.exams_scheduled} /> <span className="text-base text-ink-400">/ {s.exams_total}</span></>, "exam week"],
-  ];
-
   return (
     <section className="space-y-4" aria-label="Campus at a glance">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -59,9 +53,10 @@ export function CampusGlance({ onNav }: { onNav: (n: NavRouteId) => void }) {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {tiles.map(([label, value, hint]) => (
-          <Card key={label} className="p-4"><Eyebrow className="text-ink-400">{label}</Eyebrow><p className="font-display text-3xl font-semibold mt-1 tabular">{value}</p><p className="text-xs text-ink-600 mt-0.5">{hint}</p></Card>
-        ))}
+        <StatCard index={0} label="Sessions placed" value={s.sessions_scheduled} tone="lagoon" icon={<CalendarCheck className="w-4 h-4" />} progress={s.sessions_total ? s.sessions_scheduled / s.sessions_total : 0} hint={`of ${s.sessions_total} in the timetable`} onClick={() => onNav("timetable")} />
+        <StatCard index={1} label="Rooms" value={s.rooms} tone="indigo" icon={<DoorOpen className="w-4 h-4" />} hint={`${s.event_rooms} can host events`} />
+        <StatCard index={2} label="Approved events" value={s.approved_events} tone="plum" icon={<CalendarDays className="w-4 h-4" />} hint="Spectra week" onClick={() => onNav("spectra_clash")} />
+        <StatCard index={3} label="Midsem papers placed" value={s.exams_scheduled} tone="saffron" icon={<GraduationCap className="w-4 h-4" />} progress={s.exams_total ? s.exams_scheduled / s.exams_total : 0} hint={`of ${s.exams_total} in exam week`} onClick={() => onNav("exams")} />
       </div>
 
       <div className="grid lg:grid-cols-2 gap-4">

@@ -13,6 +13,10 @@ import { ApprovalsDeck } from "@/components/approvals/ApprovalsDeck";
 import { DisruptionDeck } from "@/components/disruptions/DisruptionDeck";
 import { AiBookingAssistant } from "@/components/assistant/AiBookingAssistant";
 import { ExportsDeck } from "@/components/exports/ExportsDeck";
+import { UsersBoard } from "@/components/admin/UsersBoard";
+import { OrganisationsBoard } from "@/components/admin/OrganisationsBoard";
+import { PasswordGate } from "@/components/auth/PasswordGate";
+import { saveSession } from "@/lib/session";
 import { AppProvider, useApp } from "@/lib/appContext";
 import { ToastProvider, useToast } from "@/lib/toast";
 import { ApiError, describeError, fetchTimetable, fetchWeek7, login, logout, onUnauthorized } from "@/lib/api";
@@ -74,6 +78,9 @@ export function MainDashboardView({ initialNav = "overview" }: { initialNav?: Na
         <div className="min-h-screen bg-[#05070d]" aria-hidden />
       ) : !session ? (
         <LoginScreen notice={notice} onSignedIn={(s) => { setNotice(null); setSession(s); }} />
+      ) : session.user.must_change_password ? (
+        <PasswordGate username={session.user.username} onSignOut={() => { logout(); setSession(null); }}
+          onDone={() => { const s = { ...session, user: { ...session.user, must_change_password: false } }; saveSession(s); setSession(s); }} />
       ) : (
         <ToastProvider>
           <AppProvider key={session.user.username} user={session.user}>
@@ -195,6 +202,8 @@ function Workspace({ initialNav, onSession, onSignOut }: { initialNav: NavRouteI
             {nav === "approvals" && <ApprovalsDeck onOpenChanges={() => go("disruptions")} />}
             {nav === "disruptions" && <DisruptionDeck onOpenExports={() => go("exports")} />}
             {nav === "ai_booking" && <AiBookingAssistant initialText={assistantText} onConsumedInitialText={() => setAssistantText(null)} />}
+            {nav === "users" && <UsersBoard onOpenOrganisations={() => go("organisations")} />}
+            {nav === "organisations" && <OrganisationsBoard onOpenUsers={() => go("users")} />}
             {nav === "exports" && <ExportsDeck />}
           </>
         )}

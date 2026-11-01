@@ -17,6 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(tempfile.mkdtemp(), "export.db").replace("\\", "/")
+os.environ["SEED_SECOND_ADMIN"] = "true"      # a different Admin approves; the real app creates one under Users
 
 from fastapi.testclient import TestClient  # noqa: E402
 from app.main import app  # noqa: E402

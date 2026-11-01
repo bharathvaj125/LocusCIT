@@ -12,6 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(tempfile.mkdtemp(), "demo.db").replace("\\", "/")
+os.environ["SEED_SECOND_ADMIN"] = "true"      # a different Admin approves; the real app creates one under Users
 os.environ["JWT_SECRET"] = "demo"
 
 from fastapi.testclient import TestClient  # noqa: E402

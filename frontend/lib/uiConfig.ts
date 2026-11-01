@@ -5,7 +5,7 @@ export const ROLE_CONFIGS: Record<string, RoleConfig> = {
   admin: {
     id: "admin", label: "Admin", badge: "Admin", persona: "Dean's Office",
     // an Admin decides requests and schedules events directly, so there is no request assistant
-    allowedNav: ["overview", "timetable", "exams", "spectra_clash", "approvals", "disruptions", "exports"],
+    allowedNav: ["overview", "timetable", "exams", "spectra_clash", "approvals", "disruptions", "users", "organisations", "exports"],
   },
   department_coordinator: {
     id: "department_coordinator", label: "Department coordinator", badge: "Coordinator", persona: "Department coordinator",
@@ -16,7 +16,7 @@ export const ROLE_CONFIGS: Record<string, RoleConfig> = {
     allowedNav: ["overview", "timetable", "exams", "spectra_clash", "approvals", "ai_booking"],
   },
   club: {
-    id: "club", label: "Club representative", badge: "Club", persona: "Club representative",
+    id: "club", label: "Club representative", badge: "Club Representative", persona: "Club representative",
     allowedNav: ["overview", "timetable", "spectra_clash", "approvals", "ai_booking"],
   },
 };
@@ -29,16 +29,17 @@ export const NAV_ROUTES: NavRoute[] = [
   { id: "approvals", label: "Approvals", href: "/approvals", description: "Decide bookings; nobody approves their own" },
   { id: "disruptions", label: "Changes", href: "/disruptions", description: "Upload a change file and review the repair" },
   { id: "ai_booking", label: "Assistant", href: "/ai-booking", description: "English and Hinglish requests" },
+  { id: "users", label: "Users", href: "/admin/users", description: "Create and manage accounts" },
+  { id: "organisations", label: "Organisations", href: "/admin/organisations", description: "Clubs, departments and institute bodies" },
   { id: "exports", label: "Exports", href: "/admin/exports", description: "schedule.json and schedule_after.json" },
 ];
 
 /** Demo accounts listed in the README. Passwords are public demo credentials, not secrets. */
 export const DEMO_ACCOUNTS: Array<{ username: string; password: string; label: string; role: string; blurb: string }> = [
   { username: "admin", password: "Admin@123", label: "Admin", role: "Dean's Office", blurb: "Generates, approves, exports" },
-  { username: "admin2", password: "Admin@123", label: "Second Admin", role: "Deputy Dean", blurb: "Approves what Admin proposes" },
   { username: "coordinator", password: "Coord@123", label: "Coordinator", role: "CSE department", blurb: "Department events and labs" },
   { username: "faculty", password: "Faculty@123", label: "Faculty", role: "Dr. Arjun Mehta", blurb: "Own timetable and changes" },
-  { username: "club", password: "Club@123", label: "Club", role: "Dramatics Society", blurb: "Venue requests" },
+  { username: "club", password: "Club@123", label: "Club Representative", role: "Dramatics Society", blurb: "Venue requests" },
 ];
 
 export const PERIOD_CLOCK: Record<number, string> = {

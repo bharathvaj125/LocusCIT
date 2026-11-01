@@ -16,12 +16,11 @@ applies a change only after a second Admin approves it. Every schedule is checke
 | Role | Username | Password | What this account is for |
 | --- | --- | --- | --- |
 | Admin | `admin` | `Admin@123` | generates the timetable, exams and decisions, proposes changes, exports, decides requests |
-| Second Admin | `admin2` | `Admin@123` | approves what `admin` proposed (nobody approves their own request) |
 | Department coordinator | `coordinator` | `Coord@123` | CSE department: decides bookings of CSE labs, requests changes to CSE sessions |
 | Faculty | `faculty` | `Faculty@123` | Dr. Arjun Mehta (F06): own timetable, marks unavailability, asks to move a class or add an extra session |
 | Club representative | `club` | `Club@123` | Dramatics Society: requests venues and follows their status |
 
-The login page has one-click buttons for all five. Every role sees the same **Overview** (campus numbers, "Is a room free?"
+The login page has one-click buttons for all four. Every role sees the same **Overview** (campus numbers, "Is a room free?"
 and approved events) and can read any timetable; only requests and approvals are private to the people involved.
 
 ## A first visit, in order (about 10 minutes)
@@ -33,7 +32,7 @@ For a clean start press *Reset demo data* (Overview, "Start over" card), then ru
 Free rooms are listed; open "taken rooms" to see what holds the others. *Venues & Spectra > Venue board* shows the same as a grid
 (hover the (i) on a closed room for the reason).
 
-**Look and feel.** The app opens with a short intro (skip it with the button; replay it from the account menu). The sun/moon menu in the top right switches between Light, Dark and "match my device"; the choice is remembered in your browser.
+**Look and feel.** The app opens with a short intro (skip it with the button; replay it from the account menu). Pages are in the dock at the bottom of the screen: a line of stations with a gold marker, carrying the page icon, that glides to the page you are on (arrow keys move between stations; on a phone the dock scrolls sideways). Your name and role are top right, with the account menu (switch demo account, replay the intro, sign out) and the sun/moon menu that switches between Light, Dark and "match my device"; that choice is remembered in your browser.
 
 **3. Read a timetable.** *Timetable* in the menu. Choose *Student group*, *Faculty* or *Room* and an item; click a class to see why it is there. The switch at the top has two modes: *Regular weeks*, and *Week 7 · Spectra*, which shows the same grid with approved events (evenings up to 22:00) and any class moved for Spectra week marked *MOVED W7*.
 *Midsem exams* has a calendar and a search box that finds a paper **or a venue** (try `LH-1`).
@@ -51,7 +50,7 @@ The requester can never decide their own request.
 * The page reads the file back in plain words and flags anything the app will refuse, then press *Propose a repair*.
 * The solver finds a valid timetable that moves the fewest sessions (it tells you when that is proven minimal) and shows every
   session before and after. **Nothing changes yet.**
-* Sign out and sign in as `admin2`, *Changes* (or *Approvals*), press *Approve and apply*. The timetable is re-checked first.
+* A change `admin` proposed has to be approved by a **different** Admin. There is no second Admin in the demo data: open *Users*, press *Add a user*, choose the role Admin, give it a name and a username and copy the temporary password. Sign out, sign in as that user, choose a new password, then open *Changes* (or *Approvals*) and press *Approve and apply*. The timetable is re-checked first.
 
 **7. Check the exports.** As `admin`, *Exports*. The page shows what the official validator says about `schedule.json` and
 `schedule_after.json` (hard violations, soft penalty, booking score, sessions moved) and downloads both files.
@@ -62,11 +61,19 @@ python starter_pack/validator.py --data starter_pack/data/cit_public.json --sche
        --disruption <the change file you applied> --baseline schedule.json
 ```
 
+## Accounts and organisations (Admin)
+There is no public sign-up. An Admin creates every account under **Users**: a name, a username, one role, and the link that role needs (a faculty member of the
+timetable, a department, or a club). The app generates a temporary password, shows it once and stores only its hash; the person must choose their own at first
+sign-in. Accounts can be edited, given a new temporary password, or deactivated (they are locked out at once). **Organisations** are the clubs, departments and
+institute offices that requests are made for; a club representative belongs to exactly one club. *Reset demo data* restores the demo accounts and organisations and
+removes the ones an Admin added.
+
 ## Who can do what
 | | Admin | Coordinator | Faculty | Club |
 | --- | --- | --- | --- | --- |
 | Overview, rooms, approved events, any timetable (read-only) | yes | yes | yes | yes |
 | Generate timetable / exams, reset, exports, priority order | yes | no | no | no |
+| Create accounts and organisations (*Users*, *Organisations*) | yes | no | no | no |
 | Decide a venue booking | yes (not their own) | only their department's labs | no | no |
 | Approve a booking that moves classes | yes (another Admin) | never | no | no |
 | Propose / approve a timetable change | yes (a different Admin approves) | request for own department | request for own classes | no |

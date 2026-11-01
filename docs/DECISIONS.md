@@ -19,6 +19,13 @@
 | Move offers | Voluntary and optional, between two app bookings. The holder's approved booking is untouched until the holder agrees and a different approver approves the other request; a no, a timeout (default 5 min) or a stale offer changes nothing and never cancels anyone |
 | Export | Only `approved`, `alternative_offered`, `rejected` are written; any other internal status resolves to a rejection with a reason |
 
+## Accounts, organisations and the second Admin
+* Accounts and organisations live in the existing database (`users`, `organisations`); the `users` table gained columns through a small start-up migration, because the project has no migration tool.
+* The sign-in identity stays the username. Roles keep being read from the database on every request, so deactivating or demoting someone takes effect immediately.
+* No second Admin is seeded any more. The rule "nobody approves their own request" is unchanged, so an Admin who needs a change approved creates a second Admin under Users. Tests and local scripts that need one set `SEED_SECOND_ADMIN=true`. The old demo `admin2` row is removed at start-up when that is not set.
+* Created and reset passwords are random, shown once and must be changed at first sign-in (the API refuses everything else until then).
+* Reset Demo Data also restores the seeded accounts (with their demo passwords) and organisations and deletes those an Admin added, so a judge always starts clean.
+
 ## Conflicts between requests that are not confirmed yet (booking engine review)
 Reviewed against the eleven rules in the brief. The batch engine (official order: category, then earlier submission; only
 slots inside the requested windows are ever approved; alternatives outside them are `alternative_offered`; nothing else is

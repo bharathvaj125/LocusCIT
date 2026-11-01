@@ -644,3 +644,56 @@ export interface ValidatorBrief {
 export async function fetchExportReport(): Promise<{ schedule: ValidatorBrief | null; schedule_after: ValidatorBrief | null; applied_disruptions: number }> {
   return request("/api/exports/report", { timeoutMs: 120000 });
 }
+
+
+// ------------------------------------------------------------------------------------- accounts (Admin)
+export interface AccountUser {
+  username: string; full_name: string; email: string | null; role: RoleType; role_label: string; department: string | null;
+  faculty_id: string | null; faculty_name: string | null; organisation_id: string | null; organisation: string | null;
+  is_active: boolean; must_change_password: boolean; is_seed: boolean; created_by: string | null; created_at: number | null; updated_at: number | null;
+}
+export interface OrganisationRow {
+  id: string; name: string; slug: string; type: "club" | "department" | "institute"; type_label: string; department: string | null;
+  description: string; status: "active" | "archived"; is_seed: boolean; created_by: string | null; members: number; requests: number;
+}
+export interface AccountMeta {
+  roles: Array<{ id: RoleType; label: string }>; departments: string[];
+  faculty: Array<{ id: string; name: string; department: string; linked_to: string | null }>;
+  organisations: Array<{ id: string; name: string; type: string; department: string | null }>;
+}
+export interface UserInput {
+  username?: string; full_name?: string; role?: RoleType; email?: string | null; department?: string | null;
+  faculty_id?: string | null; organisation_id?: string | null; password?: string | null; is_active?: boolean;
+}
+
+export async function fetchAccountMeta(): Promise<AccountMeta> { return request("/api/admin/users/meta"); }
+export async function fetchUsers(): Promise<AccountUser[]> { return (await request<{ users: AccountUser[] }>("/api/admin/users")).users; }
+export async function createUser(body: UserInput): Promise<{ user: AccountUser; temporary_password: string }> {
+  return request("/api/admin/users", { method: "POST", body });
+}
+export async function updateUser(username: string, body: UserInput): Promise<AccountUser> {
+  return request(`/api/admin/users/${encodeURIComponent(username)}`, { method: "PATCH", body });
+}
+export async function resetUserPassword(username: string): Promise<{ username: string; temporary_password: string }> {
+  return request(`/api/admin/users/${encodeURIComponent(username)}/reset-password`, { method: "POST", body: {} });
+}
+export async function fetchOrganisations(): Promise<{ organisations: OrganisationRow[]; types: Array<{ id: string; label: string }>; departments: string[] }> {
+  return request("/api/admin/organisations");
+}
+export async function createOrganisation(body: { name: string; type: string; department?: string | null; description?: string }): Promise<OrganisationRow> {
+  return request("/api/admin/organisations", { method: "POST", body });
+}
+export async function updateOrganisation(id: string, body: { name?: string; type?: string; department?: string | null; description?: string }): Promise<OrganisationRow> {
+  return request(`/api/admin/organisations/${encodeURIComponent(id)}`, { method: "PATCH", body });
+}
+export async function setOrganisationStatus(id: string, status: "active" | "archived"): Promise<OrganisationRow> {
+  return request(`/api/admin/organisations/${encodeURIComponent(id)}/status`, { method: "POST", body: { status } });
+}
+export async function deleteOrganisation(id: string): Promise<void> {
+  await request(`/api/admin/organisations/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+export async function changePassword(current_password: string, new_password: string): Promise<void> {
+  await request("/api/auth/change-password", { method: "POST", body: { current_password, new_password } });
+  const s = loadSession();
+  if (s) saveSession({ ...s, user: { ...s.user, must_change_password: false } });
+}

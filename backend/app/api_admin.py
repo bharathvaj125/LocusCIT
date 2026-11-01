@@ -122,11 +122,13 @@ def dashboard(user=Depends(current_user)):
 @router.post("/admin/reset")
 def reset(user=Depends(require("admin"))):
     rev = WS.reset()
+    from . import accounts
+    accounts.restore_seed()            # accounts and organisations an Admin added are removed; the demo ones return as they were
     _cache.clear()
     db.log(user["username"], "admin_reset", f"revision {rev}")
     return ok({"status": "reset", "workspace_id": "demo-1", "revision": rev,
                "seed_dataset_id": WS.dataset["dataset_id"],
-               "message": f"Demo data reset by {user['username']}. Demo accounts were kept."})
+               "message": f"Demo data reset by {user['username']}. Demo accounts and organisations were restored; any an Admin added were removed."})
 
 
 @router.post("/admin/dataset/import")

@@ -91,8 +91,8 @@ export function DisruptionDeck({ onOpenExports }: { onOpenExports?: () => void }
 
   return (
     <div className="space-y-6">
-      <PageTitle eyebrow="Changes" title={<>When the campus changes, <span className="italic font-medium text-lagoon-700">move as little as possible</span></>}
-        subtitle="Upload a change file: faculty leave, a closed room, a new or removed session. The solver finds a valid timetable that moves the fewest classes, shows exactly what changes, and waits for a second Admin." />
+      <PageTitle eyebrow="Changes" title={<>When the campus changes, <span className="italic font-medium text-gold">move as little as possible</span></>}
+        subtitle="Upload a change file: faculty leave, a closed room, a new or removed session. The solver finds a valid timetable that moves the fewest classes, shows exactly what changes, and waits for a different Admin to approve. If you are the only Admin, add a second one under Users." />
 
       <ChangeBuilder refData={ref} text={text} setText={setText} />
 

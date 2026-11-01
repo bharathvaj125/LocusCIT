@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, Bell, Cpu, Download, GraduationCap, RotateCcw, Sparkles, TriangleAlert } from "lucide-react";
+import { ArrowRight, Bell, CalendarCheck, Cpu, DoorOpen, Download, Gauge, GraduationCap, RotateCcw, ShieldCheck, Sparkles, TriangleAlert } from "lucide-react";
 import { useApp } from "@/lib/appContext";
 import { usePipeline } from "@/lib/pipeline";
 import { describeError, fetchAudit, resetDemoData } from "@/lib/api";
@@ -10,6 +10,7 @@ import { useToast } from "@/lib/toast";
 import { NavRouteId } from "@/lib/types";
 import { CampusGlance } from "@/components/campus/CampusGlance";
 import { Button, Card, Chip, CountUp, Eyebrow, PageTitle, Ring, Skeleton, StepDot } from "@/components/ui/primitives";
+import { StatCard } from "@/components/ui/StatCard";
 import { cn } from "@/lib/utils";
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
@@ -62,7 +63,7 @@ export function Overview({ onNav }: { onNav: (n: NavRouteId) => void }) {
       <motion.div variants={item}>
         <PageTitle
           eyebrow="Overview"
-          title={<>{greeting}, <span className="italic font-medium text-lagoon-700">{first}</span></>}
+          title={<>{greeting}, <span className="italic font-medium text-gold">{first}</span></>}
           subtitle={
             isAdmin
               ? "Three steps take the public dataset to a validated timetable, exam week and Spectra decisions. Everything below is read live from the server."
@@ -138,27 +139,13 @@ export function Overview({ onNav }: { onNav: (n: NavRouteId) => void }) {
       <motion.div variants={item} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {!d ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-36" />) : (
           <>
-            <Card className="p-5 flex items-center gap-4">
-              <Ring value={d.sessions_total ? (100 * d.sessions_scheduled) / d.sessions_total : 0} tone="lagoon"
-                label={<span className="font-display text-xl font-semibold"><CountUp value={d.sessions_scheduled} /></span>} />
-              <div><Eyebrow>Sessions</Eyebrow><p className="text-sm text-ink-600 mt-1">of {d.sessions_total} placed</p></div>
-            </Card>
-            <Card className="p-5">
-              <Eyebrow>Hard violations</Eyebrow>
-              <p className={cn("font-display text-5xl font-semibold mt-2", scheduled && d.hard_violation_count === 0 ? "text-mangrove-500" : scheduled ? "text-sunrise-500" : "text-ink-400")}>
-                {scheduled ? <CountUp value={d.hard_violation_count ?? 0} /> : "-"}
-              </p>
-              <p className="text-xs text-ink-600 mt-1">official validator</p>
-            </Card>
-            <Card className="p-5">
-              <Eyebrow>Soft penalty</Eyebrow>
-              <p className="font-display text-5xl font-semibold mt-2">{scheduled ? <CountUp value={d.soft_total ?? 0} /> : "-"}</p>
-              <p className="text-xs text-ink-600 mt-1">lower is better</p>
-            </Card>
-            <Card className="p-5 flex items-center gap-4">
-              <Ring value={d.utilisation.average_pct} tone="saffron" label={<span className="font-display text-lg font-semibold"><CountUp value={d.utilisation.average_pct} decimals={0} suffix="%" /></span>} />
-              <div><Eyebrow>Rooms in use</Eyebrow><p className="text-sm text-ink-600 mt-1">avg teaching hours</p></div>
-            </Card>
+            <StatCard index={0} label="Sessions placed" value={d.sessions_scheduled} tone="lagoon" icon={<CalendarCheck className="w-4 h-4" />}
+              progress={d.sessions_total ? d.sessions_scheduled / d.sessions_total : 0} hint={`of ${d.sessions_total} in the timetable`} onClick={() => onNav("timetable")} />
+            <StatCard index={1} label="Hard violations" value={scheduled ? d.hard_violation_count ?? 0 : null} tone={scheduled && d.hard_violation_count === 0 ? "mangrove" : scheduled ? "sunrise" : "stone"}
+              icon={<ShieldCheck className="w-4 h-4" />} hint={scheduled ? (d.hard_violation_count === 0 ? "none: the official validator agrees" : "see the Exports page") : "generate the timetable first"} onClick={user.role === "admin" ? () => onNav("exports") : undefined} />
+            <StatCard index={2} label="Soft penalty" value={scheduled ? d.soft_total ?? 0 : null} tone="indigo" icon={<Gauge className="w-4 h-4" />} hint="lower is better" />
+            <StatCard index={3} label="Rooms in use" value={d.utilisation.average_pct} suffix="%" tone="saffron" icon={<DoorOpen className="w-4 h-4" />}
+              progress={d.utilisation.average_pct / 100} hint="average teaching hours of a room" />
           </>
         )}
       </motion.div>
