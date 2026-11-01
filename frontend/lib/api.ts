@@ -17,6 +17,8 @@ import {
   SessionUser,
   SolverJob,
   Submission,
+  Week7Closure,
+  Week7Event,
   Window,
 } from "./types";
 import { clearSession, loadSession, saveSession, StoredSession } from "./session";
@@ -213,6 +215,31 @@ export async function fetchTimetable(
     `/api/schedules?view=${view}&id=${encodeURIComponent(id)}`
   );
   return data.assignments.map((r) => toScheduledSession(r, ref));
+}
+
+interface Week7Row extends ScheduleRow {
+  week7_override: boolean;
+  displaced_by?: string | null;
+  regular?: { day: DayOfWeek; start_period: number; room_id: string };
+}
+
+/** One group, teacher or room in Spectra week: classes (moved ones flagged) and approved events up to P13. */
+export async function fetchWeek7(
+  view: "group" | "faculty" | "room",
+  id: string,
+  ref: ReferenceData
+): Promise<{ classes: ScheduledSession[]; events: Week7Event[]; closures: Week7Closure[] }> {
+  const d = await request<{ classes: Week7Row[]; events: Week7Event[]; closures: Week7Closure[] }>(
+    `/api/schedules/week7?view=${view}&id=${encodeURIComponent(id)}`
+  );
+  return {
+    classes: d.classes.map((r) => ({
+      ...toScheduledSession(r, ref),
+      week7: { moved: r.week7_override, displaced_by: r.displaced_by, regular: r.regular },
+    })),
+    events: d.events,
+    closures: d.closures,
+  };
 }
 
 export async function generateTimetable(timeLimit?: number): Promise<string> {

@@ -116,7 +116,25 @@ export interface ScheduledSession {
   room_accessible: boolean;
   is_underutilized: boolean;
   capacity_ratio: number;
+  /** Set only in the Week 7 view: this class was moved for Spectra week by an approved event. */
+  week7?: { moved: boolean; displaced_by?: string | null; regular?: { day: DayOfWeek; start_period: number; room_id: string } };
 }
+
+export interface Week7Event {
+  id: string;
+  title: string;
+  requester: string;
+  category: string;
+  room_id: string;
+  day: DayOfWeek;
+  start: number;
+  end: number;
+  status: "approved" | "alternative_offered";
+  source: "spectra" | "app";
+  reason: string;
+}
+
+export interface Week7Closure { day: DayOfWeek; periods: number[]; reason: string }
 
 export interface ExamSession {
   exam_id: string;

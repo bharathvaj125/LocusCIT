@@ -30,8 +30,10 @@ one). The harness drives the real HTTP API and hands every export to `validator.
 | A3 | `.env.example` listed 6 of 12 environment variables (statement: "every environment variable") | added `SOLVER_WORKERS, EXAM_WORKERS, OPTIMISE_SECONDS, FEASIBLE_SECONDS, PRUNE_ROOMS, NEGOTIATION_SECONDS` with their real defaults | grep of `os.getenv` against the file |
 | A4 | `THIRD_PARTY.md` omitted frontend libraries and fonts | added framer-motion, lucide-react, clsx, tailwind-merge, TypeScript/ESLint, Google Fonts, python-multipart | - |
 | A5 | README had no explicit tech-stack section (required by Section 7) | added | - |
+| A6 | **Req 6:** no timetable showed Week 7 as one picture (events were only listed under a room) | new read-only `GET /api/schedules/week7` and a *Regular weeks / Week 7 · Spectra* switch on the Timetable page: classes after overrides (moved ones marked), approved events and offered alternatives, P1-P13 evening columns, room closures. Midsem exams stay on their own page; `GET /api/schedules` unchanged | 5 tests in `test_week7_timetable.py` (every decided booking appears in its room grid, none invented, up to P13; moved class shown in both views while the regular week is untouched); checked in the browser (AUD evening events, moved class marked) |
+| A7 | `AI_USAGE.md` frontend-owner row was a placeholder | filled: Google Antigravity with Gemini 3.8 Flash for the first UI version (model name as reported by the frontend owner) | - |
 
-After the fixes: **89 backend tests pass**; `tsc` clean; production build passes. Scheduling, booking and export code was **not** touched,
+After the fixes: **94 backend tests pass**; `tsc` clean; production build passes. Scheduling, booking and export code was **not** touched,
 so the committed exports were not regenerated (they remain app-produced and valid).
 
 ## 3. Requirement traceability matrix
@@ -100,7 +102,7 @@ Approvals, Assistant, Changes, Exports (the exam calendar scrolls inside its own
 | README: description, architecture diagram, tech stack, setup, demo accounts, known limitations | PASS |
 | `.env.example` complete, no secrets (secret grep over tracked files clean) | PASS after A3 |
 | `THIRD_PARTY.md` | PASS after A4 |
-| `AI_USAGE.md` | **PARTIAL** - the frontend owner's tools row is still a placeholder |
+| `AI_USAGE.md` | PASS for tools after A7; the prompts location is still empty (see `docs/PROMPTS/`) |
 | `docs/PROMPTS/` | **FAIL** - the folder is empty (only `.gitkeep`) though `AI_USAGE.md` says prompts are kept there |
 | `exports/schedule.json`, `schedule_after.json` | PASS (validate with Hard 0) |
 | Public repo | PASS (`gh repo view`: PUBLIC; created 2026-10-31 08:41 UTC; first commit 2026-10-31) |

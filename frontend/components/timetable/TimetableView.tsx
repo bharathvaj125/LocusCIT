@@ -3,19 +3,21 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Info, MapPin, Users } from "lucide-react";
-import { DayOfWeek, Explanation, ReferenceData, Room, ScheduledSession, StudentGroup } from "@/lib/types";
+import { DayOfWeek, Explanation, ReferenceData, Room, ScheduledSession, StudentGroup, Week7Closure, Week7Event } from "@/lib/types";
 import { describeError, explainSession } from "@/lib/api";
 import { TONES, Tone, deptTone, DAY_LABEL } from "@/lib/dept";
 import { PERIOD_CLOCK, periodRange } from "@/lib/uiConfig";
-import { Button, Card, Chip, Drawer, Eyebrow, PageTitle, Skeleton, Tabs } from "@/components/ui/primitives";
+import { Card, Chip, Drawer, Eyebrow, PageTitle, Skeleton, Tabs } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
+import { Week7Grid } from "@/components/timetable/Week7Grid";
 
 export interface TimetableEntities {
   group: StudentGroup[];
   faculty: ReferenceData["faculty"];
   room: Room[];
 }
-export interface EveningEvent { id: string; title: string; day: DayOfWeek; start: number; end: number; status: string }
+export type TimetableMode = "regular" | "week7";
+export interface Week7Data { events: Week7Event[]; closures: Week7Closure[] }
 
 const DAYS: DayOfWeek[] = ["MON", "TUE", "WED", "THU", "FRI"];
 // grid columns: 1 day label, 2-6 = P1-P5, 7 = lunch band, 8-11 = P6-P9
@@ -38,8 +40,8 @@ function SessionBlock({ s, dim, linked, onHover, onOpen, tall }: {
       initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: dim ? 0.28 : 1, scale: 1 }} whileHover={{ y: -2 }}
       transition={{ type: "spring", stiffness: 420, damping: 32 }}
       className={cn("relative w-full text-left overflow-hidden rounded-xl pl-3 pr-2 py-2 cursor-pointer flex flex-col justify-between gap-1 border border-transparent hover:shadow-card",
-        tone.soft, linked && cn("ring-2", tone.ring), tall ? "min-h-[84px]" : "min-h-[84px]")}
-      aria-label={`${s.course_title}, ${DAY_LABEL[s.day]} periods ${s.start_period} to ${s.end_period}, room ${s.room_id}`}
+        tone.soft, linked && cn("ring-2", tone.ring), s.week7?.moved && "ring-2 ring-saffron-500", tall ? "min-h-[84px]" : "min-h-[84px]")}
+      aria-label={`${s.course_title}, ${DAY_LABEL[s.day]} periods ${s.start_period} to ${s.end_period}, room ${s.room_id}${s.week7?.moved ? ", moved for Week 7" : ""}`}
     >
       <span className={cn("absolute left-0 top-0 bottom-0 w-[5px]", tone.bar)} />
       <span className="flex items-center gap-1.5 flex-wrap">
@@ -47,6 +49,7 @@ function SessionBlock({ s, dim, linked, onHover, onOpen, tall }: {
         {s.kind === "lab" && <span className="font-mono text-[9px] px-1 rounded bg-plum-500 text-raised">{s.duration}H LAB</span>}
         {s.kind === "tutorial" && <span className="font-mono text-[9px] px-1 rounded bg-ink-900/80 text-raised">TUT</span>}
         {s.basket_slot && <span className="font-mono text-[9px] px-1 rounded bg-saffron-500 text-ink-900">{s.basket_slot}</span>}
+        {s.week7?.moved && <span className="font-mono text-[9px] px-1 rounded bg-saffron-500 text-ink-900" title={`Moved for Week 7 because of ${s.week7.displaced_by ?? "an institute event"}`}>MOVED W7</span>}
         {s.is_underutilized && <span title="Room is under 40% full" className="w-1.5 h-1.5 rounded-full bg-saffron-500" />}
       </span>
       <span className="font-display text-[14px] font-semibold leading-tight line-clamp-2">{s.course_title}</span>
@@ -57,9 +60,10 @@ function SessionBlock({ s, dim, linked, onHover, onOpen, tall }: {
   );
 }
 
-export function TimetableView({ sessions, loading, entities, pivot, onPivot, selectedId, onSelect, events, ref_ }: {
+export function TimetableView({ sessions, loading, entities, pivot, onPivot, selectedId, onSelect, mode, onMode, week7, ref_ }: {
   sessions: ScheduledSession[]; loading: boolean; entities: TimetableEntities; pivot: "group" | "faculty" | "room";
-  onPivot: (p: "group" | "faculty" | "room") => void; selectedId: string; onSelect: (id: string) => void; events: EveningEvent[]; ref_: ReferenceData | null;
+  onPivot: (p: "group" | "faculty" | "room") => void; selectedId: string; onSelect: (id: string) => void;
+  mode: TimetableMode; onMode: (m: TimetableMode) => void; week7: Week7Data; ref_: ReferenceData | null;
 }) {
   const [hover, setHover] = useState<ScheduledSession | null>(null);
   const [open, setOpen] = useState<ScheduledSession | null>(null);
@@ -79,7 +83,10 @@ export function TimetableView({ sessions, loading, entities, pivot, onPivot, sel
 
   const totalHours = sessions.reduce((a, s) => a + s.duration, 0);
   const title = group ? group.name : fac ? fac.name : room ? `${room.id}: ${room.name}` : "Timetable";
-  const sub = group ? `${sessions.length} sessions · ${totalHours} hours a week · ${group.size} students`
+  const w7 = mode === "week7";
+  const nMoved = sessions.filter((x) => x.week7?.moved).length;
+  const sub = w7 ? `Spectra week: ${sessions.length} class${sessions.length === 1 ? "" : "es"} (${nMoved} moved) and ${week7.events.length} approved event${week7.events.length === 1 ? "" : "s"}, evenings to 22:00`
+    : group ? `${sessions.length} sessions · ${totalHours} hours a week · ${group.size} students`
     : fac ? `${fac.department} · ${sessions.length} sessions · ${totalHours} of ${fac.max_hours_per_day * 5} possible hours`
     : room ? `${room.type.replace(/_/g, " ")} · ${room.capacity} seats${room.accessible ? " · accessible" : ""} · ${totalHours} teaching hours`
     : "";
@@ -105,11 +112,12 @@ export function TimetableView({ sessions, loading, entities, pivot, onPivot, sel
   return (
     <div className="space-y-6">
       <PageTitle
-        eyebrow={`Timetable · by ${pivot === "group" ? "student group" : pivot}`}
+        eyebrow={`Timetable · ${w7 ? "Week 7 (Spectra)" : "regular weeks"} · by ${pivot === "group" ? "student group" : pivot}`}
         title={title}
         subtitle={sub}
         actions={
           <div className="flex items-center gap-2 flex-wrap">
+            <Tabs id="mode" value={mode} onChange={onMode} items={[{ id: "regular" as const, label: <>Regular weeks</> }, { id: "week7" as const, label: <>Week 7 · Spectra</> }]} />
             <Tabs id="pivot" value={pivot} onChange={onPivot} items={pivots} />
           </div>
         }
@@ -132,12 +140,20 @@ export function TimetableView({ sessions, loading, entities, pivot, onPivot, sel
           <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-mangrove-500" />CE</span>
           <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-stone-500" />Common</span>
           <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-plum-500" />Lab</span>
+          {w7 && <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-sunrise-500" />Event</span>}
+          {w7 && <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm ring-2 ring-saffron-500 bg-raised" />Class moved for Week 7</span>}
           <span className="hidden md:flex items-center gap-1 text-ink-400"><Info className="w-3.5 h-3.5" />Hover a class to trace its course; click for the reason</span>
         </div>
       </Card>
 
       <Card className="p-4 overflow-x-auto">
-        {loading && sessions.length === 0 ? (
+        {w7 ? (
+          <Week7Grid classes={sessions} events={week7.events} closures={week7.closures} loading={loading} pivot={pivot}
+            renderClass={(s, tall) => (
+              <SessionBlock s={s} tall={tall} dim={!!hover && hover.course_id !== s.course_id && hover.id !== s.id}
+                linked={isLinked(s)} onHover={setHover} onOpen={setOpen} />
+            )} />
+        ) : loading && sessions.length === 0 ? (
           <div className="min-w-[1080px] space-y-3">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-20" />)}</div>
         ) : (
           <LayoutGroup>
@@ -185,32 +201,16 @@ export function TimetableView({ sessions, loading, entities, pivot, onPivot, sel
             </div>
           </LayoutGroup>
         )}
-        {!loading && sessions.length === 0 && (
+        {!loading && sessions.length === 0 && !(w7 && week7.events.length > 0) && (
           <p className="text-sm text-ink-600 text-center py-6">No classes for this {pivot}.</p>
         )}
+        {w7 && !loading && (
+          <p className="text-xs text-ink-400 mt-3">
+            {pivot === "room" ? "Shows every approved event in this room." : pivot === "group" ? "Events appear here when this group is required to attend."
+              : "Events appear here when this teacher requested them."} Every booking, with its status, is on Venues &amp; Spectra. Midsem exams (Week 8) are on their own page.
+          </p>
+        )}
       </Card>
-
-      {pivot === "room" && (
-        <Card className="p-5">
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <h3 className="font-display text-xl font-semibold">Week 7 bookings in {selectedId}</h3>
-            <Chip tone="plum">{events.length} event{events.length === 1 ? "" : "s"}</Chip>
-          </div>
-          {events.length === 0 ? (
-            <p className="text-sm text-ink-600">No approved events in this room. Events appear after an Admin decides the Spectra requests.</p>
-          ) : (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
-              {[...events].sort((a, b) => DAYS.indexOf(a.day) - DAYS.indexOf(b.day) || a.start - b.start).map((ev) => (
-                <div key={ev.id} className="rounded-xl bg-plum-50 px-4 py-3">
-                  <p className="font-mono text-[11px] text-plum-600">{ev.day} · {periodRange(ev.start, ev.end)} · {ev.id}</p>
-                  <p className="text-sm font-semibold mt-0.5">{ev.title}</p>
-                  {ev.status !== "approved" && <p className="text-xs text-ink-600 mt-0.5 capitalize">{ev.status.replace(/_/g, " ")}</p>}
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-      )}
 
       <SessionDrawer s={open} onClose={() => setOpen(null)} />
     </div>
@@ -241,6 +241,12 @@ function SessionDrawer({ s, onClose }: { s: ScheduledSession | null; onClose: ()
             <div className="h-2.5 rounded-full bg-sunk mt-2 overflow-hidden"><motion.div className={cn("h-full rounded-full", s.is_underutilized ? "bg-saffron-500" : "bg-lagoon-500")} initial={{ width: 0 }} animate={{ width: `${Math.min(100, util)}%` }} transition={{ duration: 0.7 }} /></div>
             {s.is_underutilized && <p className="text-xs text-saffron-600 mt-1.5">Under 40% full: costs 1 soft point, kept only because no better room is free.</p>}
           </div>
+          {s.week7?.moved && s.week7.regular && (
+            <div className="rounded-2xl bg-saffron-50 p-4 space-y-1">
+              <Eyebrow>Moved for Week 7</Eyebrow>
+              <p className="text-sm text-ink-900">Normally {DAY_LABEL[s.week7.regular.day]} P{s.week7.regular.start_period} in {s.week7.regular.room_id}. An approved institute event ({s.week7.displaced_by ?? "booking"}) needs that room, so this class is held at the time shown for this week only. The regular timetable is unchanged.</p>
+            </div>
+          )}
           <div className="rounded-2xl bg-lagoon-50 p-4 space-y-2">
             <Eyebrow>Why is it here?</Eyebrow>
             {!why && !err && <div className="space-y-2"><Skeleton className="h-4" /><Skeleton className="h-4 w-4/5" /><Skeleton className="h-4 w-3/5" /></div>}
