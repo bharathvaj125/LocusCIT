@@ -152,11 +152,19 @@ export function DisruptionDeck({ onOpenExports }: { onOpenExports?: () => void }
             {Object.keys(byDay).length > 0 && (
               <div>
                 <Eyebrow className="text-ink-400">Where classes land</Eyebrow>
-                <div className="flex gap-2 mt-2">{["MON", "TUE", "WED", "THU", "FRI"].map((d) => (
-                  <div key={d} className="flex-1 rounded-xl bg-paper p-2 text-center"><p className="font-mono text-[10px] text-ink-400">{d}</p>
-                    <motion.div className="mx-auto mt-1 w-full rounded-md bg-lagoon-500" initial={{ height: 0 }} animate={{ height: 6 + (byDay[d] || 0) * 10 }} style={{ maxHeight: 80 }} transition={{ duration: 0.6 }} />
-                    <p className="text-sm font-semibold mt-1">{byDay[d] || 0}</p></div>
-                ))}</div>
+                <div className="grid grid-cols-5 gap-2 mt-2">{["MON", "TUE", "WED", "THU", "FRI"].map((d) => {
+                  const n = byDay[d] || 0;
+                  const top = Math.max(1, ...Object.values(byDay));
+                  return (
+                    <div key={d} className="rounded-xl bg-paper px-2 pt-2.5 pb-2 text-center">
+                      <p className="font-mono text-[10px] text-ink-400">{d}</p>
+                      <div className="h-14 mt-1 flex items-end justify-center border-b border-line">
+                        <motion.div className={n ? "w-6 rounded-t-md bg-primary" : "w-6 rounded-t-sm bg-line"} initial={{ height: 0 }} animate={{ height: n ? 8 + (n / top) * 44 : 3 }} transition={{ duration: 0.6 }} />
+                      </div>
+                      <p className="text-sm font-semibold mt-1.5 tabular">{n}</p>
+                    </div>
+                  );
+                })}</div>
               </div>
             )}
             {view.status === "APPROVED" && (

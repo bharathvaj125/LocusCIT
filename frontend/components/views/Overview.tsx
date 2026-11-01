@@ -28,11 +28,12 @@ export function Overview({ onNav }: { onNav: (n: NavRouteId) => void }) {
   const p = usePipeline();
   const [audit, setAudit] = useState<Array<{ at: number; actor: string; action: string; detail: string }>>([]);
   const isAdmin = user.role === "admin";
+  const [showLog, setShowLog] = useState(false);
   const toast = useToast();
   const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
-    if (isAdmin) fetchAudit().then((a) => setAudit(a.slice(0, 7))).catch(() => setAudit([]));
+    if (isAdmin) fetchAudit().then((a) => setAudit(a.slice(0, 5))).catch(() => setAudit([]));
   }, [isAdmin, revision]);
 
   const scheduled = !!d && d.sessions_scheduled > 0;
@@ -234,9 +235,9 @@ export function Overview({ onNav }: { onNav: (n: NavRouteId) => void }) {
           )}
           {isAdmin && (
             <Card className="p-6">
-              <div className="flex items-center gap-2 mb-4"><Bell className="w-4 h-4 text-lagoon-700" /><h3 className="font-display text-xl font-semibold">Recent activity</h3></div>
-              {audit.length === 0 ? <p className="text-sm text-ink-600">Nothing yet.</p> : (
-                <ol className="relative border-l border-line ml-1.5 space-y-4">
+              <button onClick={() => setShowLog((v) => !v)} aria-expanded={showLog} className="w-full flex items-center gap-2 cursor-pointer"><Bell className="w-4 h-4 text-lagoon-700" /><h3 className="font-display text-xl font-semibold">Recent activity</h3><span className="ml-auto text-sm font-semibold text-lagoon-700 underline underline-offset-2">{showLog ? "Hide" : "Show"}</span></button>
+              {showLog && (audit.length === 0 ? <p className="text-sm text-ink-600 mt-3">Nothing yet.</p> : (
+                <ol className="relative border-l border-line ml-1.5 space-y-4 mt-4">
                   {audit.map((a, i) => (
                     <motion.li key={`${a.at}-${i}`} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 * i }} className="pl-5 relative">
                       <span className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-lagoon-500 ring-4 ring-raised" />
@@ -245,7 +246,7 @@ export function Overview({ onNav }: { onNav: (n: NavRouteId) => void }) {
                     </motion.li>
                   ))}
                 </ol>
-              )}
+              ))}
             </Card>
           )}
           <Card className="p-6 bg-lagoon-50/70">

@@ -265,7 +265,8 @@ function Board() {
 }
 
 /* ------------------------------------------------------------- manual events */
-function ManualDrawer({ open, onClose, canAutoBook }: { open: boolean; onClose: () => void; canAutoBook: boolean }) {
+/** The form for booking an event in a room, shown in a drawer on the venues screen or inline on the Schedule page. */
+export function ManualDrawer({ open = true, onClose, canAutoBook, inline = false }: { open?: boolean; onClose: () => void; canAutoBook: boolean; inline?: boolean }) {
   const { ref, refresh } = useApp();
   const toast = useToast();
   const rooms = useMemo(() => (ref?.rooms || []).filter((r) => r.allowed_uses.includes("event")), [ref]);
@@ -293,9 +294,8 @@ function ManualDrawer({ open, onClose, canAutoBook }: { open: boolean; onClose: 
   }, [f, needs, toast, refresh, onClose]);
 
   const input = "w-full h-10 px-3 rounded-xl bg-paper border border-line text-sm";
-  return (
-    <Drawer open={open} onClose={onClose} eyebrow="Manual scheduling" title="Schedule an event" width={500}
-      footer={<div className="flex items-center justify-between gap-3"><span className="text-xs text-ink-600">{canAutoBook ? "A valid event is booked at once. One that would move classes needs a second Admin." : "A valid request goes to an approver; it is pending until then."}</span><Button type="submit" form="manual-form" loading={busy}>Check rules and schedule</Button></div>}>
+  const footer = (<div className="flex items-center justify-between gap-3"><span className="text-xs text-ink-600">{canAutoBook ? "A valid event is booked at once. One that would move classes needs a second Admin." : "A valid request goes to an approver; it is pending until then."}</span><Button type="submit" form="manual-form" loading={busy}>Check rules and schedule</Button></div>);
+  const form = (
       <form id="manual-form" onSubmit={submit} className="space-y-4">
         <label className="block"><span className="text-xs font-semibold text-ink-600">Title</span><input required value={f.title} onChange={(e) => set("title", e.target.value)} className={input} placeholder="e.g. Robotics workshop" /></label>
         <div className="grid grid-cols-2 gap-3">
@@ -324,6 +324,11 @@ function ManualDrawer({ open, onClose, canAutoBook }: { open: boolean; onClose: 
           </div>
         )}
       </form>
+  );
+  if (inline) return <Card className="p-6 space-y-5">{form}<div className="pt-4 border-t border-line">{footer}</div></Card>;
+  return (
+    <Drawer open={open} onClose={onClose} eyebrow="Manual scheduling" title="Schedule an event" width={500} footer={footer}>
+      {form}
     </Drawer>
   );
 }

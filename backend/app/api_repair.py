@@ -124,7 +124,7 @@ def approve(pid: str, user=Depends(require("admin"))):
         WS.applied.append(pid)
         from .api_bookings import reconcile_after_timetable_change
         reconcile_after_timetable_change()
-        p.update(status="APPROVED", approved_by=user["username"], approved_at=time.time(),
+        p.update(status="APPROVED", message="Approved and applied", approved_by=user["username"], approved_at=time.time(),
                  hard_validation_result="0 hard violations")
     return ok(_public(p))
 

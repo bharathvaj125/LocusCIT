@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
-import { Bell, Building2, CalendarDays, CheckSquare, ChevronDown, Download, GraduationCap, Landmark, LayoutDashboard, LogOut, MessageSquareText, Search, Sparkles, Users as UsersIcon, Wrench } from "lucide-react";
+import { Bell, Building2, CalendarDays, CheckSquare, ChevronDown, Download, GraduationCap, CalendarPlus, Landmark, LayoutDashboard, LogOut, MessageSquareText, Search, Sparkles, Users as UsersIcon, Wrench } from "lucide-react";
 import { Dashboard, NavRouteId, SessionUser } from "@/lib/types";
 import { DEMO_ACCOUNTS, NAV_ROUTES, ROLE_CONFIGS } from "@/lib/uiConfig";
 import { Chip, Kbd } from "@/components/ui/primitives";
@@ -11,10 +11,11 @@ import { cn } from "@/lib/utils";
 import { ThemeMenu } from "@/components/ui/ThemeMenu";
 
 const ICONS: Record<NavRouteId, React.ReactNode> = {
-  overview: <LayoutDashboard className="w-[17px] h-[17px]" />, timetable: <CalendarDays className="w-[17px] h-[17px]" />, exams: <GraduationCap className="w-[17px] h-[17px]" />,
-  spectra_clash: <Building2 className="w-[17px] h-[17px]" />, approvals: <CheckSquare className="w-[17px] h-[17px]" />, disruptions: <Wrench className="w-[17px] h-[17px]" />,
-  ai_booking: <MessageSquareText className="w-[17px] h-[17px]" />, exports: <Download className="w-[17px] h-[17px]" />, users: <UsersIcon className="w-[17px] h-[17px]" />,
-  organisations: <Landmark className="w-[17px] h-[17px]" />,
+  overview: <LayoutDashboard className="w-[22px] h-[22px]" />, timetable: <CalendarDays className="w-[22px] h-[22px]" />, exams: <GraduationCap className="w-[22px] h-[22px]" />,
+  spectra_clash: <Building2 className="w-[22px] h-[22px]" />, approvals: <CheckSquare className="w-[22px] h-[22px]" />, disruptions: <Wrench className="w-[22px] h-[22px]" />,
+  ai_booking: <MessageSquareText className="w-[22px] h-[22px]" />, exports: <Download className="w-[22px] h-[22px]" />, users: <UsersIcon className="w-[22px] h-[22px]" />,
+  organisations: <Landmark className="w-[22px] h-[22px]" />,
+  schedule: <CalendarPlus className="w-[22px] h-[22px]" />,
 };
 
 /** Station names for narrow screens; wide screens use the full page name. */
@@ -24,16 +25,16 @@ const SHORT: Partial<Record<NavRouteId, string>> = {
 const WIDE: Partial<Record<NavRouteId, string>> = { exams: "Exams", spectra_clash: "Venues" };
 
 /**
- * The page menu: a floating glass dock at the bottom of the screen. Every page is a station on one line; the line fills in
- * gold up to the page you are on and a gold marker carrying the page icon glides there (with a little stretch and bounce). Hovering a station
- * lights its pill, the arrow keys move between stations, and a long list scrolls sideways and keeps the current page centred.
+ * The page menu: a floating glass dock at the bottom of the screen. Each page is an icon with its name; the page you are on
+ * is the highlighted gold capsule. Hovering lights a pill, the arrow keys move between pages, and on a narrow screen the dock
+ * scrolls sideways and keeps the current page in view.
  */
 function StationDock({ nav, onNav, routes, pending }: { nav: NavRouteId; onNav: (n: NavRouteId) => void; routes: typeof NAV_ROUTES; pending: number }) {
   const idx = Math.max(0, routes.findIndex((r) => r.id === nav));
   const scroller = useRef<HTMLDivElement>(null);
   const list = useRef<HTMLDivElement>(null);
 
-  // keep the current station in view when the page changes or the screen is narrow (jump the first time, glide after that)
+  // keep the current page in view when it changes or the screen is narrow (jump the first time, glide after that)
   const placed = useRef(false);
   useEffect(() => {
     const el = scroller.current;
@@ -53,36 +54,28 @@ function StationDock({ nav, onNav, routes, pending }: { nav: NavRouteId; onNav: 
   };
 
   return (
-    <div className="fixed inset-x-0 bottom-3 z-30 flex justify-center px-3 pointer-events-none">
+    <div className="fixed inset-x-0 bottom-4 z-30 flex justify-center px-3 pointer-events-none">
       <motion.nav aria-label="Pages" initial={{ y: 70, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ type: "spring", stiffness: 220, damping: 24, delay: 0.1 }}
-        className="pointer-events-auto max-w-full rounded-[24px] bg-deep/85 backdrop-blur-xl border border-white/10 shadow-pop">
-        <div ref={scroller} className="dock-scroll overflow-x-auto px-2 pt-2.5 pb-1.5">
-          <div ref={list} onKeyDown={onKey} className="dock relative mx-auto" style={{ width: `calc(var(--w) * ${routes.length})`, height: 92, ["--i" as string]: idx }}>
-            <div className="absolute top-[34px] h-[4px] rounded-full bg-white/15" style={{ left: "calc(var(--w) * .5)", width: `calc(var(--w) * ${routes.length - 1})` }} aria-hidden />
-            <div className="dock-fill absolute top-[34px] h-[4px] rounded-full bg-gradient-to-r from-lagoon-500/70 to-lagoon-500" style={{ left: "calc(var(--w) * .5)", width: "calc(var(--w) * var(--i))" }} aria-hidden />
-            <div className="dock-train absolute top-[18px] z-[2] pointer-events-none" aria-hidden>
-              <span key={idx} className="dock-train-body flex items-center justify-center h-8 w-[52px] -translate-x-1/2 rounded-full bg-gradient-to-b from-[#F1D58A] to-lagoon-500 text-deep shadow-[0_0_0_1px_rgba(255,255,255,0.35)_inset,0_4px_18px_rgba(233,196,104,0.4)]">
-                {ICONS[routes[idx]?.id]}
-              </span>
-            </div>
+        className="pointer-events-auto max-w-full rounded-[28px] bg-deep/90 backdrop-blur-xl border border-white/10 shadow-pop">
+        <div ref={scroller} className="dock-scroll overflow-x-auto py-3">
+          <div ref={list} onKeyDown={onKey} className="dock mx-auto flex">
             {routes.map((r, i) => {
               const active = i === idx;
-              const done = i <= idx;
               return (
                 <button key={r.id} data-station type="button" onClick={() => onNav(r.id)} aria-current={active ? "page" : undefined} title={r.description}
-                  className="group absolute top-0 z-[3] h-[92px] flex flex-col items-center pt-[23px] cursor-pointer outline-none"
-                  style={{ left: `calc(var(--w) * ${i})`, width: "var(--w)" }}>
-                  <span aria-hidden className="absolute inset-x-1.5 inset-y-0.5 rounded-2xl bg-white/0 group-hover:bg-white/[0.07] group-focus-visible:bg-white/[0.07] group-focus-visible:ring-2 group-focus-visible:ring-lagoon-500 transition-colors duration-200" />
-                  <span className={cn("relative w-[22px] h-[22px] rounded-full border-2 transition-all duration-300 group-hover:scale-125",
-                    active ? "opacity-0 scale-50" : done ? "bg-lagoon-500 border-lagoon-500" : "bg-deep border-white/30 group-hover:border-lagoon-500")} />
-                  {r.id === "approvals" && pending > 0 && (
-                    <span className="absolute top-[14px] left-[calc(50%+8px)] min-w-[17px] h-[17px] px-1 rounded-full bg-sunrise-500 text-onbrand text-[10px] font-bold flex items-center justify-center ring-2 ring-[var(--color-deep)]">{pending}</span>
-                  )}
-                  <span className={cn("relative mt-[15px] font-mono text-[10px] sm:text-[10.5px] font-semibold uppercase tracking-[0.1em] sm:tracking-[0.12em] transition-colors duration-300 whitespace-nowrap",
+                  className="group relative shrink-0 flex flex-col items-center gap-2 py-1 cursor-pointer outline-none" style={{ width: "var(--w)" }}>
+                  <span className={cn("relative flex items-center justify-center h-11 w-[60px] rounded-full transition-all duration-300",
+                    active ? "bg-gradient-to-b from-[#F1D58A] to-lagoon-500 text-deep shadow-[0_6px_22px_rgba(233,196,104,0.35)]"
+                      : "text-lagoon-200 group-hover:bg-white/10 group-hover:text-onbrand group-focus-visible:ring-2 group-focus-visible:ring-lagoon-500")}>
+                    {ICONS[r.id]}
+                    {r.id === "approvals" && pending > 0 && (
+                      <span className="absolute -top-1 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-sunrise-500 text-onbrand text-[10px] font-bold flex items-center justify-center ring-2 ring-[var(--color-deep)]">{pending}</span>
+                    )}
+                  </span>
+                  <span className={cn("font-mono text-[11px] sm:text-[12px] font-semibold uppercase tracking-[0.1em] whitespace-nowrap transition-colors duration-300",
                     active ? "text-onbrand" : "text-lagoon-200 group-hover:text-onbrand")}>
                     <span className="sm:hidden">{SHORT[r.id] ?? r.label}</span><span className="hidden sm:inline">{WIDE[r.id] ?? r.label}</span>
                   </span>
-                  <span className={cn("relative font-mono text-[9px] mt-0.5 transition-colors", active ? "text-lagoon-500" : "text-lagoon-200/80")}>{String(i + 1).padStart(2, "0")}</span>
                 </button>
               );
             })}

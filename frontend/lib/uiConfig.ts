@@ -5,7 +5,7 @@ export const ROLE_CONFIGS: Record<string, RoleConfig> = {
   admin: {
     id: "admin", label: "Admin", badge: "Admin", persona: "Dean's Office",
     // an Admin decides requests and schedules events directly, so there is no request assistant
-    allowedNav: ["overview", "timetable", "exams", "spectra_clash", "approvals", "disruptions", "users", "organisations", "exports"],
+    allowedNav: ["overview", "timetable", "exams", "spectra_clash", "schedule", "approvals", "disruptions", "users", "organisations", "exports"],
   },
   department_coordinator: {
     id: "department_coordinator", label: "Department coordinator", badge: "Coordinator", persona: "Department coordinator",
@@ -26,6 +26,7 @@ export const NAV_ROUTES: NavRoute[] = [
   { id: "timetable", label: "Timetable", href: "/timetable", description: "By student group, faculty or room" },
   { id: "exams", label: "Midsem exams", href: "/exams", description: "Exam week, Monday to Saturday" },
   { id: "spectra_clash", label: "Venues & Spectra", href: "/spectra-clash", description: "Week 7 bookings and the venue board" },
+  { id: "schedule", label: "Schedule", href: "/schedule", description: "Book an event in a room directly" },
   { id: "approvals", label: "Approvals", href: "/approvals", description: "Decide bookings; nobody approves their own" },
   { id: "disruptions", label: "Changes", href: "/disruptions", description: "Upload a change file and review the repair" },
   { id: "ai_booking", label: "Assistant", href: "/ai-booking", description: "English and Hinglish requests" },

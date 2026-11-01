@@ -159,9 +159,12 @@ export function ApprovalsDeck({ onOpenChanges }: { onOpenChanges: () => void }) 
               </motion.div>
             ))}
           </AnimatePresence>
-          {ownPending.map((s) => (
-            <div key={s.id} className="rounded-xl bg-sunrise-50 text-sunrise-600 px-4 py-3 text-sm flex items-center gap-2"><ShieldAlert className="w-4 h-4 shrink-0" />{s.id} is your own request; another approver has to decide it.</div>
-          ))}
+          {ownPending.length > 0 && (
+            <div className="rounded-2xl border border-line bg-raised px-4 py-3 space-y-1.5">
+              <p className="text-sm font-semibold flex items-center gap-2"><Clock className="w-4 h-4 text-lagoon-700" />Your requests waiting for someone else <Chip tone="stone">{ownPending.length}</Chip></p>
+              {ownPending.map((s) => <p key={s.id} className="text-sm text-ink-600"><span className="font-mono text-xs text-ink-400">{s.id}</span> {s.title}: another approver decides it, never the person who asked.</p>)}
+            </div>
+          )}
         </section>
       )}
 
@@ -241,7 +244,7 @@ export function ApprovalsDeck({ onOpenChanges }: { onOpenChanges: () => void }) 
           {myChanges.map((p) => (
             <Card key={p.proposal_id} className="p-4 space-y-1">
               <div className="flex flex-wrap items-center justify-between gap-2"><p className="font-semibold">{p.request_text || nice(p.type)} <span className="font-mono text-xs text-ink-400">{p.proposal_id}</span></p><Chip tone={statusTone(p.status)} dot>{nice(p.status)}</Chip></div>
-              {p.message && <p className="text-sm text-ink-600">{p.message}</p>}
+              {p.message && !["PENDING", "APPROVED"].includes(p.status) && <p className="text-sm text-ink-600">{p.message}</p>}
               {p.moved && p.moved.length > 0 && <p className="text-sm text-ink-600">{p.moved.length} session(s) would move. An Admin has to approve.</p>}
             </Card>
           ))}

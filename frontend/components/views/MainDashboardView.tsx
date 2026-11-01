@@ -13,6 +13,7 @@ import { ApprovalsDeck } from "@/components/approvals/ApprovalsDeck";
 import { DisruptionDeck } from "@/components/disruptions/DisruptionDeck";
 import { AiBookingAssistant } from "@/components/assistant/AiBookingAssistant";
 import { ExportsDeck } from "@/components/exports/ExportsDeck";
+import { ScheduleEvent } from "@/components/admin/ScheduleEvent";
 import { UsersBoard } from "@/components/admin/UsersBoard";
 import { OrganisationsBoard } from "@/components/admin/OrganisationsBoard";
 import { PasswordGate } from "@/components/auth/PasswordGate";
@@ -202,6 +203,7 @@ function Workspace({ initialNav, onSession, onSignOut }: { initialNav: NavRouteI
             {nav === "approvals" && <ApprovalsDeck onOpenChanges={() => go("disruptions")} />}
             {nav === "disruptions" && <DisruptionDeck onOpenExports={() => go("exports")} />}
             {nav === "ai_booking" && <AiBookingAssistant initialText={assistantText} onConsumedInitialText={() => setAssistantText(null)} />}
+            {nav === "schedule" && <ScheduleEvent onOpenBoard={() => go("spectra_clash")} />}
             {nav === "users" && <UsersBoard onOpenOrganisations={() => go("organisations")} />}
             {nav === "organisations" && <OrganisationsBoard onOpenUsers={() => go("users")} />}
             {nav === "exports" && <ExportsDeck />}

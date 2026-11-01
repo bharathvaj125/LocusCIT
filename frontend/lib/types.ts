@@ -21,7 +21,8 @@ export type NavRouteId =
   | "ai_booking"
   | "exports"
   | "users"
-  | "organisations";
+  | "organisations"
+  | "schedule";
 
 export interface NavRoute {
   id: NavRouteId;
