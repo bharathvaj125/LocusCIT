@@ -5,7 +5,7 @@ generates the semester timetable and midsem exams, decides Spectra-week venue bo
 English/Hinglish booking requests, repairs the timetable after a change with the fewest moved sessions, and
 applies a change only after an Admin has reviewed the suggested shifting, with the reason for every move, and approved it. Every schedule is checked by the **official validator** before it is saved.
 
-## **Demo video (5 min): https://youtu.be/0lar-6GRyu0**
+## **Demo video: https://youtu.be/0lar-6GRyu0**
 
 ## **Live app: https://locus-cit.vercel.app**
 
@@ -140,7 +140,7 @@ The problem statement asks for `exports/schedule.json` and `exports/schedule_aft
 | `.env.example` | [`.env.example`](.env.example) |
 | `AI_USAGE.md` (tools, prompts, what was kept) | [`AI_USAGE.md`](AI_USAGE.md) |
 | `THIRD_PARTY.md` (libraries, data, licences) | [`THIRD_PARTY.md`](THIRD_PARTY.md) |
-| Walkthrough video, 5 minutes or less | https://youtu.be/0lar-6GRyu0 |
+| Walkthrough video | https://youtu.be/0lar-6GRyu0 |
 | Official validator unmodified | `starter_pack/validator.py` |
 
 ## Known limitations
