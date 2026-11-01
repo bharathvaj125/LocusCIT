@@ -89,21 +89,8 @@ The rules are enforced in the backend (`backend/app/permissions.py`); hiding a b
 * **AI (optional, off by default):** one Anthropic Messages API call to read booking text; see `AI_USAGE.md`.
 
 ## Architecture
-![Locus architecture](docs/architecture.svg)
+<p align="center"><img src="docs/architecture.png" alt="Locus architecture: browser, API with booking engine, solver, parser and official validator, database" width="100%"></p>
 
-```mermaid
-flowchart LR
-  B["Browser: Next.js 15 (Vercel)"] -- "HTTPS + JWT" --> API
-  subgraph API["FastAPI (Render)"]
-    AUTH["auth + roles"] --> R["routes"]
-    R --> BE["booking engine<br/>priority, role caps, displacement"]
-    R --> CP["OR-Tools CP-SAT<br/>timetable, exams, minimal-move repair"]
-    R --> P["English/Hinglish parser<br/>(optional LLM assist, off)"]
-    CP --> V["official validator.py (unmodified)"]
-    BE --> V
-  end
-  R --> DB[("PostgreSQL (Supabase)<br/>SQLite locally")]
-```
 Validity is always decided by code. The LLM, if enabled, only suggests field values for a draft the user can edit.
 The booking and change flows, the data model, the module map and the deployment are drawn in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md);
 the reasons behind the main choices are in [docs/DECISIONS.md](docs/DECISIONS.md), the visual design in [docs/DESIGN.md](docs/DESIGN.md).
