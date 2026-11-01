@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import {
   Bell, Building2, CalendarDays, CheckSquare, ChevronsUpDown, Download, GraduationCap, LayoutDashboard, LogOut, Menu, MessageSquareText,
-  Search, Wrench, X,
+  Search, Sparkles, Wrench, X,
 } from "lucide-react";
 import { Dashboard, NavRouteId, SessionUser } from "@/lib/types";
 import { DEMO_ACCOUNTS, NAV_ROUTES, ROLE_CONFIGS } from "@/lib/uiConfig";
@@ -53,11 +54,14 @@ function Rail({ user, dashboard, nav, onNav, onSwitch, onSignOut, onClose, switc
   return (
     <div className="relative h-full w-[248px] bg-lagoon-900 text-lagoon-200 flex flex-col overflow-hidden">
       <div className="px-5 pt-6 pb-5 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-sunrise-500 flex items-center justify-center shadow-[0_6px_16px_-4px_rgba(228,87,46,0.7)]">
-          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden><path d="M3 12c2.5-4 5-4 8 0s5.5 4 8 0" stroke="#FBF8F2" strokeWidth="2.4" strokeLinecap="round" /><circle cx="11" cy="6" r="2" fill="#FBF8F2" /></svg>
+        <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400/20 to-lagoon-800 p-1 border border-amber-500/30 flex items-center justify-center shadow-[0_4px_14px_rgba(233,169,58,0.25)]">
+          <Image src="/locus_logo_transparent.png" alt="Locus Logo" width={32} height={32} className="object-contain" priority />
         </div>
         <div className="leading-tight">
-          <div className="font-display text-[24px] font-semibold text-raised tracking-[-0.02em]">Locus</div>
+          <div className="font-display text-[22px] font-semibold text-raised tracking-[-0.02em] flex items-center gap-1.5">
+            Locus
+            <span className="text-[10px] font-mono px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">CIT</span>
+          </div>
           <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-lagoon-200/80">Chilika Inst. of Tech.</div>
         </div>
         {onClose && <button onClick={onClose} aria-label="Close menu" className="ml-auto p-1.5 text-lagoon-200 cursor-pointer"><X className="w-5 h-5" /></button>}
@@ -100,7 +104,18 @@ function Rail({ user, dashboard, nav, onNav, onSwitch, onSignOut, onClose, switc
                   {a.username === user.username && <Chip tone="mangrove">you</Chip>}
                 </button>
               ))}
-              <div className="border-t border-line mt-1 pt-1">
+              <div className="border-t border-line mt-1 pt-1 space-y-0.5">
+                <button
+                  onClick={() => {
+                    setMenu(false);
+                    if (typeof window !== "undefined") {
+                      window.dispatchEvent(new CustomEvent("replay_intro"));
+                    }
+                  }}
+                  className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-[13px] font-semibold text-ink-700 hover:bg-sunk cursor-pointer"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-500" /> Replay Intro Reveal
+                </button>
                 <button onClick={onSignOut} className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-[13px] font-semibold text-sunrise-600 hover:bg-sunrise-50 cursor-pointer"><LogOut className="w-4 h-4" /> Sign out</button>
               </div>
             </motion.div>
@@ -152,6 +167,18 @@ export function Shell({ user, dashboard, nav, onNav, onSwitch, onSignOut, onSear
             <Search className="w-4 h-4 shrink-0" /><span className="truncate">Search groups, faculty, rooms, screens</span><span className="ml-auto hidden sm:block"><Kbd>Ctrl K</Kbd></span>
           </button>
           <div className="flex-1" />
+          <button
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("replay_intro"));
+              }
+            }}
+            title="Watch Intro Reveal Animation"
+            className="hidden sm:flex items-center gap-1.5 h-9 px-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 border border-amber-500/30 text-xs font-semibold cursor-pointer transition-colors"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            <span>Intro Reveal</span>
+          </button>
           <div className="hidden md:block"><Seal hard={dashboard?.sessions_scheduled ? dashboard.hard_violation_count : null} soft={dashboard?.soft_total} /></div>
           <button onClick={() => onNav("approvals")} aria-label={`${pending} pending approvals`} className="relative p-2.5 rounded-xl hover:bg-sunk text-ink-600 cursor-pointer">
             <Bell className="w-5 h-5" />
