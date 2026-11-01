@@ -6,7 +6,7 @@ import { Shell } from "@/components/layout/Shell";
 import { CommandPalette, PaletteItem } from "@/components/layout/CommandPalette";
 import { LoginScreen } from "@/components/auth/LoginScreen";
 import { Overview } from "@/components/views/Overview";
-import { TimetableView, TimetableEntities, EveningEvent } from "@/components/timetable/TimetableView";
+import { TimetableView, TimetableEntities, TimetableMode, Week7Data } from "@/components/timetable/TimetableView";
 import { ExamsBoard } from "@/components/exams/ExamsBoard";
 import { SpectraBoard } from "@/components/spectra/SpectraBoard";
 import { ApprovalsDeck } from "@/components/approvals/ApprovalsDeck";
@@ -15,7 +15,7 @@ import { AiBookingAssistant } from "@/components/assistant/AiBookingAssistant";
 import { ExportsDeck } from "@/components/exports/ExportsDeck";
 import { AppProvider, useApp } from "@/lib/appContext";
 import { ToastProvider, useToast } from "@/lib/toast";
-import { ApiError, describeError, fetchBookings, fetchTimetable, login, logout, onUnauthorized } from "@/lib/api";
+import { ApiError, describeError, fetchTimetable, fetchWeek7, login, logout, onUnauthorized } from "@/lib/api";
 import { loadSession, StoredSession } from "@/lib/session";
 import { NavRouteId, ReferenceData, ScheduledSession, SessionUser } from "@/lib/types";
 import { NAV_ROUTES, ROLE_CONFIGS } from "@/lib/uiConfig";
@@ -65,7 +65,8 @@ function Workspace({ initialNav, onSession, onSignOut }: { initialNav: NavRouteI
   const [selectedId, setSelectedId] = useState("");
   const [sessions, setSessions] = useState<ScheduledSession[]>([]);
   const [tt, setTt] = useState<{ loading: boolean; error: string | null; empty: string | null }>({ loading: false, error: null, empty: null });
-  const [events, setEvents] = useState<EveningEvent[]>([]);
+  const [mode, setMode] = useState<TimetableMode>("regular");
+  const [week7, setWeek7] = useState<Week7Data>({ events: [], closures: [] });
 
   const go = useCallback((n: NavRouteId) => {
     setNav(n);
@@ -92,11 +93,17 @@ function Workspace({ initialNav, onSession, onSignOut }: { initialNav: NavRouteI
     }
   }, [entities, pivot, selectedId, user.role]);
 
+  // the two modes hold different rows: clear them so one mode's classes never flash inside the other's grid
+  useEffect(() => { setSessions([]); setWeek7({ events: [], closures: [] }); }, [mode]);
+
   useEffect(() => {
     if (nav !== "timetable" || !ref || !selectedId) return;
     let alive = true;
     setTt((s) => ({ ...s, loading: true, error: null }));
-    fetchTimetable(pivot, selectedId, ref)
+    const load = mode === "week7"
+      ? fetchWeek7(pivot, selectedId, ref).then((d) => { if (alive) setWeek7({ events: d.events, closures: d.closures }); return d.classes; })
+      : fetchTimetable(pivot, selectedId, ref);
+    load
       .then((rows) => { if (alive) { setSessions(rows); setTt({ loading: false, error: null, empty: null }); } })
       .catch((e) => {
         if (!alive) return;
@@ -105,18 +112,7 @@ function Workspace({ initialNav, onSession, onSignOut }: { initialNav: NavRouteI
         else setTt({ loading: false, error: describeError(e), empty: null });
       });
     return () => { alive = false; };
-  }, [nav, ref, pivot, selectedId, revision, dashboard?.schedule_version, user.role]);
-
-  useEffect(() => {
-    if (nav !== "timetable" || pivot !== "room" || !selectedId) { setEvents([]); return; }
-    fetchBookings().then((b) => {
-      const a: EveningEvent[] = b.requests.filter((r) => r.assigned_room === selectedId && (r.status === "approved" || r.status === "alternative_offered"))
-        .map((r) => ({ id: r.id, title: r.title, day: r.day, start: r.start_period, end: r.end_period, status: r.status }));
-      const c: EveningEvent[] = b.submitted.filter((s) => s.placement?.room_id === selectedId && (s.status === "APPROVED" || s.status === "ALTERNATIVE_OFFERED"))
-        .map((s) => ({ id: s.id, title: s.title, day: s.placement!.day, start: s.placement!.start_period, end: s.placement!.end_period, status: s.status.toLowerCase() }));
-      setEvents([...a, ...c]);
-    }).catch(() => setEvents([]));
-  }, [nav, pivot, selectedId, revision]);
+  }, [nav, ref, pivot, selectedId, mode, revision, dashboard?.schedule_version, user.role]);
 
   const switchAccount = async (u: string, p: string) => {
     setSwitching(true);
@@ -151,7 +147,7 @@ function Workspace({ initialNav, onSession, onSignOut }: { initialNav: NavRouteI
               <div className="space-y-3">
                 {tt.error && <p className="text-sm text-sunrise-600 bg-sunrise-50 rounded-xl px-4 py-3" role="alert">{tt.error}</p>}
                 {tt.empty && <p className="text-sm text-saffron-600 bg-saffron-50 rounded-xl px-4 py-3">{tt.empty}</p>}
-                <TimetableView sessions={sessions} loading={tt.loading} entities={entities} pivot={pivot} onPivot={setPivot} selectedId={selectedId} onSelect={setSelectedId} events={events} ref_={ref} />
+                <TimetableView sessions={sessions} loading={tt.loading} entities={entities} pivot={pivot} onPivot={setPivot} selectedId={selectedId} onSelect={setSelectedId} mode={mode} onMode={setMode} week7={week7} ref_={ref} />
               </div>
             )}
             {nav === "exams" && <ExamsBoard />}

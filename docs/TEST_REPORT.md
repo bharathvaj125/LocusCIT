@@ -16,7 +16,7 @@ sample disruption approved by a second Admin.
 | Sample disruption: sessions moved | 12 (equals the proven lower bound for this timetable) |
 | Sample disruption: hard violations | 0 |
 | Self-approval | blocked (403); second Admin approves (200) |
-| Automated backend tests | 84 passing (`python -m pytest -q tests`, about 2 min) |
+| Automated backend tests | 94 passing (`python -m pytest -q tests`, about 2 min) |
 | Spectra decisions after the flexible-slot change | identical on the deployed timetable: 0 hard violations, booking score 67/70, 0 priority inversions |
 
 ## Timings on the free Render instance (about 0.1 CPU, 512 MB)
@@ -62,3 +62,10 @@ the proposer (refused with 403), approves it as the second Admin, exports `sched
 
 ## Still to measure
 Several simultaneous judges, and the frontend flows end to end.
+
+## Compliance audit (1 Nov 2026)
+Full report: `docs/FINAL_PS_COMPLIANCE_AUDIT.md`. Re-run with `python backend/scripts/audit_compliance.py` against a local backend
+(it resets the app): 85 checks pass across fresh generation + official validator, 14 admin-only endpoints x 3 roles, self-approval,
+simultaneous approvals, manual events, a 16-case English/Hinglish/adversarial request battery, LLM failure modes, explanations and
+the faculty assistant (including extra-session requests). A separate run covered responsiveness during a solve, reset during a
+solve, repeated resets and persistence across a server restart.

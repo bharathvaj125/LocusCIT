@@ -271,7 +271,7 @@ function ChangeTab() {
   const examples = useMemo(() => {
     const lec = mine.find((m) => m.kind === "lecture" && m.current);
     const day = lec?.current ? ({ MON: "Monday", TUE: "Tuesday", WED: "Wednesday", THU: "Thursday", FRI: "Friday" } as Record<string, string>)[lec.current.day] : "Monday";
-    return [`Please move my ${lec?.course_id ?? "CS201"} lecture off ${day}`, "I am on leave every Friday", "Shift my tutorial to Thursday afternoon"];
+    return [`Please move my ${lec?.course_id ?? "CS201"} lecture off ${day}`, "I am on leave every Friday", "Shift my tutorial to Thursday afternoon", `I need one extra ${lec?.kind ?? "lecture"} for ${lec?.course_id ?? "CS201"}, 1 hour, any afternoon`];
   }, [mine]);
 
   const [offDays, setOffDays] = useState<string[]>([]);
@@ -314,7 +314,9 @@ function ChangeTab() {
       {proposal && (
         <Card className="p-5 space-y-2">
           <div className="flex items-center gap-2"><span className="font-semibold font-mono text-sm">{proposal.proposal_id}</span><Chip tone={proposal.status === "PENDING" ? "mangrove" : "sunrise"} dot>{proposal.status}</Chip></div>
-          {proposal.status === "PENDING" && <p className="text-sm text-mangrove-600">A valid change exists: {proposal.moved_count} session(s) move{proposal.proven_minimum ? ", the fewest possible" : ""}. It is waiting for an Admin.</p>}
+          {proposal.status === "PENDING" && (proposal.added?.length ?? 0) > 0 && <p className="text-sm text-mangrove-600">The extra session fits and {proposal.moved_count ? `${proposal.moved_count} existing session(s) move` : "no existing session has to move"}. It is waiting for an Admin.</p>}
+          {proposal.status === "PENDING" && !(proposal.added?.length) && <p className="text-sm text-mangrove-600">A valid change exists: {proposal.moved_count} session(s) move{proposal.proven_minimum ? ", the fewest possible" : ""}. It is waiting for an Admin.</p>}
+          {(proposal.added || []).map((a) => <p key={a.session_id} className="text-sm text-ink-600">• New: <span className="font-mono text-xs">{a.session_id}</span> → <strong className="text-mangrove-600">{a.new.day} P{a.new.start_period} {a.new.room_id}</strong></p>)}
           {proposal.message && proposal.status !== "PENDING" && <p className="text-sm text-sunrise-600">{proposal.message}</p>}
           {(proposal.moved || []).map((m) => <p key={m.session_id} className="text-sm text-ink-600">• {titleOf(m.session_id)}: {m.old.day} P{m.old.start_period} {m.old.room_id} → <strong className="text-mangrove-600">{m.new.day} P{m.new.start_period} {m.new.room_id}</strong></p>)}
           {(proposal.unavailable_because || []).map((u) => <p key={u.slot} className="text-sm text-ink-600">• {u.slot}: {u.blocked_by.join("; ")}</p>)}

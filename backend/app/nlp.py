@@ -4,8 +4,9 @@ Turns free text into an *editable draft*. It never decides validity, priority or
 the rule engine and the authenticated role. Instructions hidden in the text ("ignore the rules", "I am the
 admin", "mark it institute level") are detected, reported and ignored.
 """
+import calendar
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 IST = timezone(timedelta(hours=5, minutes=30))
 WEEKDAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
@@ -101,6 +102,59 @@ def _unknown_rooms(t, data):
             ids = [r["id"] for r in data["rooms"] if r["id"].lower().endswith("-" + m.group(1))]
             found.append(("vague", m.group(0).strip(), ids))
     return found
+
+_MON = (r"(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|"
+        r"oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)")
+_MONTHS = {m: i for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)}
+_NOT_A_DAY = r"(?!\s*" + PEOPLE + r"\b)"
+_DATE_RX = [
+    ("dmy", re.compile(r"\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?" + _MON + r"\b\.?(?:,?\s*(\d{4})\b)?")),
+    ("mdy", re.compile(r"\b" + _MON + r"\b\.?\s+(\d{1,2})(?:st|nd|rd|th)?\b" + _NOT_A_DAY + r"(?:,?\s*(\d{4})\b)?")),
+    ("num", re.compile(r"\b(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})\b")),
+    ("iso", re.compile(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b")),
+]
+
+
+def _explicit_dates(t, today):
+    """Calendar dates written in the text ('2nd Feb', '15/02/2027', '31 February').
+
+    Returns (text with the dates removed, weekday codes, problems). A date that does not exist, has passed or falls
+    on a weekend is reported as a problem so the user is asked again; nothing is guessed. Dates are day-first."""
+    days, problems, notes = [], [], []
+    for kind, rx in _DATE_RX:
+        for m in list(rx.finditer(t)):
+            g = m.groups()
+            if kind == "dmy":
+                d, mo, y = int(g[0]), _MONTHS[g[1][:3]], g[2]
+            elif kind == "mdy":
+                if g[0] == "may":
+                    continue            # "may 5" is far more likely the verb than the month
+                mo, d, y = _MONTHS[g[0][:3]], int(g[1]), g[2]
+            elif kind == "num":
+                d, mo, y = int(g[0]), int(g[1]), g[2]
+            else:
+                y, mo, d = g[0], int(g[1]), int(g[2])
+            label = m.group(0).strip()
+            years = [int(y)] if y else [today.year, today.year + 1]
+            valid = [date(yy, mo, d) for yy in years if 1 <= mo <= 12 and 1 <= d <= calendar.monthrange(yy, mo)[1]]
+            if not valid:
+                problems.append(("invalid", f"'{label}' is not a real calendar date"))
+                continue
+            future = [x for x in valid if x >= today.date()]
+            if not future:
+                problems.append(("past", f"{valid[0].strftime('%d %b %Y')} has already passed"))
+                continue
+            dt = future[0]
+            if dt.weekday() >= 5:
+                days.append(WEEKDAYS[dt.weekday()])
+                notes.append(f"{dt.strftime('%d %b %Y')} is a {dt.strftime('%A')}")
+            else:
+                days.append(WEEKDAYS[dt.weekday()])
+                notes.append(f"'{label}' is {dt.strftime('%A %d %b %Y')}")
+    stripped = t
+    for _, rx in _DATE_RX:
+        stripped = rx.sub(lambda m: " " if not (m.re is _DATE_RX[1][1] and m.group(1) == "may") else m.group(0), stripped)
+    return stripped, days, problems, notes
 
 
 def _find_days(t, today):
@@ -296,7 +350,18 @@ def parse_booking_text(text, data, now=None, role=None):
             f"Requested category is a wish only; as a '{role}' your bookings are capped by your role.")
 
     # days
+    t, date_days, date_problems, date_notes = _explicit_dates(t, today)
     days, mode, dnotes, weekend = _find_days(t, today)
+    for d in date_days:
+        if d in ("SAT", "SUN"):
+            weekend.append(d)
+        elif d not in days:
+            days.append(d)
+    days = [d for d in WEEKDAYS if d in days]
+    dnotes = dnotes + date_notes
+    for _, problem in date_problems:
+        asks.append(f"{problem[0].upper() + problem[1:]}. Which day (Monday to Friday) did you mean?")
+        draft["warnings"].append(problem)
     if "ROLLED_TO_WEEKDAY" in dnotes:
         dnotes = [n for n in dnotes if n != "ROLLED_TO_WEEKDAY"]
         draft["ambiguous_fields"].append("windows")
@@ -341,7 +406,7 @@ def parse_booking_text(text, data, now=None, role=None):
                 break
 
     if not days:
-        if not weekend:   # the weekend question already asks for a day
+        if not weekend and not date_problems:   # those questions already ask for a day
             asks.append("Which day (Monday to Friday) should it be on?")
         draft["ambiguous_fields"].append("windows")
     if win is None and not tm:

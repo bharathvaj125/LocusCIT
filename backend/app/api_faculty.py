@@ -23,6 +23,8 @@ PERIOD_WORDS = [(r"after lunch|post lunch", [6, 7, 8, 9]), (r"afternoon", [6, 7,
                 (r"morning", [1, 2, 3, 4, 5]), (r"evening", [10, 11, 12, 13]), (r"first period|first hour", [1]),
                 (r"last period|last hour", [9])]
 NEG = r"\b(?:not|no|never|avoid|off|except|cannot|can't|cant|can not|unable|don't|dont|without|nahi|nahin|na)\b"
+EXTRA = r"\b(?:extra|additional|make-?up|remedial|compensatory|one more|another (?:lecture|tutorial|lab|session|class))\b"
+NUMBER_WORDS = {"one": 1, "an": 1, "a": 1, "two": 2, "three": 3}
 LEAVE = r"leave|travel|conference|sick|unwell|unavailable|not available|can't teach|cannot teach|away|out of station|busy"
 
 
@@ -57,6 +59,51 @@ def _my_sessions(user):
                         "faculty_id": s["faculty_id"],
                         "current": {"day": slot[0], "start_period": slot[1], "room_id": slot[2]} if slot else None})
     return out
+
+
+def _extra_request(out, t, kinds, mine):
+    """'One extra tutorial for CS201, 1 hour, any afternoon' -> the session to add, copied from the course's existing ones.
+    Sets out['extra_session'], or out['follow_up'] when something essential is missing. Never decides validity."""
+    by_course = {}
+    for m in mine:
+        by_course.setdefault(m["course_id"], []).append(m["session_id"])
+    named = [c for c in by_course if re.search(rf"\b{c.lower()}\b", t)]
+    course = named[0] if len(named) == 1 else (next(iter(by_course)) if len(by_course) == 1 and not named else None)
+    if not course:
+        out["follow_up"] = ("Which course is the extra session for? Options: " + ", ".join(sorted(by_course))
+                            if by_course else "You have no courses to add a session to.")
+        return
+    owned = [s for s in WS.dataset["sessions"] if s["id"] in by_course[course]]
+    have = {s["kind"] for s in owned}
+    kind = kinds[0] if len(kinds) == 1 else (next(iter(have)) if len(have) == 1 else None)
+    if kind is None:
+        out["follow_up"] = f"Should the extra {course} session be a {' or a '.join(sorted(have))}?"
+        return
+    tmpl = next((s for s in owned if s["kind"] == kind), None)
+    if tmpl is None:
+        if kind == "lab" or "lab" in have and not (have - {"lab"}):
+            out["follow_up"] = (f"{course} has no {kind} sessions to copy, so an extra {kind} cannot be set up from here. "
+                                "Ask an Admin to add it with a change file.")
+            return
+        tmpl = next(s for s in owned if s["kind"] != "lab")
+    dur = tmpl["duration"] if kind == "lab" else 1
+    m = re.search(r"\b(\d|one|two|three|an?)\s*(?:-\s*)?(?:hours?|hrs?|hr|h)\b", t)
+    if m and kind != "lab":
+        dur = int(m.group(1)) if m.group(1).isdigit() else NUMBER_WORDS[m.group(1)]
+        if not 1 <= dur <= 3:
+            out["follow_up"] = "An extra session can be 1 to 3 hours long. How long should it be?"
+            return
+    new_id = f"{course}-X{uuid.uuid4().hex[:3].upper()}-{kind[0].upper()}"
+    types = tmpl["room_types"] if tmpl["kind"] != "lab" or kind == "lab" else ["classroom", "lecture_hall"]
+    out["extra_session"] = {"id": new_id, "course_id": course, "kind": kind, "groups": list(tmpl["groups"]),
+                            "faculty_id": tmpl["faculty_id"], "size": tmpl["size"], "duration": dur,
+                            "room_types": list(types), "needs_accessible": bool(tmpl.get("needs_accessible")),
+                            "basket_slot": None, "fixed_slot": None}
+    out["interpretation"].append(f"Extra {kind} for {course}, {dur} hour{'s' if dur > 1 else ''}, groups {', '.join(tmpl['groups'])}")
+
+
+def _extra_of(parsed):
+    return {"extra_session": parsed["extra_session"]} if parsed.get("extra_session") else {}
 
 
 def _periods_in(clause):
@@ -153,8 +200,13 @@ def parse_change_text(text, user, now=None):
             out["allow_slots"].append({"days": allow_days, "periods": periods or []})
         if not avoid_days and not allow_days and periods:
             out["allow_slots"].append({"days": [], "periods": periods})
-    # unavailable vs move
-    if re.search(LEAVE, t) and not out["session_id"] and out["avoid_slots"] + out["allow_slots"]:
+    # extra session (an addition), unavailable (leave) or move
+    if re.search(EXTRA, t) and not re.search(LEAVE, t):
+        out["intent"] = "extra"
+        out["session_id"], out["options"] = None, []
+        if not out["denied"]:
+            _extra_request(out, t, kinds, mine)
+    elif re.search(LEAVE, t) and not out["session_id"] and out["avoid_slots"] + out["allow_slots"]:
         slots = out["avoid_slots"] or out["allow_slots"]
         out["intent"] = "unavailable"
         out["days"] = sorted({d for s in slots for d in s["days"]})
@@ -242,6 +294,14 @@ def _run(pid, user, parsed, body, time_limit):
                                "days": parsed["days"], "periods": parsed["periods"],
                                "reason": body.reason or "Requested by faculty"}]}
             _compute(pid, ch, time_limit)
+        elif parsed["intent"] == "extra":
+            new = parsed["extra_session"]
+            pred = _pred(parsed["avoid_slots"], parsed["allow_slots"], new["duration"], None)
+            _compute(pid, {"changes": [{"type": "add_session", "session": new}]}, time_limit, restrict={new["id"]: pred})
+            if p["status"] in ("INFEASIBLE", "UNKNOWN"):
+                p["message"] = ("No valid slot exists for an extra " + new["kind"] + " of " + new["course_id"] +
+                                " with these preferences: " + (p.get("message") or "") if p["status"] == "INFEASIBLE"
+                                else "The solver could not finish in time; this is not proof that no slot exists.")
         else:
             s = next(x for x in WS.dataset["sessions"] if x["id"] == parsed["session_id"])
             cur = WS.schedule[parsed["session_id"]]
@@ -283,7 +343,8 @@ def change_request(body: ChangeBody, user=Depends(current_user)):
         if body.kind == "move" and not (body.session_id and (body.avoid_slots or body.allow_slots)):
             parsed["follow_up"] = "Choose a session and when it should (or should not) be."
         if body.kind not in ("move", "unavailable"):
-            return fail(422, "INVALID_INPUT", "kind must be 'move' or 'unavailable' when no text is given")
+            return fail(422, "INVALID_INPUT", "kind must be 'move' or 'unavailable' when no text is given; "
+                                              "describe an extra session in words")
     if parsed["denied"]:
         return fail(403, "FORBIDDEN", parsed["denied"], details={"security_flags": parsed["security_flags"]})
     if parsed["session_id"]:
@@ -300,7 +361,7 @@ def change_request(body: ChangeBody, user=Depends(current_user)):
             return fail(422, "INVALID_INPUT", "Days must be Monday-Friday and periods P1-P9")
     if parsed["follow_up"]:
         return ok({"status": "NEEDS_INFO", "question": parsed["follow_up"], "options": parsed["options"],
-                   "understood": {k: parsed[k] for k in ("intent", "session_id", "avoid_slots", "allow_slots", "days")},
+                   "understood": {k: parsed[k] for k in ("intent", "session_id", "avoid_slots", "allow_slots", "days")} | _extra_of(parsed),
                    "security_flags": parsed["security_flags"]})
     pid = uuid.uuid4().hex[:10]
     WS.proposals[pid] = {"proposal_id": pid, "type": "faculty_unavailable" if parsed["intent"] == "unavailable"
@@ -308,7 +369,7 @@ def change_request(body: ChangeBody, user=Depends(current_user)):
                          "dataset_version": WS.dataset["dataset_id"], "requested_by": user["username"],
                          "approved_by": None, "created_at": time.time(), "approved_at": None,
                          "request_text": body.text, "understood": {k: parsed[k] for k in (
-                             "intent", "session_id", "avoid_slots", "allow_slots", "days", "periods")},
+                             "intent", "session_id", "avoid_slots", "allow_slots", "days", "periods")} | _extra_of(parsed),
                          "security_flags": parsed["security_flags"]}
     threading.Thread(target=_run, args=(pid, user, parsed, body, 45), daemon=True).start()
     db.log(user["username"], "faculty_change_request", pid)

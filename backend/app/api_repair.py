@@ -40,6 +40,8 @@ def _compute(pid, changes, time_limit, restrict=None):
         p.update(status="PENDING", message="Awaiting Admin approval", moved=res["moved"],
                  moved_count=res["moved_count"], directly_affected=res["directly_affected"],
                  new_sessions=res["new_sessions"], removed_sessions=res["removed_sessions"],
+                 added=[{"session_id": sid, "new": {"day": res["assignment"][sid][0], "start_period": res["assignment"][sid][1],
+                                                     "room_id": res["assignment"][sid][2]}} for sid in res["new_sessions"]],
                  proven_minimum=res["proven_minimum"], lower_bound=res["lower_bound"],
                  strategy=res["strategy"], seconds=res["seconds"],
                  hard_violation_count=0, soft_total=rep["soft_total"],

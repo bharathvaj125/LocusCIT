@@ -18,7 +18,7 @@ applies a change only after a second Admin approves it. Every schedule is checke
 | Admin | `admin` | `Admin@123` | generates the timetable, exams and decisions, proposes changes, exports, decides requests |
 | Second Admin | `admin2` | `Admin@123` | approves what `admin` proposed (nobody approves their own request) |
 | Department coordinator | `coordinator` | `Coord@123` | CSE department: decides bookings of CSE labs, requests changes to CSE sessions |
-| Faculty | `faculty` | `Faculty@123` | Dr. Arjun Mehta (F06): own timetable, marks unavailability, asks to move a class |
+| Faculty | `faculty` | `Faculty@123` | Dr. Arjun Mehta (F06): own timetable, marks unavailability, asks to move a class or add an extra session |
 | Club representative | `club` | `Club@123` | Dramatics Society: requests venues and follows their status |
 
 The login page has one-click buttons for all five. Every role sees the same **Overview** (campus numbers, "Is a room free?"
@@ -33,7 +33,7 @@ For a clean start press *Reset demo data* (Overview, "Start over" card), then ru
 Free rooms are listed; open "taken rooms" to see what holds the others. *Venues & Spectra > Venue board* shows the same as a grid
 (hover the (i) on a closed room for the reason).
 
-**3. Read a timetable.** *Timetable* in the menu. Choose *Student group*, *Faculty* or *Room* and an item; click a class to see why it is there.
+**3. Read a timetable.** *Timetable* in the menu. Choose *Student group*, *Faculty* or *Room* and an item; click a class to see why it is there. The switch at the top has two modes: *Regular weeks*, and *Week 7 · Spectra*, which shows the same grid with approved events (evenings up to 22:00) and any class moved for Spectra week marked *MOVED W7*.
 *Midsem exams* has a calendar and a search box that finds a paper **or a venue** (try `LH-1`).
 
 **4. Make a booking request.** Sign in as `club`, *Assistant*. Type `seminar hall kal shaam 6 baje, 2 ghante, 100 log, mic chahiye`
@@ -71,6 +71,13 @@ python starter_pack/validator.py --data starter_pack/data/cit_public.json --sche
 | Submit venue requests, see their status | via Venues & Spectra | yes | yes | yes |
 
 The rules are enforced in the backend (`backend/app/permissions.py`); hiding a button is never the only protection.
+
+## Tech stack
+* **Backend:** Python 3.13, FastAPI, Pydantic, SQLAlchemy, Google OR-Tools CP-SAT (timetable, exams, minimal-change repair), PyJWT + bcrypt.
+* **Database:** PostgreSQL on Supabase in production, a local SQLite file when `DATABASE_URL` is unset.
+* **Frontend:** Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS 4, framer-motion, lucide-react.
+* **Hosting:** Render (API), Vercel (web app). **Validation:** the organisers' unmodified `starter_pack/validator.py`.
+* **AI (optional, off by default):** one Anthropic Messages API call to read booking text; see `AI_USAGE.md`.
 
 ## Architecture
 ```

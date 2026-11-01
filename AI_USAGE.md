@@ -26,7 +26,7 @@ as an editable draft with the assumptions listed. Instructions hidden in user te
 | --- | --- |
 | Claude Code (Anthropic) | Backend: solver modelling (OR-Tools CP-SAT), FastAPI endpoints, parsers, tests, deployment files and documentation. Frontend: connecting the screens to the real API (login, data layer, approvals, disruptions, assistant, exports) and removing mock data. Always under the team's direction and review. |
 | Figma (MCP connector, driven from the same assistant) | Design tokens, the style guide and the Timetable screen in the Figma file linked from `docs/DESIGN.md`; the visual identity was designed there and then implemented in code. |
-| _Frontend owner's tools_ | **To be completed by the frontend owner before submission** (every coding/design assistant actually used for the original UI). |
+| Google Antigravity (agentic coding IDE), model **Gemini 3.8 Flash** | Used by the frontend owner for the first version of the web UI: page layouts, components and styling. That UI was later connected to the real API, its mock data removed, and extended (Approvals, Changes, Exports, Assistant, Week 7 timetable and more) with Claude Code. |
 
 ## 4. Prompts
 Prompt files or links are kept in `docs/PROMPTS/`. Add the frontend owner's prompts there before submission.
