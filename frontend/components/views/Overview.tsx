@@ -117,7 +117,6 @@ export function Overview({ onNav }: { onNav: (n: NavRouteId) => void }) {
             <div className="border-t border-line bg-lagoon-50/60 px-6 py-4 flex flex-wrap items-center gap-4">
               <span className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-lagoon-500 opacity-60" /><span className="relative inline-flex rounded-full h-3 w-3 bg-lagoon-500" /></span>
               <p className="text-sm font-medium text-lagoon-900 flex-1 min-w-[240px]">{solverPhase.text}.</p>
-              <span className="font-mono text-sm text-lagoon-700 tabular">{Math.floor(p.elapsed / 60)}:{String(p.elapsed % 60).padStart(2, "0")}</span>
               <div className="w-full h-1.5 rounded-full bg-lagoon-200 overflow-hidden">
                 <motion.div className="h-full bg-lagoon-500" initial={{ width: "4%" }} animate={{ width: p.job?.phase === "optimising" ? "70%" : "28%" }} transition={{ duration: 6, ease: "easeOut" }} />
               </div>
