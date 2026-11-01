@@ -23,7 +23,7 @@ def test_only_admins_manage_accounts(client, admin, coordinator, faculty, club):
         assert new_user(client, h).status_code == 403
     assert client.get("/api/admin/users").status_code == 401
     users = client.get("/api/admin/users", headers=admin).json()["data"]["users"]
-    assert {"admin", "coordinator", "faculty", "club"} <= {u["username"] for u in users}
+    assert {"admin1", "coordinator1", "faculty1", "club1"} <= {u["username"] for u in users}
     assert all("hash" not in str(u).lower() for u in users)                # hashes never leave the server
 
 
@@ -52,7 +52,7 @@ def test_created_account_gets_a_one_time_password_and_must_change_it(client, adm
 def test_role_rules(client, admin):
     assert new_user(client, admin, username="x").status_code == 422                                  # too short
     assert new_user(client, admin, username="Has Space").status_code == 422
-    assert new_user(client, admin, username="club").status_code == 409                               # taken
+    assert new_user(client, admin, username="club1").status_code == 409                               # taken
     assert new_user(client, admin, role="club", organisation_id=None).status_code == 422             # club needs an organisation
     assert new_user(client, admin, role="club", organisation_id="org-cse-department").status_code == 422   # not a club
     assert new_user(client, admin, role="club", organisation_id="org-nope").status_code == 422
@@ -93,10 +93,10 @@ def test_deactivated_accounts_are_locked_out_at_once(client, admin):
 
 
 def test_admins_cannot_lock_themselves_out_or_remove_the_last_admin(client, admin):
-    assert client.patch("/api/admin/users/admin", json={"is_active": False}, headers=admin).status_code == 409
-    assert client.patch("/api/admin/users/admin", json={"role": "faculty"}, headers=admin).status_code == 409
+    assert client.patch("/api/admin/users/admin1", json={"is_active": False}, headers=admin).status_code == 409
+    assert client.patch("/api/admin/users/admin1", json={"role": "faculty"}, headers=admin).status_code == 409
     assert client.patch("/api/admin/users/admin2", json={"is_active": False}, headers=admin).status_code == 200      # another Admin remains
-    assert client.patch("/api/admin/users/admin", json={"is_active": False}, headers=admin).status_code == 409        # now the only active Admin
+    assert client.patch("/api/admin/users/admin1", json={"is_active": False}, headers=admin).status_code == 409        # now the only active Admin
     assert client.patch("/api/admin/users/admin2", json={"is_active": True}, headers=admin).status_code == 200
 
 
@@ -155,13 +155,13 @@ def test_admin_reset_restores_the_demo_accounts_and_removes_added_ones(client, a
     new_user(client, admin)
     post(client, admin, "/api/admin/organisations", {"name": "Temp Club", "type": "club"})
     client.patch("/api/admin/organisations/org-dramatics-society", json={"name": "Renamed"}, headers=admin)
-    post(client, admin, "/api/admin/users/club/reset-password", {"password": "Changed-pass-1"})
-    assert client.post("/api/auth/login", json={"username": "club", "password": "Club@123"}).status_code == 401
+    post(client, admin, "/api/admin/users/club1/reset-password", {"password": "Changed-pass-1"})
+    assert client.post("/api/auth/login", json={"username": "club1", "password": "Club@123"}).status_code == 401
     assert client.post("/api/admin/reset", headers=admin).status_code == 200
     users = {u["username"] for u in client.get("/api/admin/users", headers=admin).json()["data"]["users"]}
     orgs = {o["name"] for o in client.get("/api/admin/organisations", headers=admin).json()["data"]["organisations"]}
     assert "newperson" not in users and "Temp Club" not in orgs and "Dramatics Society" in orgs and "Renamed" not in orgs
-    assert client.post("/api/auth/login", json={"username": "club", "password": "Club@123"}).status_code == 200
+    assert client.post("/api/auth/login", json={"username": "club1", "password": "Club@123"}).status_code == 200
     assert client.get("/api/auth/me", headers=admin).status_code == 200                       # the Admin who pressed reset stays signed in
 
 

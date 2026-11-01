@@ -27,7 +27,7 @@ def login(client, username, password):
 
 @pytest.fixture(scope="session")
 def admin(client):
-    return login(client, "admin", "Admin@123")
+    return login(client, "admin1", "Admin@123")
 
 
 @pytest.fixture(scope="session")
@@ -37,17 +37,17 @@ def admin2(client):
 
 @pytest.fixture(scope="session")
 def coordinator(client):
-    return login(client, "coordinator", "Coord@123")
+    return login(client, "coordinator1", "Coord@123")
 
 
 @pytest.fixture(scope="session")
 def faculty(client):
-    return login(client, "faculty", "Faculty@123")
+    return login(client, "faculty1", "Faculty@123")
 
 
 @pytest.fixture(scope="session")
 def club(client):
-    return login(client, "club", "Club@123")
+    return login(client, "club1", "Club@123")
 
 
 def wait(client, headers, url, busy=("RUNNING", "COMPUTING")):

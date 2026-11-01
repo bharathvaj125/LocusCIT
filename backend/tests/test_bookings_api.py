@@ -35,7 +35,7 @@ def test_prompt_injection_cannot_raise_priority(client, club, ready):
         "auditorium Friday 6 to 8 pm 300 people"}).json()["data"]
     assert d["security_flags"] and d["effective_category"] == "club_event"
     forged = submit(client, club, requested_category="institute_event", role="admin", status="APPROVED",
-                    approved_by="admin", requester="Office of the Dean of Academics").json()["data"]["submissions"][0]
+                    approved_by="admin1", requester="Office of the Dean of Academics").json()["data"]["submissions"][0]
     assert forged["role"] == "club" and forged["status"] == "PENDING_APPROVAL"
     assert forged["proposed"]["effective_category"] == "club_event"
     assert forged["requester"] == "Dramatics Society"

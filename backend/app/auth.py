@@ -19,13 +19,14 @@ ROLES = ("admin", "department_coordinator", "faculty", "club")
 
 DEMO_USERS = [
     # username, password, role, display name, department, faculty_id, org
-    ("admin", "Admin@123", "admin", "Dean's Office (Admin)", None, None, "Office of the Dean of Academics"),
-    ("coordinator", "Coord@123", "department_coordinator", "CSE Department Coordinator", "CSE", None, "CSE Department"),
-    ("faculty", "Faculty@123", "faculty", "Dr. Arjun Mehta (Faculty)", "CSE", "F06", None),
-    ("club", "Club@123", "club", "Dramatics Society (Club representative)", None, None, "Dramatics Society"),
+    ("admin1", "Admin@123", "admin", "Dean's Office (Admin)", None, None, "Office of the Dean of Academics"),
+    ("coordinator1", "Coord@123", "department_coordinator", "CSE Department Coordinator", "CSE", None, "CSE Department"),
+    ("faculty1", "Faculty@123", "faculty", "Dr. Arjun Mehta (Faculty)", "CSE", "F06", None),
+    ("club1", "Club@123", "club", "Dramatics Society (Club representative)", None, None, "Dramatics Society"),
 ]
 # A second Admin is not seeded: an Admin creates one under Users when a different Admin has to approve a change.
 # Tests and local scripts that need the extra account set SEED_SECOND_ADMIN=true.
+LEGACY_DEMO = ("admin", "coordinator", "faculty", "club")
 SECOND_ADMIN = ("admin2", "Admin@123", "admin", "Deputy Dean (second Admin)", None, None, "Office of the Dean of Academics")
 
 
@@ -45,12 +46,13 @@ def seed_users(force=False):
     with db.engine.begin() as c:
         if os.getenv("SEED_SECOND_ADMIN", "").lower() != "true":
             c.execute(db.users.delete().where(db.users.c.username == SECOND_ADMIN[0]))     # the old demo second Admin is retired
+        c.execute(db.users.delete().where(db.users.c.username.in_(LEGACY_DEMO), db.users.c.is_seed == 1))    # the demo accounts used to be admin, faculty, ...
         have = {r[0] for r in c.execute(select(db.users.c.username))}
         orgs = {r[0]: r[1] for r in c.execute(select(db.organisations.c.name, db.organisations.c.id))}
         for u, pw, role, name, dept, fid, org in demo_users():
             if u in have and not force:
                 vals = {"is_seed": 1, "organisation_id": orgs.get(org)}
-                if u == "club":      # the demo label used to say "Club rep"; the role is now spelled out everywhere
+                if u == "club1":      # the demo label used to say "Club rep"; the role is now spelled out everywhere
                     c.execute(db.users.update().where(db.users.c.username == u, db.users.c.display_name == "Dramatics Society (Club rep)").values(display_name=name))
                 c.execute(db.users.update().where(db.users.c.username == u).values(**vals))
                 continue

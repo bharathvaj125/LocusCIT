@@ -28,4 +28,4 @@ You can use **New > Web Service** (no Blueprint needed).
 * About 0.1 CPU and 512 MB RAM. Measured locally with one worker: peak memory about 370 MB; generating the timetable needs
   roughly 4 CPU-seconds for a valid one plus about 15 for the optimiser, so allow several minutes of wall time on the free CPU.
   A valid timetable is published first and replaced only by a validator-checked improvement.
-* Check the deployment with `GET /api/health` and then sign in as `admin` (see README).
+* Check the deployment with `GET /api/health` and then sign in as `admin1` (see README).

@@ -60,8 +60,8 @@ def login(u, p):
     return data(r)["token"]
 
 
-ACCOUNTS = {"admin": ("admin", "Admin@123"), "admin2": ("admin2", "Admin@123"), "coordinator": ("coordinator", "Coord@123"),
-            "faculty": ("faculty", "Faculty@123"), "club": ("club", "Club@123")}
+ACCOUNTS = {"admin": ("admin1", "Admin@123"), "admin2": ("admin2", "Admin@123"), "coordinator": ("coordinator1", "Coord@123"),
+            "faculty": ("faculty1", "Faculty@123"), "club": ("club1", "Club@123")}
 
 
 def tokens():

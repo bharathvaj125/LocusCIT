@@ -7,7 +7,7 @@ applies a change only after a second Admin approves it. Every schedule is checke
 
 * **Live app:** https://locus-cit.vercel.app
 * API: https://locuscit.onrender.com (health: `/api/health`, docs: `/docs`)
-* Video: _TBD_
+* Video: _TBD_ (recording plan: [docs/VIDEO_PLAN.md](docs/VIDEO_PLAN.md))
 
 > The API runs on a free server that sleeps after 15 minutes idle. If the first screen says it is waking up, wait about a
 > minute; the page retries by itself.
@@ -15,16 +15,16 @@ applies a change only after a second Admin approves it. Every schedule is checke
 ## Sign in (demo accounts, same on the live site)
 | Role | Username | Password | What this account is for |
 | --- | --- | --- | --- |
-| Admin | `admin` | `Admin@123` | generates the timetable, exams and decisions, proposes changes, exports, decides requests |
-| Department coordinator | `coordinator` | `Coord@123` | CSE department: decides bookings of CSE labs, requests changes to CSE sessions |
-| Faculty | `faculty` | `Faculty@123` | Dr. Arjun Mehta (F06): own timetable, marks unavailability, asks to move a class or add an extra session |
-| Club representative | `club` | `Club@123` | Dramatics Society: requests venues and follows their status |
+| Admin | `admin1` | `Admin@123` | generates the timetable, exams and decisions, proposes changes, exports, decides requests |
+| Department coordinator | `coordinator1` | `Coord@123` | CSE department: decides bookings of CSE labs, requests changes to CSE sessions |
+| Faculty | `faculty1` | `Faculty@123` | Dr. Arjun Mehta (F06): own timetable, marks unavailability, asks to move a class or add an extra session |
+| Club representative | `club1` | `Club@123` | Dramatics Society: requests venues and follows their status |
 
 The login page has one-click buttons for all four. Every role sees the same **Overview** (campus numbers, "Is a room free?"
 and approved events) and can read any timetable; only requests and approvals are private to the people involved.
 
 ## A first visit, in order (about 10 minutes)
-**1. Set up as `admin` (Overview page).** Press *Run again* on each step if a step is not done:
+**1. Set up as `admin1` (Overview page).** Press *Run again* on each step if a step is not done:
 *Generate the timetable* (1-2 minutes; a valid timetable shows first and then improves), *Schedule midsem exams*, *Decide Spectra requests*.
 For a clean start press *Reset demo data* (Overview, "Start over" card), then run the three steps again.
 
@@ -37,22 +37,22 @@ Free rooms are listed; open "taken rooms" to see what holds the others. *Venues 
 **3. Read a timetable.** *Timetable* in the menu. Choose *Student group*, *Faculty* or *Room* and an item; click a class to see why it is there. The switch at the top has two modes: *Regular weeks*, and *Week 7 · Spectra*, which shows the same grid with approved events (evenings up to 22:00) and any class moved for Spectra week marked *MOVED W7*.
 *Midsem exams* has a calendar and a search box that finds a paper **or a venue** (try `LH-1`).
 
-**4. Make a booking request.** Sign in as `club`, *Assistant*. Type `seminar hall kal shaam 6 baje, 2 ghante, 100 log, mic chahiye`
+**4. Make a booking request.** Sign in as `club1`, *Assistant*. Type `seminar hall kal shaam 6 baje, 2 ghante, 100 log, mic chahiye`
 (or press *Fill in the details myself*). *Check availability* only looks; *Check the rules and submit* sends it. It stays **pending**
 until an approver decides. Wrong input is explained next to the button, for example an unknown room name.
 
-**5. Approve a request.** Sign in as `admin` (or `coordinator` for a CSE-lab request), *Approvals*. Each card says who may decide it.
+**5. Approve a request.** Sign in as `admin1` (or `coordinator1` for a CSE-lab request), *Approvals*. Each card says who may decide it.
 The requester can never decide their own request.
 
-**6. Apply a change file and approve it.** As `admin`, *Changes*:
+**6. Apply a change file and approve it.** As `admin1`, *Changes*:
 * upload your own JSON file (format in `starter_pack/README.md`), **or** press *Load the sample disruption*,
   **or** build one with the form ("Build a change without writing JSON").
 * The page reads the file back in plain words and flags anything the app will refuse, then press *Propose a repair*.
 * The solver finds a valid timetable that moves the fewest sessions (it tells you when that is proven minimal) and shows every
   session before and after. **Nothing changes yet.**
-* A change `admin` proposed has to be approved by a **different** Admin. There is no second Admin in the demo data: open *Users*, press *Add a user*, choose the role Admin, give it a name and a username and copy the temporary password. Sign out, sign in as that user, choose a new password, then open *Changes* (or *Approvals*) and press *Approve and apply*. The timetable is re-checked first.
+* A change `admin1` proposed has to be approved by a **different** Admin. There is no second Admin in the demo data: open *Users*, press *Add a user*, choose the role Admin, give it a name and a username and copy the temporary password. Sign out, sign in as that user, choose a new password, then open *Changes* (or *Approvals*) and press *Approve and apply*. The timetable is re-checked first.
 
-**7. Check the exports.** As `admin`, *Exports*. The page shows what the official validator says about `schedule.json` and
+**7. Check the exports.** As `admin1`, *Exports*. The page shows what the official validator says about `schedule.json` and
 `schedule_after.json` (hard violations, soft penalty, booking score, sessions moved) and downloads both files.
 Or run it yourself:
 ```

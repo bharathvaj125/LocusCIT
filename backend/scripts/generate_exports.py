@@ -41,7 +41,7 @@ def main():
         def login(u, p):
             r = c.post("/api/auth/login", json={"username": u, "password": p}).json()["data"]["token"]
             return {"Authorization": "Bearer " + r}
-        admin, admin2 = login("admin", "Admin@123"), login("admin2", "Admin@123")
+        admin, admin2 = login("admin1", "Admin@123"), login("admin2", "Admin@123")
         c.post("/api/admin/reset", headers=admin)
         job = c.post(f"/api/schedules/generate?time_limit={optimise}", headers=admin).json()["data"]["job_id"]
         j = wait(c, admin, f"/api/jobs/{job}")

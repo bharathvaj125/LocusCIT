@@ -60,7 +60,7 @@ def test_coordinator_decides_their_own_departments_lab_without_a_second_approver
     r = decide(client, coordinator, s["id"])
     assert r.status_code == 200 and r.json()["data"]["status"] == "APPROVED"      # one approver is enough
     done = find(client, coordinator, s["id"])
-    assert done["decided_by"] == "coordinator" and done["decided_role"] == "department_coordinator" and done["decided_at"]
+    assert done["decided_by"] == "coordinator1" and done["decided_role"] == "department_coordinator" and done["decided_at"]
 
 
 def test_coordinator_cannot_decide_another_departments_lab_and_the_attempt_is_recorded(client, club, coordinator, admin, ready):
@@ -71,7 +71,7 @@ def test_coordinator_cannot_decide_another_departments_lab_and_the_attempt_is_re
         assert r.status_code == 403 and "ECE" in r.json()["errors"][0]["message"]
     assert find(client, admin, s["id"])["status"] == "PENDING_APPROVAL"            # untouched
     audit = client.get("/api/audit?limit=50", headers=admin).json()["data"]["events"]
-    assert any(e["action"] == "approval_denied" and e["actor"] == "coordinator" and s["id"] in e["detail"] for e in audit)
+    assert any(e["action"] == "approval_denied" and e["actor"] == "coordinator1" and s["id"] in e["detail"] for e in audit)
     assert decide(client, admin, s["id"]).status_code == 200                       # Admin can
 
 

@@ -7,7 +7,7 @@ SP = pathlib.Path(__file__).resolve().parents[2] / "starter_pack"
 
 
 def test_login_and_unauthenticated_access(client):
-    assert client.post("/api/auth/login", json={"username": "admin", "password": "wrong"}).status_code == 401
+    assert client.post("/api/auth/login", json={"username": "admin1", "password": "wrong"}).status_code == 401
     for url in ("/api/dashboard", "/api/rooms", "/api/schedules?view=room&id=AUD", "/api/exams", "/api/bookings"):
         assert client.get(url).status_code == 401, url
     assert client.get("/api/dashboard", headers={"Authorization": "Bearer garbage"}).status_code == 401

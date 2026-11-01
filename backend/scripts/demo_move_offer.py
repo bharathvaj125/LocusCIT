@@ -27,7 +27,7 @@ def main():
     with TestClient(app) as c:
         def login(u, p):
             return {"Authorization": "Bearer " + c.post("/api/auth/login", json={"username": u, "password": p}).json()["data"]["token"]}
-        admin, admin2, club, fac = login("admin", "Admin@123"), login("admin2", "Admin@123"), login("club", "Club@123"), login("faculty", "Faculty@123")
+        admin, admin2, club, fac = login("admin1", "Admin@123"), login("admin2", "Admin@123"), login("club1", "Club@123"), login("faculty1", "Faculty@123")
         c.post("/api/admin/reset", headers=admin)
         jid = c.post("/api/schedules/generate?time_limit=0", headers=admin).json()["data"]["job_id"]
         while c.get(f"/api/jobs/{jid}", headers=admin).json()["data"]["status"] in ("RUNNING", "COMPUTING"):

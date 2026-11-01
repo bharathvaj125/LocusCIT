@@ -37,10 +37,10 @@ export const NAV_ROUTES: NavRoute[] = [
 
 /** Demo accounts listed in the README. Passwords are public demo credentials, not secrets. */
 export const DEMO_ACCOUNTS: Array<{ username: string; password: string; label: string; role: string; blurb: string }> = [
-  { username: "admin", password: "Admin@123", label: "Admin", role: "Dean's Office", blurb: "Generates, approves, exports" },
-  { username: "coordinator", password: "Coord@123", label: "Coordinator", role: "CSE department", blurb: "Department events and labs" },
-  { username: "faculty", password: "Faculty@123", label: "Faculty", role: "Dr. Arjun Mehta", blurb: "Own timetable and changes" },
-  { username: "club", password: "Club@123", label: "Club Representative", role: "Dramatics Society", blurb: "Venue requests" },
+  { username: "admin1", password: "Admin@123", label: "Admin", role: "Dean's Office", blurb: "Generates, approves, exports" },
+  { username: "coordinator1", password: "Coord@123", label: "Coordinator", role: "CSE department", blurb: "Department events and labs" },
+  { username: "faculty1", password: "Faculty@123", label: "Faculty", role: "Dr. Arjun Mehta", blurb: "Own timetable and changes" },
+  { username: "club1", password: "Club@123", label: "Club Representative", role: "Dramatics Society", blurb: "Venue requests" },
 ];
 
 export const PERIOD_CLOCK: Record<number, string> = {

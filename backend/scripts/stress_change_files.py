@@ -88,7 +88,7 @@ CASES = {
 
 def main():
     only = sys.argv[1:] or [c.split()[0] for c in CASES]
-    a1, a2 = login("admin", "Admin@123"), login("admin2", "Admin@123")
+    a1, a2 = login("admin1", "Admin@123"), login("admin2", "Admin@123")
     for name, chg in CASES.items():
         pre = name.split()[0]
         if pre not in only:
