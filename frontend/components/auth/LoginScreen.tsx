@@ -58,7 +58,7 @@ export function LoginScreen({ onSignedIn, notice }: { onSignedIn: (s: StoredSess
         <div className="relative z-10 flex items-center justify-between">
           <div className="flex items-center gap-3.5">
             <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-amber-400/20 to-lagoon-800 p-1 border border-amber-500/30 flex items-center justify-center shadow-[0_4px_16px_rgba(233,169,58,0.3)]">
-              <Image src="/locus_logo_transparent.png" alt="Locus Logo" width={42} height={42} className="object-contain" priority />
+              <Image src="/locus_app_transparent.png" alt="Locus Logo" width={42} height={42} className="object-contain" priority />
             </div>
             <div className="leading-tight">
               <div className="font-display text-3xl font-semibold tracking-[-0.02em] flex items-center gap-2">
@@ -104,7 +104,7 @@ export function LoginScreen({ onSignedIn, notice }: { onSignedIn: (s: StoredSess
           <div className="lg:hidden flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400/20 to-lagoon-800 p-1 border border-amber-500/30 flex items-center justify-center shadow-[0_4px_14px_rgba(233,169,58,0.25)]">
-                <Image src="/locus_logo_transparent.png" alt="Locus Logo" width={32} height={32} className="object-contain" priority />
+                <Image src="/locus_app_transparent.png" alt="Locus Logo" width={32} height={32} className="object-contain" priority />
               </div>
               <div className="font-display text-2xl font-bold tracking-[-0.02em]">Locus</div>
             </div>

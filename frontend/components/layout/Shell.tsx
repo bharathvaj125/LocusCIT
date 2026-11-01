@@ -55,7 +55,7 @@ function Rail({ user, dashboard, nav, onNav, onSwitch, onSignOut, onClose, switc
     <div className="relative h-full w-[248px] bg-lagoon-900 text-lagoon-200 flex flex-col overflow-hidden">
       <div className="px-5 pt-6 pb-5 flex items-center gap-3">
         <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400/20 to-lagoon-800 p-1 border border-amber-500/30 flex items-center justify-center shadow-[0_4px_14px_rgba(233,169,58,0.25)]">
-          <Image src="/locus_logo_transparent.png" alt="Locus Logo" width={32} height={32} className="object-contain" priority />
+          <Image src="/locus_app_transparent.png" alt="Locus Logo" width={32} height={32} className="object-contain" priority />
         </div>
         <div className="leading-tight">
           <div className="font-display text-[22px] font-semibold text-raised tracking-[-0.02em] flex items-center gap-1.5">

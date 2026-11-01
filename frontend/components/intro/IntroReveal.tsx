@@ -11,44 +11,48 @@ interface IntroRevealProps {
 }
 
 export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps) {
-  // Stages: "college" -> "transition" -> "locus" -> "complete"
+  // Stages: "college" -> "transition" -> "locus"
   const [stage, setStage] = useState<"college" | "transition" | "locus">("college");
-  const [progress, setProgress] = useState(0);
+  const [locusProgress, setLocusProgress] = useState(0);
 
   useEffect(() => {
-    // Total sequence: ~9.2 seconds for slow, cinematic zoom-out reveals
-    // Stage 1: College logo slow zoom-out reveal (0 to 3600ms)
+    // Stage 1: College logo reveal with "PRESENTS" animation (0 to 3800ms)
     const t1 = setTimeout(() => {
       setStage("transition");
-    }, 3600);
+    }, 3800);
 
-    // Stage 2: App logo slow zoom-out reveal (4000ms to 9200ms)
+    // Stage 2: App logo zoom-out reveal & initializing bar appears (4200ms)
     const t2 = setTimeout(() => {
       setStage("locus");
-    }, 4000);
+    }, 4200);
 
-    // Stage 3: Auto-complete at 9200ms
+    // Stage 3: Auto-complete at 9800ms
     const t3 = setTimeout(() => {
       handleComplete();
-    }, 9200);
-
-    // Smooth progress ticker across 9200ms
-    const start = Date.now();
-    const duration = 9200;
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - start;
-      const pct = Math.min(100, (elapsed / duration) * 100);
-      setProgress(pct);
-      if (pct >= 100) clearInterval(interval);
-    }, 35);
+    }, 9800);
 
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
       clearTimeout(t3);
-      clearInterval(interval);
     };
   }, []);
+
+  // Run progress ticker ONLY when locus stage is active
+  useEffect(() => {
+    if (stage !== "locus") return;
+
+    const start = Date.now();
+    const duration = 5400; // 5.4 seconds from locus appearance to complete
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - start;
+      const pct = Math.min(100, (elapsed / duration) * 100);
+      setLocusProgress(pct);
+      if (pct >= 100) clearInterval(interval);
+    }, 35);
+
+    return () => clearInterval(interval);
+  }, [stage]);
 
   const handleComplete = () => {
     if (typeof window !== "undefined") {
@@ -96,14 +100,14 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
         {stage === "locus" && (
           <motion.div
             initial={{ opacity: 0, scale: 0.6 }}
-            animate={{ opacity: 0.65, scale: 1.35 }}
+            animate={{ opacity: 0.7, scale: 1.35 }}
             transition={{ duration: 2.2, ease: "easeOut" }}
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[540px] h-[540px] rounded-full bg-[#e9a93a]/25 blur-[100px]"
           />
         )}
       </div>
 
-      {/* Top Bar (top-left text removed, only clean Skip button on top-right) */}
+      {/* Top Bar: Clean Skip button on top-right */}
       <div className="absolute top-0 inset-x-0 p-6 sm:p-8 flex items-center justify-end z-20">
         <button
           onClick={handleComplete}
@@ -115,19 +119,19 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
       </div>
 
       {/* Central Animation Stage */}
-      <div className="relative z-10 flex flex-col items-center justify-center w-full max-w-4xl px-6 min-h-[460px]">
+      <div className="relative z-10 flex flex-col items-center justify-center w-full max-w-4xl px-6 min-h-[480px]">
         <AnimatePresence mode="wait">
-          {/* ================= STAGE 1: COLLEGE LOGO SLOW ZOOM-OUT REVEAL ================= */}
+          {/* ================= STAGE 1: COLLEGE LOGO REVEAL WITH 'PRESENTS' ================= */}
           {(stage === "college" || stage === "transition") && (
             <motion.div
               key="college-stage"
               initial={{ opacity: 0, scale: 2.4, filter: "blur(14px)" }}
               animate={
                 stage === "transition"
-                  ? { opacity: 0, scale: 0.5, filter: "blur(8px)" }
+                  ? { opacity: 0, scale: 0.45, filter: "blur(8px)" }
                   : { opacity: 1, scale: 1, filter: "blur(0px)" }
               }
-              exit={{ opacity: 0, scale: 0.4, filter: "blur(8px)" }}
+              exit={{ opacity: 0, scale: 0.35, filter: "blur(8px)" }}
               transition={{
                 duration: stage === "transition" ? 0.45 : 2.4,
                 ease: [0.16, 1, 0.3, 1],
@@ -166,7 +170,7 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.8, duration: 1.1, ease: "easeOut" }}
-                className="mt-7 flex flex-col items-center gap-1.5"
+                className="mt-6 flex flex-col items-center gap-1.5"
               >
                 <div className="text-[11px] sm:text-xs font-mono uppercase tracking-[0.35em] text-[#e9a93a]">
                   Established 2004
@@ -182,6 +186,20 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
                   <span>EXCEL</span>
                 </div>
               </motion.div>
+
+              {/* Animated PRESENTS under the logo */}
+              <motion.div
+                initial={{ opacity: 0, letterSpacing: "0.2em", y: 12 }}
+                animate={{
+                  opacity: [0, 1, 0.95],
+                  letterSpacing: ["0.2em", "0.55em"],
+                  y: 0,
+                }}
+                transition={{ delay: 1.6, duration: 1.6, ease: "easeOut" }}
+                className="mt-7 text-xs sm:text-sm font-mono uppercase font-semibold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-yellow-100 to-amber-300 drop-shadow-[0_0_16px_rgba(233,169,58,0.75)]"
+              >
+                PRESENTS
+              </motion.div>
             </motion.div>
           )}
 
@@ -191,14 +209,14 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
               key="locus-stage"
               className="flex flex-col items-center text-center relative"
             >
-              {/* LOCUS APP LOGO: SLOW ZOOM OUT REVEAL */}
+              {/* LOCUS APP LOGO: SLOW ZOOM OUT REVEAL (Uses the first uploaded image with emblem & LOCUS lettering) */}
               <div className="relative flex items-center justify-center">
                 {/* Background Golden Shockwave */}
                 <motion.div
                   initial={{ scale: 0.3, opacity: 0 }}
                   animate={{ scale: [0.8, 1.6], opacity: [0.8, 0] }}
                   transition={{ duration: 2.2, ease: "easeOut" }}
-                  className="absolute w-72 h-72 rounded-full border-2 border-[#e9a93a] blur-[2px]"
+                  className="absolute w-80 h-80 rounded-full border-2 border-[#e9a93a] blur-[2px]"
                 />
 
                 {/* Golden Glow Aura */}
@@ -206,10 +224,10 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
                   initial={{ opacity: 0 }}
                   animate={{ opacity: [0.4, 0.85, 0.6] }}
                   transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                  className="absolute w-64 h-64 sm:w-80 sm:h-80 rounded-full bg-gradient-to-b from-[#e9a93a]/35 via-[#c98020]/25 to-transparent blur-3xl pointer-events-none"
+                  className="absolute w-72 h-72 sm:w-96 sm:h-96 rounded-full bg-gradient-to-b from-[#e9a93a]/35 via-[#c98020]/25 to-transparent blur-3xl pointer-events-none"
                 />
 
-                {/* THE SLOW ZOOM-OUT 3D METALLIC EMBLEM */}
+                {/* THE SLOW ZOOM-OUT 3D METALLIC EMBLEM & LOCUS TYPOGRAPHY */}
                 <motion.div
                   initial={{
                     scale: 2.6,
@@ -226,11 +244,11 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
                     times: [0, 0.8, 1],
                     ease: [0.16, 1, 0.3, 1],
                   }}
-                  className="relative w-56 h-48 sm:w-68 sm:h-60 drop-shadow-[0_16px_45px_rgba(233,169,58,0.5)]"
+                  className="relative w-64 h-64 sm:w-80 sm:h-80 drop-shadow-[0_20px_50px_rgba(233,169,58,0.5)]"
                 >
                   <Image
-                    src="/locus_logo_transparent.png"
-                    alt="Locus App Logo"
+                    src="/locus_intro_transparent.png"
+                    alt="Locus Logo with Typography"
                     fill
                     priority
                     className="object-contain"
@@ -246,12 +264,12 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
                 </motion.div>
               </div>
 
-              {/* ================= ANIMATED LOGO DISPLAY UNDER IT ================= */}
+              {/* ================= ANIMATED ACCENTS UNDER THE LOGO ================= */}
               <motion.div
-                initial={{ opacity: 0, y: 22 }}
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 1.1, delay: 1.2, ease: "easeOut" }}
-                className="mt-5 flex flex-col items-center w-full"
+                className="mt-3 flex flex-col items-center w-full"
               >
                 {/* Glowing Laser Horizon Line with Center Sparkle */}
                 <div className="relative w-full max-w-md flex items-center justify-center my-2">
@@ -269,10 +287,10 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
                   />
                 </div>
 
-                {/* Animated Interactive Emblem Bar under the logo */}
-                <div className="flex items-center gap-4 mt-2 mb-2">
-                  {/* Rotating Quantum Gyroscope Ring Animation (Left) */}
-                  <div className="relative w-8 h-8 flex items-center justify-center">
+                {/* Animated Gyroscope & Wave Accents flanking the Subtitle */}
+                <div className="flex items-center gap-4 mt-2">
+                  {/* Rotating Quantum Gyroscope Ring (Left) */}
+                  <div className="relative w-7 h-7 flex items-center justify-center">
                     <motion.div
                       animate={{ rotate: 360 }}
                       transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
@@ -281,30 +299,28 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
                     <motion.div
                       animate={{ rotate: -360 }}
                       transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
-                      className="absolute inset-1.5 rounded-full border border-[#e9a93a]/70"
+                      className="absolute inset-1 rounded-full border border-[#e9a93a]/70"
                     />
                     <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] shadow-[0_0_8px_#10b981]" />
                   </div>
 
-                  {/* Golden Kinetic Brand Logotype */}
-                  <div className="flex flex-col items-center">
-                    <motion.span
-                      initial={{ letterSpacing: "0.2em", opacity: 0 }}
-                      animate={{ letterSpacing: "0.35em", opacity: 1 }}
-                      transition={{ duration: 1.1, delay: 1.4 }}
-                      className="text-2xl sm:text-3xl font-extrabold uppercase font-display tracking-[0.35em] text-transparent bg-clip-text bg-gradient-to-r from-[#e9a93a] via-[#ffe89e] to-[#c98020] drop-shadow-[0_2px_12px_rgba(233,169,58,0.5)]"
-                    >
-                      LOCUS
-                    </motion.span>
-                  </div>
+                  {/* Subtitle */}
+                  <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.9, delay: 1.5 }}
+                    className="text-xs sm:text-sm font-mono uppercase tracking-[0.24em] text-[#86c0c8] text-center"
+                  >
+                    Campus Operations &amp; Spatial Logistics Engine
+                  </motion.p>
 
-                  {/* Audio / Spatial Frequency Waves Animation (Right) */}
-                  <div className="flex items-center gap-1 h-8 px-2">
-                    {[16, 24, 30, 20, 26, 14].map((h, idx) => (
+                  {/* Audio / Spatial Frequency Waves (Right) */}
+                  <div className="flex items-center gap-1 h-7 px-1">
+                    {[14, 22, 28, 18, 24, 12].map((h, idx) => (
                       <motion.div
                         key={idx}
                         animate={{
-                          height: [8, h, 10, h * 0.8, 8],
+                          height: [6, h, 8, h * 0.8, 6],
                         }}
                         transition={{
                           duration: 1.3,
@@ -318,56 +334,54 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
                     ))}
                   </div>
                 </div>
-
-                {/* Subtitle */}
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.9, delay: 1.6 }}
-                  className="text-xs sm:text-sm font-mono uppercase tracking-[0.22em] text-[#86c0c8] max-w-lg text-center"
-                >
-                  Campus Operations &amp; Spatial Logistics Engine
-                </motion.p>
               </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* Bottom Initializing Progress Bar */}
-      <div className="absolute bottom-0 inset-x-0 p-6 sm:p-8 flex flex-col items-center gap-3 z-20">
-        <div className="w-full max-w-md flex items-center justify-between text-[11px] font-mono text-[#5c8b93]">
-          <span className="flex items-center gap-2">
-            <Terminal className="w-3.5 h-3.5 text-[#1f8a96]" />
-            {stage === "college"
-              ? "INITIALIZING INSTITUTIONAL DATA..."
-              : stage === "transition"
-              ? "SYNCHRONIZING CAMPUS MAP..."
-              : "ORCHESTRATION ENGINE READY"}
-          </span>
-          <span className="text-[#e9a93a]">{Math.round(progress)}%</span>
-        </div>
-
-        {/* Progress Track */}
-        <div className="w-full max-w-md h-1.5 bg-[#08222d] rounded-full overflow-hidden border border-[#1f8a96]/20">
+      {/* ================= BOTTOM INITIALIZING PROGRESS BAR (Appears ONLY during Locus stage) ================= */}
+      <AnimatePresence>
+        {stage === "locus" && (
           <motion.div
-            className="h-full bg-gradient-to-r from-[#1f8a96] via-[#e9a93a] to-[#ffffff] shadow-[0_0_8px_#e9a93a]"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
+            initial={{ opacity: 0, y: 35 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 25 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="absolute bottom-0 inset-x-0 p-6 sm:p-8 flex flex-col items-center gap-3 z-20"
+          >
+            <div className="w-full max-w-md flex items-center justify-between text-[11px] font-mono text-[#5c8b93]">
+              <span className="flex items-center gap-2">
+                <Terminal className="w-3.5 h-3.5 text-[#1f8a96]" />
+                {locusProgress < 95
+                  ? "INITIALIZING SPATIAL ORCHESTRATION ENGINE..."
+                  : "ORCHESTRATION ENGINE READY"}
+              </span>
+              <span className="text-[#e9a93a]">{Math.round(locusProgress)}%</span>
+            </div>
 
-        {/* Enter Console Button */}
-        <motion.button
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 2.2 }}
-          onClick={handleComplete}
-          className="mt-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#061822] bg-gradient-to-r from-[#e9a93a] to-[#f4c26b] hover:from-[#f4c26b] hover:to-[#ffe099] px-6 py-2.5 rounded-xl shadow-[0_8px_24px_rgba(233,169,58,0.35)] transition-all transform hover:scale-[1.03] active:scale-[0.98] cursor-pointer"
-        >
-          <span>Enter Console</span>
-          <ChevronRight className="w-4 h-4" />
-        </motion.button>
-      </div>
+            {/* Progress Track */}
+            <div className="w-full max-w-md h-1.5 bg-[#08222d] rounded-full overflow-hidden border border-[#1f8a96]/20">
+              <motion.div
+                className="h-full bg-gradient-to-r from-[#1f8a96] via-[#e9a93a] to-[#ffffff] shadow-[0_0_8px_#e9a93a]"
+                style={{ width: `${locusProgress}%` }}
+              />
+            </div>
+
+            {/* Enter Console Button */}
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1.2 }}
+              onClick={handleComplete}
+              className="mt-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#061822] bg-gradient-to-r from-[#e9a93a] to-[#f4c26b] hover:from-[#f4c26b] hover:to-[#ffe099] px-6 py-2.5 rounded-xl shadow-[0_8px_24px_rgba(233,169,58,0.35)] transition-all transform hover:scale-[1.03] active:scale-[0.98] cursor-pointer"
+            >
+              <span>Enter Console</span>
+              <ChevronRight className="w-4 h-4" />
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
