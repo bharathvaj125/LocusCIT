@@ -32,7 +32,7 @@ For a clean start press *Reset demo data* (Overview, "Start over" card), then ru
 Free rooms are listed; open "taken rooms" to see what holds the others. *Venues & Spectra > Venue board* shows the same as a grid
 (hover the (i) on a closed room for the reason).
 
-**Look and feel.** The app opens with a short intro (skip it with the button; replay it from the account menu). The sun/moon menu in the top right switches between Light, Dark and "match my device"; the choice is remembered in your browser.
+**Look and feel.** The app opens with a short intro (skip it with the button; replay it from the account menu). Pages are in the dock at the bottom of the screen: a line of stations with a small train that glides to the page you are on (arrow keys move between stations; on a phone the dock scrolls sideways). Your name and role are top right, with the account menu (switch demo account, replay the intro, sign out) and the sun/moon menu that switches between Light, Dark and "match my device"; that choice is remembered in your browser.
 
 **3. Read a timetable.** *Timetable* in the menu. Choose *Student group*, *Faculty* or *Room* and an item; click a class to see why it is there. The switch at the top has two modes: *Regular weeks*, and *Week 7 · Spectra*, which shows the same grid with approved events (evenings up to 22:00) and any class moved for Spectra week marked *MOVED W7*.
 *Midsem exams* has a calendar and a search box that finds a paper **or a venue** (try `LH-1`).
