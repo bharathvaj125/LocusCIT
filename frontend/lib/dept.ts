@@ -1,8 +1,9 @@
 /** Department colour language. Full class names so Tailwind can see them. */
-export type Tone = "lagoon" | "indigo" | "saffron" | "sunrise" | "mangrove" | "stone" | "plum";
+export type Tone = "teal" | "lagoon" | "indigo" | "saffron" | "sunrise" | "mangrove" | "stone" | "plum";
 
 export const TONES: Record<Tone, { soft: string; bar: string; text: string; dot: string; ring: string; hex: string }> = {
-  lagoon: { soft: "bg-lagoon-50", bar: "bg-lagoon-500", text: "text-lagoon-700", dot: "bg-lagoon-500", ring: "ring-lagoon-500/40", hex: "#1F8A96" },
+  teal: { soft: "bg-teal-50", bar: "bg-teal-500", text: "text-teal-700", dot: "bg-teal-500", ring: "ring-teal-500/40", hex: "#1F8A96" },
+  lagoon: { soft: "bg-lagoon-50", bar: "bg-lagoon-500", text: "text-lagoon-700", dot: "bg-lagoon-500", ring: "ring-lagoon-500/40", hex: "#C9962E" },
   indigo: { soft: "bg-indigo-50", bar: "bg-indigo-500", text: "text-indigo-600", dot: "bg-indigo-500", ring: "ring-indigo-500/40", hex: "#3F5BA9" },
   saffron: { soft: "bg-saffron-50", bar: "bg-saffron-500", text: "text-saffron-600", dot: "bg-saffron-500", ring: "ring-saffron-500/40", hex: "#E9A93A" },
   sunrise: { soft: "bg-sunrise-50", bar: "bg-sunrise-500", text: "text-sunrise-600", dot: "bg-sunrise-500", ring: "ring-sunrise-500/40", hex: "#E4572E" },
@@ -13,7 +14,7 @@ export const TONES: Record<Tone, { soft: string; bar: string; text: string; dot:
 
 export function deptTone(dept: string | undefined | null): Tone {
   switch ((dept || "").toUpperCase()) {
-    case "CSE": return "lagoon";
+    case "CSE": return "teal";
     case "ECE": return "indigo";
     case "EE": return "saffron";
     case "ME": return "sunrise";
@@ -25,7 +26,7 @@ export function deptTone(dept: string | undefined | null): Tone {
 export const CATEGORY_TONE: Record<string, Tone> = {
   institute_event: "sunrise",
   guest_lecture: "indigo",
-  department_event: "lagoon",
+  department_event: "teal",
   club_event: "plum",
 };
 

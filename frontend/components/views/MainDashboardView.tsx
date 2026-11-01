@@ -30,21 +30,15 @@ export function MainDashboardView({ initialNav = "overview" }: { initialNav?: Na
   const [session, setSession] = useState<StoredSession | null>(null);
   const [ready, setReady] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const [showIntro, setShowIntro] = useState(true);
+  const [showIntro, setShowIntro] = useState(false);
   const [introKey, setIntroKey] = useState(1);
 
   useEffect(() => {
     setSession(loadSession());
+    let seen = false;
+    try { seen = sessionStorage.getItem("locus_intro_seen") === "true"; } catch { /* storage blocked: show it */ }
+    setShowIntro(!seen);          // decided together with `ready`, so there is no frame of the sign-in page before the intro
     setReady(true);
-
-    try {
-      const seen = sessionStorage.getItem("locus_intro_seen");
-      if (seen === "true") {
-        setShowIntro(false);
-      }
-    } catch {
-      // ignore
-    }
 
     const handleReplay = () => {
       try {
@@ -68,7 +62,7 @@ export function MainDashboardView({ initialNav = "overview" }: { initialNav?: Na
   return (
     <>
       <AnimatePresence mode="wait">
-        {showIntro && (
+        {ready && showIntro && (
           <IntroReveal
             key={introKey}
             onComplete={() => setShowIntro(false)}
@@ -76,8 +70,8 @@ export function MainDashboardView({ initialNav = "overview" }: { initialNav?: Na
         )}
       </AnimatePresence>
 
-      {!ready ? (
-        <div className="min-h-screen" />
+      {!ready || showIntro ? (
+        <div className="min-h-screen bg-[#05070d]" aria-hidden />
       ) : !session ? (
         <LoginScreen notice={notice} onSignedIn={(s) => { setNotice(null); setSession(s); }} />
       ) : (

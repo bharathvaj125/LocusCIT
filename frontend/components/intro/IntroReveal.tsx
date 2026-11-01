@@ -68,11 +68,11 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
   return (
     <motion.div
       key="intro-overlay"
-      initial={{ opacity: 0 }}
+      initial={{ opacity: 1 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, scale: 1.04, filter: "blur(8px)" }}
       transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-      className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[#03090e] text-[#fbf8f2] select-none overflow-hidden font-sans p-4 sm:p-6"
+      className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[#05070d] text-[#fbf8f2] select-none overflow-hidden font-sans p-4 sm:p-6"
     >
       {/* Background ambient lighting effects */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -80,7 +80,7 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
         <div
           className="absolute inset-0 opacity-15"
           style={{
-            backgroundImage: `radial-gradient(rgba(31, 138, 150, 0.3) 1px, transparent 1px), radial-gradient(rgba(233, 169, 58, 0.15) 1px, transparent 1px)`,
+            backgroundImage: `radial-gradient(rgba(58, 88, 171, 0.3) 1px, transparent 1px), radial-gradient(rgba(217, 164, 65, 0.15) 1px, transparent 1px)`,
             backgroundSize: "40px 40px, 80px 80px",
             backgroundPosition: "0 0, 20px 20px",
           }}
@@ -93,7 +93,7 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
             opacity: [0.25, 0.45, 0.25],
           }}
           transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[720px] h-[720px] rounded-full bg-gradient-to-tr from-[#0e6270]/40 via-[#1f8a96]/30 to-[#e9a93a]/20 blur-[130px]"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[720px] h-[720px] rounded-full bg-gradient-to-tr from-[#1c2f66]/40 via-[#3a58ab]/30 to-[#d9a441]/20 blur-[130px]"
         />
 
         {/* Secondary gold flare during locus stage */}
@@ -102,7 +102,7 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
             initial={{ opacity: 0, scale: 0.6 }}
             animate={{ opacity: 0.7, scale: 1.35 }}
             transition={{ duration: 2.2, ease: "easeOut" }}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[540px] h-[540px] rounded-full bg-[#e9a93a]/25 blur-[100px]"
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[540px] h-[540px] rounded-full bg-[#d9a441]/25 blur-[100px]"
           />
         )}
       </div>
@@ -111,10 +111,10 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
       <div className="absolute top-0 inset-x-0 p-5 sm:p-8 flex items-center justify-end z-20">
         <button
           onClick={handleComplete}
-          className="group flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[#d0e5e8] hover:text-white bg-[#0a232e]/80 hover:bg-[#123644] px-4 py-2 rounded-full border border-[#1f8a96]/30 hover:border-[#e9a93a]/60 shadow-[0_4px_16px_rgba(0,0,0,0.4)] backdrop-blur-md transition-all cursor-pointer"
+          className="group flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[#e6e1d2] hover:text-white bg-[#0c1426]/80 hover:bg-[#1a2644] px-4 py-2 rounded-full border border-[#3a58ab]/30 hover:border-[#d9a441]/60 shadow-[0_4px_16px_rgba(0,0,0,0.4)] backdrop-blur-md transition-all cursor-pointer"
         >
           <span>Skip</span>
-          <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform text-[#e9a93a]" />
+          <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform text-[#d9a441]" />
         </button>
       </div>
 
@@ -144,17 +144,17 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: [0.95, 1.15, 1], opacity: [0.3, 0.75, 0.4] }}
                   transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
-                  className="absolute w-52 h-52 sm:w-60 sm:h-60 rounded-full border border-[#1f8a96]/40 shadow-[0_0_50px_rgba(31,138,150,0.5)]"
+                  className="absolute w-52 h-52 sm:w-60 sm:h-60 rounded-full border border-[#3a58ab]/40 shadow-[0_0_50px_rgba(58, 88, 171,0.5)]"
                 />
                 <motion.div
                   initial={{ scale: 0.85, opacity: 0 }}
                   animate={{ scale: [1, 1.25, 1.05], opacity: [0.2, 0.5, 0.2] }}
                   transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
-                  className="absolute w-60 h-60 sm:w-68 sm:h-68 rounded-full border border-[#e9a93a]/30"
+                  className="absolute w-60 h-60 sm:w-68 sm:h-68 rounded-full border border-[#d9a441]/30"
                 />
 
                 {/* College Seal Image */}
-                <div className="relative w-40 h-40 sm:w-48 sm:h-48 drop-shadow-[0_12px_40px_rgba(31,138,150,0.7)]">
+                <div className="relative w-40 h-40 sm:w-48 sm:h-48 drop-shadow-[0_12px_40px_rgba(58, 88, 171,0.7)]">
                   <Image
                     src="/college_logo_transparent.png"
                     alt="Chilika Institute of Technology Logo"
@@ -172,7 +172,7 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
                 transition={{ delay: 0.8, duration: 1.1, ease: "easeOut" }}
                 className="mt-6 flex flex-col items-center gap-1.5"
               >
-                <div className="text-[11px] sm:text-xs font-mono uppercase tracking-[0.35em] text-[#e9a93a]">
+                <div className="text-[11px] sm:text-xs font-mono uppercase tracking-[0.35em] text-[#d9a441]">
                   Established 2004
                 </div>
                 <h1 className="text-xl sm:text-3xl font-bold tracking-[0.14em] uppercase text-transparent bg-clip-text bg-gradient-to-r from-[#d9f2f5] via-[#ffffff] to-[#99d7de] drop-shadow-sm font-display">
@@ -180,9 +180,9 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
                 </h1>
                 <div className="flex items-center gap-3 mt-1 text-xs sm:text-sm font-mono tracking-[0.2em] text-[#71a6af]">
                   <span>LEARN</span>
-                  <span className="w-1 h-1 rounded-full bg-[#e9a93a]" />
+                  <span className="w-1 h-1 rounded-full bg-[#d9a441]" />
                   <span>INNOVATE</span>
-                  <span className="w-1 h-1 rounded-full bg-[#e9a93a]" />
+                  <span className="w-1 h-1 rounded-full bg-[#d9a441]" />
                   <span>EXCEL</span>
                 </div>
               </motion.div>
@@ -196,7 +196,7 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
                   y: 0,
                 }}
                 transition={{ delay: 1.6, duration: 1.6, ease: "easeOut" }}
-                className="mt-6 text-xs sm:text-sm font-mono uppercase font-semibold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-yellow-100 to-amber-300 drop-shadow-[0_0_16px_rgba(233,169,58,0.75)]"
+                className="mt-6 text-xs sm:text-sm font-mono uppercase font-semibold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-yellow-100 to-amber-300 drop-shadow-[0_0_16px_rgba(217, 164, 65,0.75)]"
               >
                 PRESENTS
               </motion.div>
@@ -216,7 +216,7 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
                   initial={{ scale: 0.3, opacity: 0 }}
                   animate={{ scale: [0.8, 1.6], opacity: [0.8, 0] }}
                   transition={{ duration: 2.2, ease: "easeOut" }}
-                  className="absolute w-72 h-72 rounded-full border-2 border-[#e9a93a] blur-[2px]"
+                  className="absolute w-72 h-72 rounded-full border-2 border-[#d9a441] blur-[2px]"
                 />
 
                 {/* Golden Glow Aura */}
@@ -224,7 +224,7 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
                   initial={{ opacity: 0 }}
                   animate={{ opacity: [0.4, 0.85, 0.6] }}
                   transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                  className="absolute w-64 h-64 sm:w-80 sm:h-80 rounded-full bg-gradient-to-b from-[#e9a93a]/35 via-[#c98020]/25 to-transparent blur-3xl pointer-events-none"
+                  className="absolute w-64 h-64 sm:w-80 sm:h-80 rounded-full bg-gradient-to-b from-[#d9a441]/35 via-[#c98020]/25 to-transparent blur-3xl pointer-events-none"
                 />
 
                 {/* THE SLOW ZOOM-OUT 3D METALLIC EMBLEM & LOCUS TYPOGRAPHY */}
@@ -244,7 +244,7 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
                     times: [0, 0.8, 1],
                     ease: [0.16, 1, 0.3, 1],
                   }}
-                  className="relative w-56 h-56 sm:w-72 sm:h-72 drop-shadow-[0_20px_50px_rgba(233,169,58,0.5)]"
+                  className="relative w-56 h-56 sm:w-72 sm:h-72 drop-shadow-[0_20px_50px_rgba(217, 164, 65,0.5)]"
                 >
                   <Image
                     src="/locus_intro_transparent.png"
@@ -277,7 +277,7 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
                     initial={{ scaleX: 0 }}
                     animate={{ scaleX: 1 }}
                     transition={{ duration: 1.2, delay: 1.2, ease: [0.16, 1, 0.3, 1] }}
-                    className="w-full h-[1.5px] bg-gradient-to-r from-transparent via-[#e9a93a] to-transparent shadow-[0_0_12px_#e9a93a]"
+                    className="w-full h-[1.5px] bg-gradient-to-r from-transparent via-[#d9a441] to-transparent shadow-[0_0_12px_#d9a441]"
                   />
                   <motion.div
                     initial={{ scale: 0, rotate: 0 }}
@@ -294,14 +294,14 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
                     <motion.div
                       animate={{ rotate: 360 }}
                       transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-                      className="absolute inset-0 rounded-full border border-dashed border-[#1f8a96]/70"
+                      className="absolute inset-0 rounded-full border border-dashed border-[#3a58ab]/70"
                     />
                     <motion.div
                       animate={{ rotate: -360 }}
                       transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
-                      className="absolute inset-1 rounded-full border border-[#e9a93a]/70"
+                      className="absolute inset-1 rounded-full border border-[#d9a441]/70"
                     />
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] shadow-[0_0_8px_#10b981]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#e9c468] shadow-[0_0_8px_#e9c468]" />
                   </div>
 
                   {/* Subtitle Text */}
@@ -328,7 +328,7 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
                           ease: "easeInOut",
                           delay: idx * 0.14,
                         }}
-                        className="w-1 rounded-full bg-gradient-to-t from-[#0e6270] via-[#1f8a96] to-[#e9a93a]"
+                        className="w-1 rounded-full bg-gradient-to-t from-[#1c2f66] via-[#3a58ab] to-[#d9a441]"
                         style={{ height: `${h}px` }}
                       />
                     ))}
@@ -340,22 +340,22 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.8, delay: 1.4 }}
-                  className="w-full flex flex-col items-center gap-2.5 mt-4 pt-2 border-t border-[#1f8a96]/20"
+                  className="w-full flex flex-col items-center gap-2.5 mt-4 pt-2 border-t border-[#3a58ab]/20"
                 >
                   <div className="w-full flex items-center justify-between text-[11px] font-mono text-[#5c8b93]">
                     <span className="flex items-center gap-2">
-                      <Terminal className="w-3.5 h-3.5 text-[#1f8a96]" />
+                      <Terminal className="w-3.5 h-3.5 text-[#3a58ab]" />
                       {locusProgress < 95
                         ? "INITIALIZING SPATIAL ORCHESTRATION ENGINE..."
                         : "ORCHESTRATION ENGINE READY"}
                     </span>
-                    <span className="text-[#e9a93a] font-semibold">{Math.round(locusProgress)}%</span>
+                    <span className="text-[#d9a441] font-semibold">{Math.round(locusProgress)}%</span>
                   </div>
 
                   {/* Progress Track */}
-                  <div className="w-full h-1.5 bg-[#08222d] rounded-full overflow-hidden border border-[#1f8a96]/30">
+                  <div className="w-full h-1.5 bg-[#0c1426] rounded-full overflow-hidden border border-[#3a58ab]/30">
                     <motion.div
-                      className="h-full bg-gradient-to-r from-[#1f8a96] via-[#e9a93a] to-[#ffffff] shadow-[0_0_8px_#e9a93a]"
+                      className="h-full bg-gradient-to-r from-[#3a58ab] via-[#d9a441] to-[#ffffff] shadow-[0_0_8px_#d9a441]"
                       style={{ width: `${locusProgress}%` }}
                     />
                   </div>
@@ -366,7 +366,7 @@ export function IntroReveal({ onComplete, forceShow = false }: IntroRevealProps)
                     animate={{ opacity: 1 }}
                     transition={{ delay: 1.6 }}
                     onClick={handleComplete}
-                    className="mt-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#061822] bg-gradient-to-r from-[#e9a93a] to-[#f4c26b] hover:from-[#f4c26b] hover:to-[#ffe099] px-6 py-2.5 rounded-xl shadow-[0_8px_24px_rgba(233,169,58,0.35)] transition-all transform hover:scale-[1.03] active:scale-[0.98] cursor-pointer"
+                    className="mt-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#05070d] bg-gradient-to-r from-[#d9a441] to-[#f4c26b] hover:from-[#f4c26b] hover:to-[#ffe099] px-6 py-2.5 rounded-xl shadow-[0_8px_24px_rgba(217, 164, 65,0.35)] transition-all transform hover:scale-[1.03] active:scale-[0.98] cursor-pointer"
                   >
                     <span>Enter Console</span>
                     <ChevronRight className="w-4 h-4" />

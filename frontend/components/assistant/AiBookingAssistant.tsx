@@ -254,7 +254,7 @@ function BookingTab({ initialText, onConsumedInitialText }: Props) {
 }
 
 function Pill({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
-  return <button type="button" aria-pressed={on} onClick={onClick} className={cn("px-3 py-1.5 rounded-full text-xs font-semibold border cursor-pointer capitalize transition-colors", on ? "bg-lagoon-700 text-raised border-lagoon-700" : "bg-raised text-ink-600 border-line hover:border-line-strong")}>{children}</button>;
+  return <button type="button" aria-pressed={on} onClick={onClick} className={cn("px-3 py-1.5 rounded-full text-xs font-semibold border cursor-pointer capitalize transition-colors", on ? "bg-lagoon-700 text-onprimary border-lagoon-700" : "bg-raised text-ink-600 border-line hover:border-line-strong")}>{children}</button>;
 }
 
 function ChangeTab() {

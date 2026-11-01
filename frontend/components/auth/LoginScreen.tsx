@@ -8,15 +8,16 @@ import { describeError, health, login } from "@/lib/api";
 import { StoredSession } from "@/lib/session";
 import { DEMO_ACCOUNTS } from "@/lib/uiConfig";
 import { Button } from "@/components/ui/primitives";
+import { ThemeMenu } from "@/components/ui/ThemeMenu";
 import { cn } from "@/lib/utils";
 
 // a miniature timetable that assembles itself: decorative, not data
 const BLOCKS: Array<[number, number, number, string]> = [
-  [0, 0, 1, "#1F8A96"], [0, 1, 1, "#8A7F68"], [0, 2, 1, "#3F5BA9"], [0, 3, 2, "#E9A93A"],
-  [1, 1, 3, "#6B4C9A"], [1, 5, 1, "#1F8A96"], [1, 6, 2, "#E4572E"],
-  [2, 0, 1, "#2E7D5B"], [2, 2, 1, "#8A7F68"], [2, 4, 1, "#1F8A96"], [2, 5, 2, "#3F5BA9"],
+  [0, 0, 1, "#C9962E"], [0, 1, 1, "#8A7F68"], [0, 2, 1, "#3F5BA9"], [0, 3, 2, "#E9A93A"],
+  [1, 1, 3, "#6B4C9A"], [1, 5, 1, "#C9962E"], [1, 6, 2, "#E4572E"],
+  [2, 0, 1, "#2E7D5B"], [2, 2, 1, "#8A7F68"], [2, 4, 1, "#C9962E"], [2, 5, 2, "#3F5BA9"],
   [3, 1, 1, "#E4572E"], [3, 2, 1, "#8A7F68"], [3, 5, 3, "#6B4C9A"],
-  [4, 0, 2, "#1F8A96"], [4, 3, 1, "#E9A93A"], [4, 4, 1, "#2E7D5B"], [4, 6, 1, "#8A7F68"],
+  [4, 0, 2, "#C9962E"], [4, 3, 1, "#E9A93A"], [4, 4, 1, "#2E7D5B"], [4, 6, 1, "#8A7F68"],
 ];
 
 function Art() {
@@ -50,16 +51,17 @@ export function LoginScreen({ onSignedIn, notice }: { onSignedIn: (s: StoredSess
 
   return (
     <div className="relative z-[1] min-h-screen grid lg:grid-cols-[1.05fr_1fr]">
-      <section className="relative hidden lg:flex flex-col justify-between bg-lagoon-900 text-raised p-12 overflow-hidden">
+      <ThemeMenu className="hidden lg:block absolute top-4 right-5 z-20" />
+      <section className="relative hidden lg:flex flex-col justify-between bg-deep text-onbrand p-12 overflow-hidden">
         <div className="relative z-10 flex items-center justify-between">
           <div className="flex items-center gap-3.5">
-            <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-amber-400/20 to-lagoon-800 p-1 border border-amber-500/30 flex items-center justify-center shadow-[0_4px_16px_rgba(233,169,58,0.3)]">
-              <Image src="/locus_app_transparent.png" alt="Locus Logo" width={42} height={42} className="object-contain" priority />
+            <div className="relative w-12 h-12 rounded-xl bg-deep p-1 border border-lagoon-500/40 flex items-center justify-center shadow-[0_4px_16px_rgba(201,150,46,0.3)]">
+              <Image src="/locus_mark.png" alt="Locus Logo" width={42} height={42} className="object-contain" priority />
             </div>
             <div className="leading-tight">
               <div className="font-display text-3xl font-semibold tracking-[-0.02em] flex items-center gap-2">
                 Locus
-                <span className="text-xs font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">CIT</span>
+                <span className="text-xs font-mono px-2 py-0.5 rounded bg-lagoon-500/15 text-lagoon-500 font-bold border border-lagoon-500/40">CIT</span>
               </div>
               <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-lagoon-200/80">Chilika Institute of Technology</div>
             </div>
@@ -72,26 +74,26 @@ export function LoginScreen({ onSignedIn, notice }: { onSignedIn: (s: StoredSess
                 window.dispatchEvent(new CustomEvent("replay_intro"));
               }
             }}
-            className="flex items-center gap-2 text-xs font-mono text-amber-300/90 hover:text-amber-200 bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/30 px-3.5 py-1.5 rounded-full transition-all cursor-pointer"
+            className="flex items-center gap-2 text-xs font-mono text-lagoon-500 hover:text-onbrand bg-lagoon-500/10 hover:bg-lagoon-500/20 border border-lagoon-500/40 px-3.5 py-1.5 rounded-full transition-all cursor-pointer"
           >
-            <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+            <Sparkles className="w-3.5 h-3.5 text-lagoon-500 animate-pulse" />
             <span>Play Intro Reveal</span>
           </button>
         </div>
         <div className="relative z-10 space-y-9">
           <h1 className="font-display text-[56px] leading-[1.02] font-semibold tracking-[-0.03em] max-w-[560px]">
-            Timetables that keep the <span className="italic font-medium text-sunrise-500">lagoon</span> calm.
+            Timetables that keep the <span className="italic font-medium text-lagoon-500">lagoon</span> calm.
           </h1>
           <Art />
           <ul className="grid grid-cols-3 gap-6 max-w-[560px] text-sm text-lagoon-200">
-            <li><strong className="block font-display text-3xl text-raised">189</strong>classes placed, none clashing</li>
-            <li><strong className="block font-display text-3xl text-raised">41</strong>midsems across rooms</li>
-            <li><strong className="block font-display text-3xl text-raised">25</strong>Spectra requests, each explained</li>
+            <li><strong className="block font-display text-3xl text-onbrand">189</strong>classes placed, none clashing</li>
+            <li><strong className="block font-display text-3xl text-onbrand">41</strong>midsems across rooms</li>
+            <li><strong className="block font-display text-3xl text-onbrand">25</strong>Spectra requests, each explained</li>
           </ul>
         </div>
         <div className="absolute inset-x-0 bottom-0 h-40 overflow-hidden pointer-events-none" aria-hidden>
-          <div className="wave-drift-slow absolute bottom-0 left-0 w-[200%] opacity-30"><svg viewBox="0 0 1200 120" preserveAspectRatio="none" className="w-full h-36"><path d="M0 60 Q 150 10 300 60 T 600 60 T 900 60 T 1200 60 V120 H0Z" fill="#1F8A96" /></svg></div>
-          <div className="wave-drift absolute bottom-0 left-0 w-[200%] opacity-50"><svg viewBox="0 0 1200 120" preserveAspectRatio="none" className="w-full h-24"><path d="M0 70 Q 150 30 300 70 T 600 70 T 900 70 T 1200 70 V120 H0Z" fill="#0E6270" /></svg></div>
+          <div className="wave-drift-slow absolute bottom-0 left-0 w-[200%] opacity-30"><svg viewBox="0 0 1200 120" preserveAspectRatio="none" className="w-full h-36"><path d="M0 60 Q 150 10 300 60 T 600 60 T 900 60 T 1200 60 V120 H0Z" fill="#2F4FA6" /></svg></div>
+          <div className="wave-drift absolute bottom-0 left-0 w-[200%] opacity-50"><svg viewBox="0 0 1200 120" preserveAspectRatio="none" className="w-full h-24"><path d="M0 70 Q 150 30 300 70 T 600 70 T 900 70 T 1200 70 V120 H0Z" fill="#1C2F66" /></svg></div>
         </div>
       </section>
 
@@ -99,8 +101,8 @@ export function LoginScreen({ onSignedIn, notice }: { onSignedIn: (s: StoredSess
         <div className="w-full max-w-[460px] space-y-8">
           <div className="lg:hidden flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400/20 to-lagoon-800 p-1 border border-amber-500/30 flex items-center justify-center shadow-[0_4px_14px_rgba(233,169,58,0.25)]">
-                <Image src="/locus_app_transparent.png" alt="Locus Logo" width={32} height={32} className="object-contain" priority />
+              <div className="relative w-10 h-10 rounded-xl bg-deep p-1 border border-lagoon-500/40 flex items-center justify-center shadow-[0_4px_14px_rgba(201,150,46,0.25)]">
+                <Image src="/locus_mark.png" alt="Locus Logo" width={32} height={32} className="object-contain" priority />
               </div>
               <div className="font-display text-2xl font-bold tracking-[-0.02em]">Locus</div>
             </div>
@@ -111,11 +113,12 @@ export function LoginScreen({ onSignedIn, notice }: { onSignedIn: (s: StoredSess
                   window.dispatchEvent(new CustomEvent("replay_intro"));
                 }
               }}
-              className="flex items-center gap-1.5 text-xs font-mono text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 py-1.5 rounded-full cursor-pointer"
+              className="flex items-center gap-1.5 text-xs font-mono text-lagoon-700 bg-lagoon-50 hover:bg-sunk border border-line px-3 py-1.5 rounded-full cursor-pointer"
             >
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              <Sparkles className="w-3.5 h-3.5 text-lagoon-500" />
               <span>Intro</span>
             </button>
+            <ThemeMenu className="-mr-2" />
           </div>
           <div className="space-y-2">
             <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-lagoon-700">Sign in</p>

@@ -11,6 +11,7 @@ import { Dashboard, NavRouteId, SessionUser } from "@/lib/types";
 import { DEMO_ACCOUNTS, NAV_ROUTES, ROLE_CONFIGS } from "@/lib/uiConfig";
 import { Chip, Kbd } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
+import { ThemeMenu } from "@/components/ui/ThemeMenu";
 
 const ICONS: Record<NavRouteId, React.ReactNode> = {
   overview: <LayoutDashboard className="w-[18px] h-[18px]" />,
@@ -27,10 +28,10 @@ function Waves() {
   return (
     <div className="absolute left-0 right-0 bottom-0 h-28 overflow-hidden pointer-events-none" aria-hidden>
       <div className="wave-drift-slow absolute bottom-0 left-0 w-[200%] opacity-30">
-        <svg viewBox="0 0 1200 120" preserveAspectRatio="none" className="w-full h-24"><path d="M0 60 Q 150 10 300 60 T 600 60 T 900 60 T 1200 60 V120 H0Z" fill="#1F8A96" /></svg>
+        <svg viewBox="0 0 1200 120" preserveAspectRatio="none" className="w-full h-24"><path d="M0 60 Q 150 10 300 60 T 600 60 T 900 60 T 1200 60 V120 H0Z" fill="#2F4FA6" /></svg>
       </div>
       <div className="wave-drift absolute bottom-0 left-0 w-[200%] opacity-45">
-        <svg viewBox="0 0 1200 120" preserveAspectRatio="none" className="w-full h-16"><path d="M0 70 Q 150 30 300 70 T 600 70 T 900 70 T 1200 70 V120 H0Z" fill="#0E6270" /></svg>
+        <svg viewBox="0 0 1200 120" preserveAspectRatio="none" className="w-full h-16"><path d="M0 70 Q 150 30 300 70 T 600 70 T 900 70 T 1200 70 V120 H0Z" fill="#1C2F66" /></svg>
       </div>
     </div>
   );
@@ -52,15 +53,15 @@ function Rail({ user, dashboard, nav, onNav, onSwitch, onSignOut, onClose, switc
   }, [menu]);
 
   return (
-    <div className="relative h-full w-[248px] bg-lagoon-900 text-lagoon-200 flex flex-col overflow-hidden">
+    <div className="relative h-full w-[248px] bg-deep text-lagoon-200 flex flex-col overflow-hidden">
       <div className="px-5 pt-6 pb-5 flex items-center gap-3">
-        <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400/20 to-lagoon-800 p-1 border border-amber-500/30 flex items-center justify-center shadow-[0_4px_14px_rgba(233,169,58,0.25)]">
-          <Image src="/locus_app_transparent.png" alt="Locus Logo" width={32} height={32} className="object-contain" priority />
+        <div className="relative w-10 h-10 rounded-xl bg-deep p-1 border border-lagoon-500/40 flex items-center justify-center shadow-[0_4px_14px_rgba(201,150,46,0.25)]">
+          <Image src="/locus_mark.png" alt="Locus Logo" width={32} height={32} className="object-contain" priority />
         </div>
         <div className="leading-tight">
-          <div className="font-display text-[22px] font-semibold text-raised tracking-[-0.02em] flex items-center gap-1.5">
+          <div className="font-display text-[22px] font-semibold text-onbrand tracking-[-0.02em] flex items-center gap-1.5">
             Locus
-            <span className="text-[10px] font-mono px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">CIT</span>
+            <span className="text-[10px] font-mono px-1 py-0.2 rounded bg-lagoon-500/15 text-lagoon-500 font-bold border border-lagoon-500/40">CIT</span>
           </div>
           <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-lagoon-200/80">Chilika Inst. of Tech.</div>
         </div>
@@ -75,13 +76,13 @@ function Rail({ user, dashboard, nav, onNav, onSwitch, onSignOut, onClose, switc
               return (
                 <li key={r.id}>
                   <button onClick={() => onNav(r.id)} aria-current={active ? "page" : undefined} title={r.description}
-                    className={cn("relative w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[14px] font-semibold transition-colors cursor-pointer", active ? "text-raised" : "text-lagoon-200 hover:text-raised hover:bg-lagoon-700/40")}>
-                    {active && <motion.span layoutId="rail-active" className="absolute inset-0 rounded-xl bg-lagoon-700" transition={{ type: "spring", stiffness: 500, damping: 38 }} />}
-                    {active && <motion.span layoutId="rail-dot" className="absolute left-0 top-2.5 bottom-2.5 w-[3px] rounded-r-full bg-sunrise-500" />}
+                    className={cn("relative w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[14px] font-semibold transition-colors cursor-pointer", active ? "text-onbrand" : "text-lagoon-200 hover:text-onbrand hover:bg-white/5")}>
+                    {active && <motion.span layoutId="rail-active" className="absolute inset-0 rounded-xl bg-white/10 ring-1 ring-lagoon-500/40" transition={{ type: "spring", stiffness: 500, damping: 38 }} />}
+                    {active && <motion.span layoutId="rail-dot" className="absolute left-0 top-2.5 bottom-2.5 w-[3px] rounded-r-full bg-lagoon-500" />}
                     <span className="relative z-10">{ICONS[r.id]}</span>
                     <span className="relative z-10">{r.label}</span>
                     {r.id === "approvals" && dashboard && dashboard.pending_approvals > 0 && (
-                      <span className="relative z-10 ml-auto min-w-5 h-5 px-1.5 rounded-full bg-sunrise-500 text-raised text-[11px] font-bold flex items-center justify-center">{dashboard.pending_approvals}</span>
+                      <span className="relative z-10 ml-auto min-w-5 h-5 px-1.5 rounded-full bg-sunrise-500 text-onbrand text-[11px] font-bold flex items-center justify-center">{dashboard.pending_approvals}</span>
                     )}
                   </button>
                 </li>
@@ -112,9 +113,9 @@ function Rail({ user, dashboard, nav, onNav, onSwitch, onSignOut, onClose, switc
                       window.dispatchEvent(new CustomEvent("replay_intro"));
                     }
                   }}
-                  className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-[13px] font-semibold text-ink-700 hover:bg-sunk cursor-pointer"
+                  className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-[13px] font-semibold text-ink-600 hover:bg-sunk cursor-pointer"
                 >
-                  <Sparkles className="w-4 h-4 text-amber-500" /> Replay Intro Reveal
+                  <Sparkles className="w-4 h-4 text-lagoon-500" /> Replay Intro Reveal
                 </button>
                 <button onClick={onSignOut} className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-[13px] font-semibold text-sunrise-600 hover:bg-sunrise-50 cursor-pointer"><LogOut className="w-4 h-4" /> Sign out</button>
               </div>
@@ -122,10 +123,10 @@ function Rail({ user, dashboard, nav, onNav, onSwitch, onSignOut, onClose, switc
           )}
         </AnimatePresence>
         <button onClick={() => setMenu((m) => !m)} aria-haspopup="menu" aria-expanded={menu}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-lagoon-700/50 hover:bg-lagoon-700/80 transition-colors text-left cursor-pointer">
-          <span className="w-9 h-9 rounded-full bg-saffron-500 text-lagoon-900 font-display font-semibold flex items-center justify-center text-[15px]">{user.display_name.slice(0, 1)}</span>
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-left cursor-pointer">
+          <span className="w-9 h-9 rounded-full bg-lagoon-500 text-deep font-display font-semibold flex items-center justify-center text-[15px]">{user.display_name.slice(0, 1)}</span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[13px] font-semibold text-raised truncate">{user.display_name.replace(/ \(.*/, "")}</span>
+            <span className="block text-[13px] font-semibold text-onbrand truncate">{user.display_name.replace(/ \(.*/, "")}</span>
             <span className="block text-[11px] text-lagoon-200/80">{roleConfig.badge}</span>
           </span>
           <ChevronsUpDown className="w-4 h-4 text-lagoon-200/70" />
@@ -151,7 +152,7 @@ export function Shell({ user, dashboard, nav, onNav, onSwitch, onSignOut, onSear
       <AnimatePresence>
         {mobile && (
           <>
-            <motion.div className="fixed inset-0 z-40 bg-ink-900/40 lg:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMobile(false)} />
+            <motion.div className="fixed inset-0 z-40 bg-black/50 lg:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMobile(false)} />
             <motion.aside className="fixed inset-y-0 left-0 z-50 lg:hidden" initial={{ x: -260 }} animate={{ x: 0 }} exit={{ x: -260 }} transition={{ type: "spring", stiffness: 380, damping: 40 }}>
               <Rail user={user} dashboard={dashboard} nav={nav} onNav={go} onSwitch={onSwitch} onSignOut={onSignOut} onClose={() => setMobile(false)} switching={switching} />
             </motion.aside>
@@ -169,8 +170,9 @@ export function Shell({ user, dashboard, nav, onNav, onSwitch, onSignOut, onSear
           <div className="flex-1" />
           <button onClick={() => onNav("approvals")} aria-label={`${pending} pending approvals`} className="relative p-2.5 rounded-xl hover:bg-sunk text-ink-600 cursor-pointer">
             <Bell className="w-5 h-5" />
-            {pending > 0 && <span className="absolute top-1.5 right-1.5 min-w-4 h-4 px-1 rounded-full bg-sunrise-500 text-raised text-[10px] font-bold flex items-center justify-center">{pending}</span>}
+            {pending > 0 && <span className="absolute top-1.5 right-1.5 min-w-4 h-4 px-1 rounded-full bg-sunrise-500 text-onbrand text-[10px] font-bold flex items-center justify-center">{pending}</span>}
           </button>
+          <ThemeMenu />
         </div>
       </header>
 

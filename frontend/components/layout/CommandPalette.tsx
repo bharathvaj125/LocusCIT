@@ -46,7 +46,7 @@ export function CommandPalette({ open, onClose, items }: { open: boolean; onClos
   return (
     <AnimatePresence>
       {open && (
-        <motion.div className="fixed inset-0 z-[70] flex items-start justify-center pt-[12vh] px-4 bg-ink-900/40 backdrop-blur-[3px]"
+        <motion.div className="fixed inset-0 z-[70] flex items-start justify-center pt-[12vh] px-4 bg-black/50 backdrop-blur-[3px]"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={onClose}>
           <motion.div role="dialog" aria-modal="true" aria-label="Search"
             className="w-full max-w-xl rounded-2xl bg-raised border border-line shadow-pop overflow-hidden"
