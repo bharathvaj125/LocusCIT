@@ -3,12 +3,19 @@
 import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
-import { Bell, ChevronDown, LogOut, Search, Sparkles } from "lucide-react";
+import { Bell, Building2, CalendarDays, CheckSquare, ChevronDown, Download, GraduationCap, Landmark, LayoutDashboard, LogOut, MessageSquareText, Search, Sparkles, Users as UsersIcon, Wrench } from "lucide-react";
 import { Dashboard, NavRouteId, SessionUser } from "@/lib/types";
 import { DEMO_ACCOUNTS, NAV_ROUTES, ROLE_CONFIGS } from "@/lib/uiConfig";
 import { Chip, Kbd } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
 import { ThemeMenu } from "@/components/ui/ThemeMenu";
+
+const ICONS: Record<NavRouteId, React.ReactNode> = {
+  overview: <LayoutDashboard className="w-[17px] h-[17px]" />, timetable: <CalendarDays className="w-[17px] h-[17px]" />, exams: <GraduationCap className="w-[17px] h-[17px]" />,
+  spectra_clash: <Building2 className="w-[17px] h-[17px]" />, approvals: <CheckSquare className="w-[17px] h-[17px]" />, disruptions: <Wrench className="w-[17px] h-[17px]" />,
+  ai_booking: <MessageSquareText className="w-[17px] h-[17px]" />, exports: <Download className="w-[17px] h-[17px]" />, users: <UsersIcon className="w-[17px] h-[17px]" />,
+  organisations: <Landmark className="w-[17px] h-[17px]" />,
+};
 
 /** Station names for narrow screens; wide screens use the full page name. */
 const SHORT: Partial<Record<NavRouteId, string>> = {
@@ -18,7 +25,7 @@ const WIDE: Partial<Record<NavRouteId, string>> = { exams: "Exams", spectra_clas
 
 /**
  * The page menu: a floating glass dock at the bottom of the screen. Every page is a station on one line; the line fills in
- * gold up to the page you are on and a small train glides there (with a little stretch and bounce). Hovering a station
+ * gold up to the page you are on and a gold marker carrying the page icon glides there (with a little stretch and bounce). Hovering a station
  * lights its pill, the arrow keys move between stations, and a long list scrolls sideways and keeps the current page centred.
  */
 function StationDock({ nav, onNav, routes, pending }: { nav: NavRouteId; onNav: (n: NavRouteId) => void; routes: typeof NAV_ROUTES; pending: number }) {
@@ -54,8 +61,8 @@ function StationDock({ nav, onNav, routes, pending }: { nav: NavRouteId; onNav: 
             <div className="absolute top-[34px] h-[4px] rounded-full bg-white/15" style={{ left: "calc(var(--w) * .5)", width: `calc(var(--w) * ${routes.length - 1})` }} aria-hidden />
             <div className="dock-fill absolute top-[34px] h-[4px] rounded-full bg-gradient-to-r from-lagoon-500/70 to-lagoon-500" style={{ left: "calc(var(--w) * .5)", width: "calc(var(--w) * var(--i))" }} aria-hidden />
             <div className="dock-train absolute top-[18px] z-[2] pointer-events-none" aria-hidden>
-              <span key={idx} className="dock-train-body flex items-center justify-center gap-[5px] h-8 w-[68px] -translate-x-1/2 rounded-[16px_16px_7px_7px] bg-onbrand shadow-[0_0_22px_rgba(233,196,104,0.45)]">
-                <i className="w-2.5 h-2.5 rounded-[3px] bg-deep" /><i className="w-3 h-3 rounded-full bg-lagoon-500 shadow-[0_0_8px_rgba(233,196,104,0.9)]" /><i className="w-2.5 h-2.5 rounded-[3px] bg-deep" />
+              <span key={idx} className="dock-train-body flex items-center justify-center h-8 w-[52px] -translate-x-1/2 rounded-full bg-gradient-to-b from-[#F1D58A] to-lagoon-500 text-deep shadow-[0_0_0_1px_rgba(255,255,255,0.35)_inset,0_4px_18px_rgba(233,196,104,0.4)]">
+                {ICONS[routes[idx]?.id]}
               </span>
             </div>
             {routes.map((r, i) => {

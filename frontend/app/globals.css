@@ -160,7 +160,7 @@ html[data-theme="dark"] body::before { background-image: radial-gradient(rgba(23
 .dock-fill { transition: width 0.75s cubic-bezier(0.65, 0, 0.25, 1); }
 .dock-train { left: calc(var(--w) * (var(--i) + 0.5)); transition: left 0.75s cubic-bezier(0.34, 1.32, 0.5, 1); }
 .dock-train-body { animation: train-stretch 0.8s cubic-bezier(0.34, 1.3, 0.5, 1); }
-@keyframes train-stretch { 0% { scale: 1 1; } 30% { scale: 1.34 0.9; } 65% { scale: 0.95 1.06; } 100% { scale: 1 1; } }
+@keyframes train-stretch { 0% { scale: 1 1; } 30% { scale: 1.22 0.94; } 65% { scale: 0.97 1.03; } 100% { scale: 1 1; } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
