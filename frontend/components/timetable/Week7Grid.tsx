@@ -43,7 +43,7 @@ function EventBlock({ e, showRoom, onOpen }: { e: Week7Event; showRoom: boolean;
   return (
     <button onClick={() => onOpen(e)}
       aria-label={`${e.title}, ${CATEGORY_LABEL[e.category] || "event"}, ${DAY_LABEL[e.day]} periods ${e.start} to ${e.end}, room ${e.room_id}${alt ? ", alternative offered" : ""}`}
-      className={cn("relative w-full text-left overflow-hidden rounded-xl pl-3 pr-2 py-2 cursor-pointer flex flex-col justify-between gap-1 min-h-[84px] hover:shadow-card border",
+      className={cn("relative w-full flex-1 text-left overflow-hidden rounded-xl pl-3 pr-2 py-2 cursor-pointer flex flex-col justify-between gap-1 min-h-[84px] hover:shadow-card border",
         tone.soft, alt ? "border-dashed border-ink-400/60" : "border-transparent")}>
       <span className={cn("absolute left-0 top-0 bottom-0 w-[5px]", tone.bar)} />
       <span className="flex items-center gap-1.5 flex-wrap">
@@ -64,18 +64,22 @@ export function Week7Grid({ classes, events, closures, loading, pivot, renderCla
 }) {
   const [open, setOpen] = useState<Week7Event | null>(null);
 
-  const rows = useMemo(() => {
+  const { rows, tracks } = useMemo(() => {
     let next = 2;
-    return DAYS.map((d) => {
+    const tracks = ["auto"];
+    const rows = DAYS.map((d, i) => {
       const items: Item[] = [...classes.filter((s) => s.day === d).map((s) => ({ kind: "class" as const, s })),
         ...events.filter((e) => e.day === d).map((e) => ({ kind: "event" as const, e }))];
       const lanes = lanesFor(items);
-      const out = { day: d, first: next, lanes, nClasses: items.filter((i) => i.kind === "class").length, nEvents: items.filter((i) => i.kind === "event").length };
+      const out = { day: d, first: next, lanes, nClasses: items.filter((x) => x.kind === "class").length, nEvents: items.filter((x) => x.kind === "event").length };
+      lanes.forEach(() => tracks.push("minmax(92px, auto)"));
       next += lanes.length;
+      if (i < DAYS.length - 1) { tracks.push("10px"); next += 1; }      // spacer between days
       return out;
     });
+    return { rows, tracks };
   }, [classes, events]);
-  const lastRow = rows[rows.length - 1].first + rows[rows.length - 1].lanes.length - 1;
+  const lastRow = tracks.length;
   const closed = (d: DayOfWeek, p: number) => closures.find((c) => c.day === d && c.periods.includes(p));
 
   if (loading && classes.length === 0 && events.length === 0) {
@@ -84,7 +88,11 @@ export function Week7Grid({ classes, events, closures, loading, pivot, renderCla
   return (
     <>
       <div className="grid gap-1.5 min-w-[1500px] relative" aria-label="Week 7 timetable"
-        style={{ gridTemplateColumns: COLS, gridTemplateRows: `auto repeat(${lastRow - 1}, minmax(92px, auto))` }}>
+        style={{ gridTemplateColumns: COLS, gridTemplateRows: tracks.join(" ") }}>
+        {rows.map((r, i) => (
+          <div key={`band-${r.day}`} aria-hidden style={{ gridColumn: "1 / -1", gridRow: `${r.first} / span ${r.lanes.length}`, margin: -5 }}
+            className={cn("rounded-2xl border border-line", i % 2 ? "bg-paper" : "bg-raised")} />
+        ))}
         <div />
         {PERIODS.map((p) => (
           <div key={p} style={{ gridColumn: colOf(p), gridRow: 1 }} className="px-1 pb-1">
@@ -100,7 +108,7 @@ export function Week7Grid({ classes, events, closures, loading, pivot, renderCla
         </div>
         {rows.map((r) => (
           <React.Fragment key={r.day}>
-            <div style={{ gridColumn: 1, gridRow: `${r.first} / span ${r.lanes.length}` }} className="sticky left-0 z-[3] bg-raised flex flex-col justify-center pr-2">
+            <div style={{ gridColumn: 1, gridRow: `${r.first} / span ${r.lanes.length}` }} className={cn("sticky left-0 z-[3] flex flex-col justify-center pl-3 pr-2 border-l-4 border-lagoon-500/70 rounded-l-xl", rows.indexOf(r) % 2 ? "bg-paper" : "bg-raised")}>
               <span className="font-display text-[22px] font-semibold leading-none">{r.day}</span>
               <span className="text-[11px] text-ink-400 mt-1">{r.nClasses} class{r.nClasses === 1 ? "" : "es"} · {r.nEvents} event{r.nEvents === 1 ? "" : "s"}</span>
             </div>

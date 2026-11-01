@@ -39,7 +39,7 @@ function SessionBlock({ s, dim, linked, onHover, onOpen, tall }: {
       onClick={() => onOpen(s)}
       initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: dim ? 0.28 : 1, scale: 1 }} whileHover={{ y: -2 }}
       transition={{ type: "spring", stiffness: 420, damping: 32 }}
-      className={cn("relative w-full text-left overflow-hidden rounded-xl pl-3 pr-2 py-2 cursor-pointer flex flex-col justify-between gap-1 border border-transparent hover:shadow-card",
+      className={cn("relative w-full flex-1 text-left overflow-hidden rounded-xl pl-3 pr-2 py-2 cursor-pointer flex flex-col justify-between gap-1 border border-transparent hover:shadow-card",
         tone.soft, linked && cn("ring-2", tone.ring), s.week7?.moved && "ring-2 ring-saffron-500", tall ? "min-h-[84px]" : "min-h-[84px]")}
       aria-label={`${s.course_title}, ${DAY_LABEL[s.day]} periods ${s.start_period} to ${s.end_period}, room ${s.room_id}${s.week7?.moved ? ", moved for Week 7" : ""}`}
     >
@@ -157,7 +157,12 @@ export function TimetableView({ sessions, loading, entities, pivot, onPivot, sel
           <div className="min-w-[1080px] space-y-3">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-20" />)}</div>
         ) : (
           <LayoutGroup>
-            <div className="grid gap-1.5 min-w-[1080px] relative" style={{ gridTemplateColumns: COLS, gridTemplateRows: "auto repeat(5, minmax(92px, auto))" }}>
+            <div className="grid gap-1.5 min-w-[1080px] relative" style={{ gridTemplateColumns: COLS, gridTemplateRows: `auto ${DAYS.map(() => "minmax(92px, auto)").join(" 10px ")}` }}>
+              {/* one tinted band per day, so each day reads as its own row */}
+              {DAYS.map((d, i) => (
+                <div key={`band-${d}`} aria-hidden style={{ gridColumn: "1 / -1", gridRow: 2 + 2 * i, margin: -5 }}
+                  className={cn("rounded-2xl border border-line", i % 2 ? "bg-paper" : "bg-raised")} />
+              ))}
               {/* header */}
               <div />
               {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((p) => (
@@ -167,7 +172,7 @@ export function TimetableView({ sessions, loading, entities, pivot, onPivot, sel
                 </div>
               ))}
               {/* one continuous lunch band, not one per day */}
-              <div style={{ gridColumn: 7, gridRow: "1 / span 6" }} className="rounded-xl bg-sunk/80 flex items-center justify-center overflow-hidden" title="Lunch 13:00 to 14:00: no classes">
+              <div style={{ gridColumn: 7, gridRow: "1 / span 10" }} className="rounded-xl bg-sunk/80 flex items-center justify-center overflow-hidden" title="Lunch 13:00 to 14:00: no classes">
                 <span className="font-mono text-[10px] tracking-[0.3em] text-ink-400 [writing-mode:vertical-rl] rotate-180 whitespace-nowrap">LUNCH 13:00 - 14:00</span>
               </div>
               {DAYS.map((d, i) => {
@@ -175,19 +180,19 @@ export function TimetableView({ sessions, loading, entities, pivot, onPivot, sel
                 const max = fac?.max_hours_per_day ?? 4;
                 return (
                   <React.Fragment key={d}>
-                    <div style={{ gridColumn: 1, gridRow: i + 2 }} className="flex flex-col justify-center pr-2">
+                    <div style={{ gridColumn: 1, gridRow: 2 + 2 * i }} className="flex flex-col justify-center pl-3 pr-2 border-l-4 border-lagoon-500/70 rounded-l-xl">
                       <span className="font-display text-[22px] font-semibold leading-none">{d}</span>
                       {pivot === "faculty" ? (
                         <span className={cn("mt-1.5 self-start font-mono text-[10px] px-1.5 py-0.5 rounded-md", load >= max ? "bg-sunrise-50 text-sunrise-600" : load === max - 1 ? "bg-saffron-50 text-saffron-600" : "bg-mangrove-50 text-mangrove-600")}>{load}/{max}h</span>
                       ) : (
-                        <span className="text-[11px] text-ink-400 mt-1">{byDay[d].reduce((a, c) => a + c.items.length, 0)} sessions</span>
+                        <span className="text-[11px] text-ink-400 mt-1">{(() => { const n = byDay[d].reduce((a, c) => a + c.items.length, 0); return `${n} session${n === 1 ? "" : "s"}`; })()}</span>
                       )}
                     </div>
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((p) => (
-                      <div key={p} style={{ gridColumn: colOf(p), gridRow: i + 2 }} className="rounded-xl border border-dashed border-line/80" aria-hidden />
+                      <div key={p} style={{ gridColumn: colOf(p), gridRow: 2 + 2 * i }} className="rounded-xl border border-dashed border-line/80" aria-hidden />
                     ))}
                     {byDay[d].map((cell) => (
-                      <div key={cell.key} style={{ gridColumn: `${colOf(cell.start)} / span ${cell.span}`, gridRow: i + 2 }} className="z-[2] flex flex-col gap-1.5">
+                      <div key={cell.key} style={{ gridColumn: `${colOf(cell.start)} / span ${cell.span}`, gridRow: 2 + 2 * i }} className="z-[2] flex flex-col gap-1.5">
                         {cell.items.map((s) => (
                           <SessionBlock key={s.id} s={s} tall={cell.items.length === 1}
                             dim={!!hover && hover.course_id !== s.course_id && hover.id !== s.id}
