@@ -5,9 +5,14 @@ generates the semester timetable and midsem exams, decides Spectra-week venue bo
 English/Hinglish booking requests, repairs the timetable after a change with the fewest moved sessions, and
 applies a change only after an Admin has reviewed the suggested shifting, with the reason for every move, and approved it. Every schedule is checked by the **official validator** before it is saved.
 
+## **Demo video (5 min): https://youtu.be/0lar-6GRyu0**
+
+## **Live app: https://locus-cit.vercel.app**
+
+* **Video walkthrough:** https://youtu.be/0lar-6GRyu0
 * **Live app:** https://locus-cit.vercel.app
+* **Repository:** https://github.com/bharathvaj125/LocusCIT
 * API: https://locuscit.onrender.com (health: `/api/health`, docs: `/docs`)
-* Video: _TBD_ (recording plan: [docs/VIDEO_PLAN.md](docs/VIDEO_PLAN.md))
 
 > The API runs on a free server that sleeps after 15 minutes idle. If the first screen says it is waking up, wait about a
 > minute; the page retries by itself.
@@ -135,7 +140,7 @@ The problem statement asks for `exports/schedule.json` and `exports/schedule_aft
 | `.env.example` | [`.env.example`](.env.example) |
 | `AI_USAGE.md` (tools, prompts, what was kept) | [`AI_USAGE.md`](AI_USAGE.md) |
 | `THIRD_PARTY.md` (libraries, data, licences) | [`THIRD_PARTY.md`](THIRD_PARTY.md) |
-| Walkthrough video, 5 minutes or less | see the Video line at the top |
+| Walkthrough video, 5 minutes or less | https://youtu.be/0lar-6GRyu0 |
 | Official validator unmodified | `starter_pack/validator.py` |
 
 ## Known limitations
