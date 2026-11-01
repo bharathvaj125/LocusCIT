@@ -29,12 +29,14 @@ export function AppProvider({ user, children }: { user: SessionUser; children: R
   const [revision, setRevision] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const datasetRef = useRef<string | null>(null);
+  const lastDash = useRef<string>("");
   const retryRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const refresh = useCallback(async () => {
     try {
       const d = await fetchDashboard();
-      setDashboard(d);
+      const key = JSON.stringify(d);
+      if (key !== lastDash.current) { lastDash.current = key; setDashboard(d); }
       setError(null);
       setRevision((prev) => (prev !== d.revision ? d.revision : prev));
       if (datasetRef.current !== d.dataset_id) {

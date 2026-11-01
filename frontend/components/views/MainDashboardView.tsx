@@ -99,6 +99,12 @@ function allowedEntities(ref: ReferenceData | null, user: SessionUser): Timetabl
   return { group: ref.student_groups, faculty: ref.faculty, room: ref.rooms };
 }
 
+/** One page of the workspace: mounted the first time it is opened, then only hidden when you leave it. */
+function Page({ id, nav, seen, children }: { id: NavRouteId; nav: NavRouteId; seen: Set<NavRouteId>; children: React.ReactNode }) {
+  if (!seen.has(id) && nav !== id) return null;
+  return <div hidden={nav !== id} className={nav === id ? "page-in" : undefined}>{children}</div>;
+}
+
 function Workspace({ initialNav, onSession, onSignOut }: { initialNav: NavRouteId; onSession: (s: StoredSession) => void; onSignOut: () => void }) {
   const { user, ref, dashboard, revision, error: loadError, refresh } = useApp();
   const toast = useToast();
@@ -116,12 +122,16 @@ function Workspace({ initialNav, onSession, onSignOut }: { initialNav: NavRouteI
   const [mode, setMode] = useState<TimetableMode>("regular");
   const [week7, setWeek7] = useState<Week7Data>({ events: [], closures: [] });
 
+  // pages already visited stay mounted (hidden), so going back to one is instant and keeps its tab, filter and scroll state
+  const [seen, setSeen] = useState<Set<NavRouteId>>(() => new Set([nav]));
   const go = useCallback((n: NavRouteId) => {
+    setSeen((s) => (s.has(n) ? s : new Set(s).add(n)));
     setNav(n);
+    refresh();
     const href = NAV_ROUTES.find((r) => r.id === n)?.href;
     if (href && typeof window !== "undefined") window.history.replaceState(null, "", href);
     window.scrollTo({ top: 0 });
-  }, []);
+  }, [refresh]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setPalette((p) => !p); } };
@@ -145,7 +155,7 @@ function Workspace({ initialNav, onSession, onSignOut }: { initialNav: NavRouteI
   useEffect(() => { setSessions([]); setWeek7({ events: [], closures: [] }); }, [mode]);
 
   useEffect(() => {
-    if (nav !== "timetable" || !ref || !selectedId) return;
+    if (!seen.has("timetable") || !ref || !selectedId) return;
     let alive = true;
     setTt((s) => ({ ...s, loading: true, error: null }));
     const load = mode === "week7"
@@ -160,7 +170,7 @@ function Workspace({ initialNav, onSession, onSignOut }: { initialNav: NavRouteI
         else setTt({ loading: false, error: describeError(e), empty: null });
       });
     return () => { alive = false; };
-  }, [nav, ref, pivot, selectedId, mode, revision, dashboard?.schedule_version, user.role]);
+  }, [seen, ref, pivot, selectedId, mode, revision, dashboard?.schedule_version, user.role]);
 
   const switchAccount = async (u: string, p: string) => {
     setSwitching(true);
@@ -190,23 +200,23 @@ function Workspace({ initialNav, onSession, onSignOut }: { initialNav: NavRouteI
           </div>
         ) : (
           <>
-            {nav === "overview" && <Overview onNav={go} />}
-            {nav === "timetable" && (
+            <Page id="overview" nav={nav} seen={seen}><Overview onNav={go} /></Page>
+            <Page id="timetable" nav={nav} seen={seen}>
               <div className="space-y-3">
                 {tt.error && <p className="text-sm text-sunrise-600 bg-sunrise-50 rounded-xl px-4 py-3" role="alert">{tt.error}</p>}
                 {tt.empty && <p className="text-sm text-saffron-600 bg-saffron-50 rounded-xl px-4 py-3">{tt.empty}</p>}
                 <TimetableView sessions={sessions} loading={tt.loading} entities={entities} pivot={pivot} onPivot={setPivot} selectedId={selectedId} onSelect={setSelectedId} mode={mode} onMode={setMode} week7={week7} ref_={ref} />
               </div>
-            )}
-            {nav === "exams" && <ExamsBoard />}
-            {nav === "spectra_clash" && <SpectraBoard />}
-            {nav === "approvals" && <ApprovalsDeck onOpenChanges={() => go("disruptions")} />}
-            {nav === "disruptions" && <DisruptionDeck onOpenExports={() => go("exports")} />}
-            {nav === "ai_booking" && <AiBookingAssistant initialText={assistantText} onConsumedInitialText={() => setAssistantText(null)} />}
-            {nav === "schedule" && <ScheduleEvent onOpenBoard={() => go("spectra_clash")} />}
-            {nav === "users" && <UsersBoard onOpenOrganisations={() => go("organisations")} />}
-            {nav === "organisations" && <OrganisationsBoard onOpenUsers={() => go("users")} />}
-            {nav === "exports" && <ExportsDeck />}
+            </Page>
+            <Page id="exams" nav={nav} seen={seen}><ExamsBoard /></Page>
+            <Page id="spectra_clash" nav={nav} seen={seen}><SpectraBoard /></Page>
+            <Page id="approvals" nav={nav} seen={seen}><ApprovalsDeck onOpenChanges={() => go("disruptions")} /></Page>
+            <Page id="disruptions" nav={nav} seen={seen}><DisruptionDeck onOpenExports={() => go("exports")} /></Page>
+            <Page id="ai_booking" nav={nav} seen={seen}><AiBookingAssistant initialText={assistantText} onConsumedInitialText={() => setAssistantText(null)} /></Page>
+            <Page id="schedule" nav={nav} seen={seen}><ScheduleEvent onOpenBoard={() => go("spectra_clash")} /></Page>
+            <Page id="users" nav={nav} seen={seen}><UsersBoard onOpenOrganisations={() => go("organisations")} /></Page>
+            <Page id="organisations" nav={nav} seen={seen}><OrganisationsBoard onOpenUsers={() => go("users")} /></Page>
+            <Page id="exports" nav={nav} seen={seen}><ExportsDeck /></Page>
           </>
         )}
       </Shell>

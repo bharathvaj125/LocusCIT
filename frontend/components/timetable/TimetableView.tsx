@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Info, MapPin, Users } from "lucide-react";
 import { DayOfWeek, Explanation, ReferenceData, Room, ScheduledSession, StudentGroup, Week7Closure, Week7Event } from "@/lib/types";
 import { describeError, explainSession } from "@/lib/api";
@@ -34,7 +34,6 @@ function SessionBlock({ s, dim, linked, onHover, onOpen, tall }: {
   const tone = TONES[tonesFor(s)];
   return (
     <motion.button
-      layout="position"
       onMouseEnter={() => onHover(s)} onMouseLeave={() => onHover(null)} onFocus={() => onHover(s)} onBlur={() => onHover(null)}
       onClick={() => onOpen(s)}
       initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: dim ? 0.28 : 1, scale: 1 }} whileHover={{ y: -2 }}
@@ -156,7 +155,7 @@ export function TimetableView({ sessions, loading, entities, pivot, onPivot, sel
         ) : loading && sessions.length === 0 ? (
           <div className="min-w-[1080px] space-y-3">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-20" />)}</div>
         ) : (
-          <LayoutGroup>
+          <>
             <div className="grid gap-1.5 min-w-[1080px] relative" style={{ gridTemplateColumns: COLS, gridTemplateRows: `auto ${DAYS.map(() => "minmax(92px, auto)").join(" 10px ")}` }}>
               {/* one tinted band per day, so each day reads as its own row */}
               {DAYS.map((d, i) => (
@@ -204,7 +203,7 @@ export function TimetableView({ sessions, loading, entities, pivot, onPivot, sel
                 );
               })}
             </div>
-          </LayoutGroup>
+          </>
         )}
         {!loading && sessions.length === 0 && !(w7 && week7.events.length > 0) && (
           <p className="text-sm text-ink-600 text-center py-6">No classes for this {pivot}.</p>

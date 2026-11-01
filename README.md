@@ -32,7 +32,7 @@ For a clean start press *Reset demo data* (Overview, "Start over" card), then ru
 Free rooms are listed; open "taken rooms" to see what holds the others. *Venues & Spectra > Venue board* shows the same as a grid
 (hover the (i) on a closed room for the reason).
 
-**Look and feel.** The app opens with a short intro (skip it with the button; replay it from the account menu). Pages are in the dock at the bottom of the screen: a line of stations with a gold marker, carrying the page icon, that glides to the page you are on (arrow keys move between stations; on a phone the dock scrolls sideways). Your name and role are top right, with the account menu (switch demo account, replay the intro, sign out) and the sun/moon menu that switches between Light, Dark and "match my device"; that choice is remembered in your browser.
+**Look and feel.** The app opens with a short intro (skip it with the button; replay it from the account menu), then the sign-in page. Pages are in the dock at the bottom of the screen: one icon and name per page, and the page you are on is the gold capsule (arrow keys move between pages; on a phone the dock scrolls sideways). Pages you have already opened stay loaded, so switching between them is instant. Your name and role are top right, with the account menu (switch demo account, replay the intro, sign out) and the sun/moon menu that switches between Light, Dark and "match my device"; that choice is remembered in your browser.
 
 **3. Read a timetable.** *Timetable* in the menu. Choose *Student group*, *Faculty* or *Room* and an item; click a class to see why it is there. The switch at the top has two modes: *Regular weeks*, and *Week 7 · Spectra*, which shows the same grid with approved events (evenings up to 22:00) and any class moved for Spectra week marked *MOVED W7*.
 *Midsem exams* has a calendar and a search box that finds a paper **or a venue** (try `LH-1`).
@@ -89,22 +89,24 @@ The rules are enforced in the backend (`backend/app/permissions.py`); hiding a b
 * **AI (optional, off by default):** one Anthropic Messages API call to read booking text; see `AI_USAGE.md`.
 
 ## Architecture
-```
- Browser (Next.js on Vercel)
-        | HTTPS, JWT
-        v
- FastAPI backend ---- OR-Tools CP-SAT (timetable, exams, minimal-move repair)
-   - auth + roles (no self-approval)
-   - deterministic booking engine (priority, role caps, displacement overrides)
-   - rule-based English/Hinglish parser
-   - optional LLM assist (off by default; never decides validity)
-   - official validator.py (unmodified) as the final gate
-        |
-        v
- PostgreSQL (Supabase): workspace state, users, audit
- (a local SQLite file is used when DATABASE_URL is unset)
+![Locus architecture](docs/architecture.svg)
+
+```mermaid
+flowchart LR
+  B["Browser: Next.js 15 (Vercel)"] -- "HTTPS + JWT" --> API
+  subgraph API["FastAPI (Render)"]
+    AUTH["auth + roles"] --> R["routes"]
+    R --> BE["booking engine<br/>priority, role caps, displacement"]
+    R --> CP["OR-Tools CP-SAT<br/>timetable, exams, minimal-move repair"]
+    R --> P["English/Hinglish parser<br/>(optional LLM assist, off)"]
+    CP --> V["official validator.py (unmodified)"]
+    BE --> V
+  end
+  R --> DB[("PostgreSQL (Supabase)<br/>SQLite locally")]
 ```
 Validity is always decided by code. The LLM, if enabled, only suggests field values for a draft the user can edit.
+The booking and change flows, the data model, the module map and the deployment are drawn in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md);
+the reasons behind the main choices are in [docs/DECISIONS.md](docs/DECISIONS.md), the visual design in [docs/DESIGN.md](docs/DESIGN.md).
 
 ## Layout
 | Path | Purpose |
@@ -113,8 +115,9 @@ Validity is always decided by code. The LLM, if enabled, only suggests field val
 | `frontend/` | Next.js web app (`frontend/README.md`) |
 | `starter_pack/` | Official dataset, `validator.py`, examples (unmodified) |
 | `exports/` | `schedule.json`, `schedule_after.json` produced by the app |
-| `docs/` | API contract, decisions, test report, deployment notes |
+| `docs/` | `ARCHITECTURE.md` and `architecture.svg`, API contract, decisions, design, test report, deployment notes, final compliance audit |
 | `AI_USAGE.md`, `THIRD_PARTY.md` | AI and third-party declarations |
+| `.env.example` | every environment variable, with what it does and its safe default |
 
 ## Run locally
 Backend (Python 3.13):
@@ -125,7 +128,7 @@ py -3.13 -m venv .venv
 .venv\Scripts\python -m uvicorn app.main:app --port 8000
 ```
 Open http://localhost:8000/docs. Copy `.env.example` to `.env` to use Supabase and your own `JWT_SECRET`.
-Frontend: `cd frontend && npm install && npm run dev`, with `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000`. Tests: `cd backend && python -m pytest -q tests`.
+Frontend: `cd frontend && npm install && npm run dev`, with `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000`. Tests: `cd backend && python -m pytest -q tests` (123 tests; see `docs/TEST_REPORT.md`).
 
 ## The two export files (repository and app)
 The problem statement asks for `exports/schedule.json` and `exports/schedule_after.json` **in the public repository**, and for an **Export** in the app. Both exist and come from the same code:
@@ -135,6 +138,18 @@ The problem statement asks for `exports/schedule.json` and `exports/schedule_aft
 
 ## Regenerate the exports
 `cd backend && python scripts/generate_exports.py 90` drives the real API, writes `exports/*.json` and runs the validator.
+
+## Submission checklist (what the problem statement asks for, and where it is)
+| Asked for | Where |
+| --- | --- |
+| Public repository with the working app | this repository; live at https://locus-cit.vercel.app |
+| `exports/schedule.json` and `exports/schedule_after.json` | [`exports/`](exports/) and the app's *Exports* page |
+| README: description, architecture diagram, tech stack, setup steps, demo accounts for each role, known limitations | this file |
+| `.env.example` | [`.env.example`](.env.example) |
+| `AI_USAGE.md` (tools, prompts, what was kept) | [`AI_USAGE.md`](AI_USAGE.md) |
+| `THIRD_PARTY.md` (libraries, data, licences) | [`THIRD_PARTY.md`](THIRD_PARTY.md) |
+| Walkthrough video, 5 minutes or less | see the Video line at the top |
+| Official validator unmodified | `starter_pack/validator.py` |
 
 ## Known limitations
 * One shared demo workspace: a reset by one judge affects others (stale clients get a 409 and must refresh).

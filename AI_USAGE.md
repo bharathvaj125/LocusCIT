@@ -29,4 +29,4 @@ as an editable draft with the assumptions listed. Instructions hidden in user te
 | Google Antigravity (agentic coding IDE), model **Gemini 3.8 Flash** | Used by the frontend owner for the first version of the web UI: page layouts, components and styling. That UI was later connected to the real API, its mock data removed, and extended (Approvals, Changes, Exports, Assistant, Week 7 timetable and more) with Claude Code. |
 
 ## 4. Prompts
-Prompt files or links are kept in `docs/PROMPTS/`. Add the frontend owner's prompts there before submission.
+The prompt the running app uses, and where the build prompts go, are in `docs/PROMPTS/README.md`. The frontend owner's prompts still have to be added there before submission.

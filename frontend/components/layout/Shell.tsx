@@ -56,7 +56,7 @@ function StationDock({ nav, onNav, routes, pending }: { nav: NavRouteId; onNav: 
   return (
     <div className="fixed inset-x-0 bottom-4 z-30 flex justify-center px-3 pointer-events-none">
       <motion.nav aria-label="Pages" initial={{ y: 70, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ type: "spring", stiffness: 220, damping: 24, delay: 0.1 }}
-        className="pointer-events-auto max-w-full rounded-[28px] bg-deep/90 backdrop-blur-xl border border-white/10 shadow-pop">
+        className="pointer-events-auto max-w-full rounded-[28px] bg-deep/95 border border-white/10 shadow-pop">
         <div ref={scroller} className="dock-scroll overflow-x-auto py-3">
           <div ref={list} onKeyDown={onKey} className="dock mx-auto flex">
             {routes.map((r, i) => {
@@ -148,7 +148,7 @@ export function Shell({ user, dashboard, nav, onNav, onSwitch, onSignOut, onSear
   const pending = dashboard?.pending_approvals ?? 0;
   return (
     <div className="relative z-[1] min-h-screen">
-      <header className="sticky top-0 z-20 bg-paper/85 backdrop-blur-md border-b border-line/70">
+      <header className="sticky top-0 z-20 bg-paper/95 border-b border-line/70">
         <div className="flex items-center gap-3 px-4 md:px-8 h-[68px] max-w-[1500px] mx-auto">
           <button onClick={() => onNav("overview")} aria-label="Locus, go to the overview" className="flex items-center gap-3 shrink-0 cursor-pointer">
             <span className="relative w-10 h-10 rounded-xl bg-deep p-1 border border-lagoon-500/40 flex items-center justify-center shadow-[0_4px_14px_rgba(201,150,46,0.25)]">
@@ -176,11 +176,7 @@ export function Shell({ user, dashboard, nav, onNav, onSwitch, onSignOut, onSear
       </header>
 
       <main className="px-4 md:px-8 py-7 pb-40 max-w-[1500px] mx-auto">
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div key={nav} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}>
-            {children}
-          </motion.div>
-        </AnimatePresence>
+        {children}
       </main>
 
       <StationDock nav={nav} onNav={onNav} routes={routes} pending={pending} />
