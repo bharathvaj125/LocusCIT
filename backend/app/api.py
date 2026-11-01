@@ -68,7 +68,7 @@ def _run_generate(job_id, time_limit):
     try:
         def early(assign, info):
             if _publish(job, start_rev, assign, info, False):
-                job.update(phase="optimising", soft_total=info["soft_total"], sessions=len(assign),
+                job.update(phase="optimising", soft_total=info["soft_total"], warm_start=info.get("warm_start", False), sessions=len(assign),
                            hard_violation_count=0)
         status, assign, info = generate_timetable(WS.dataset, feasible_limit=config.feasible_seconds(), optimize_limit=time_limit,
                                                   on_feasible=early)

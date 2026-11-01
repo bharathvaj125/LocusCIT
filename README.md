@@ -25,7 +25,7 @@ and approved events) and can read any timetable; only requests and approvals are
 
 ## A first visit, in order (about 10 minutes)
 **1. Set up as `admin1` (Overview page).** Press *Run again* on each step if a step is not done:
-*Generate the timetable* (1-2 minutes; a valid timetable shows first and then improves), *Schedule midsem exams*, *Decide Spectra requests*.
+*Generate the timetable* (for the official dataset it starts from the saved best timetable and re-checks it with the official validator, a few seconds; for any other dataset it is solved from scratch, which takes longer), *Schedule midsem exams*, *Decide Spectra requests*.
 For a clean start press *Reset demo data* (Overview, "Start over" card), then run the three steps again.
 
 **2. Find a room.** Any account: *Overview > Campus at a glance > Is a room free?* Pick a day, a time range and the seats you need.
@@ -115,7 +115,7 @@ py -3.13 -m venv .venv
 .venv\Scripts\python -m uvicorn app.main:app --port 8000
 ```
 Open http://localhost:8000/docs. Copy `.env.example` to `.env` to use Supabase and your own `JWT_SECRET`.
-Frontend: `cd frontend && npm install && npm run dev`, with `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000`. Tests: `cd backend && python -m pytest -q tests` (123 tests; see `docs/TEST_REPORT.md`).
+Frontend: `cd frontend && npm install && npm run dev`, with `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000`. Tests: `cd backend && python -m pytest -q tests` (128 tests; see `docs/TEST_REPORT.md`).
 
 ## The two export files (repository and app)
 The problem statement asks for `exports/schedule.json` and `exports/schedule_after.json` **in the public repository**, and for an **Export** in the app. Both exist and come from the same code:
@@ -143,5 +143,5 @@ The problem statement asks for `exports/schedule.json` and `exports/schedule_aft
 * Bookings submitted through the app are checked against the live Week 7 state but are not part of the scored export.
 * Changes are permanent and cumulative: after a second change, `schedule_after.json` holds the result of both, while the validator
   command applies only the file you name. Use a fresh reset when checking one file.
-* Solves take 1-2 minutes on a laptop; deploy on a host with at least 1-2 dedicated vCPUs.
+* A timetable solved from scratch (a different dataset, or `WARM_START=false`) takes about 25 CPU seconds, which is minutes on the free server; the official dataset starts from a saved, re-validated timetable.
 * The AI assist needs your own API key; without it the deterministic parser and the manual form are used.

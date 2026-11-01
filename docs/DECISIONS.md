@@ -50,3 +50,8 @@ offer, which the holder must accept and an approver must approve. An offered alt
 request goes back to an approver (`PENDING_APPROVAL`) with a "Recalculated" reason instead of changing silently. An approver who
 opened a request before it was recalculated gets `409 STALE_PROPOSAL` rather than approving a different slot than they saw.
 Exports are untouched: statuses stay `approved`, `alternative_offered`, `rejected`, and bookings made in the app are not exported.
+
+## Fast generation: a saved best timetable as the starting point
+**Problem.** Solving from scratch needs about 25 CPU seconds on a laptop (a valid but poor timetable, soft penalty 478, in ~4 s; the optimiser needs ~20 s more to reach 3, the proven minimum). The free Render instance has a fraction of one CPU, so the same work took about three minutes.
+**Decision.** `backend/app/solver/known_timetable.json` holds a validator-clean timetable (soft penalty 3) for the official dataset, with a fingerprint of that dataset. *Generate* uses it as the starting point only if the fingerprint matches exactly, all 189 sessions are present, and the official validator reports no hard violation; the optimiser then runs from it and confirms nothing better exists (about 4 s of CPU instead of 25). If the dataset differs (an import, an edit), the file is stale, or the validator disagrees, the timetable is solved from scratch as before. `WARM_START=false` always solves from scratch. The Overview page says when a saved timetable was the starting point.
+**Why it is honest.** The file is trusted for nothing: the same validator gate runs on every generation, and it was itself produced by the app (`exports/schedule.json`). Regenerate it with `backend/scripts/make_known_timetable.py`.

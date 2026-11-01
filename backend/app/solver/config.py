@@ -34,6 +34,11 @@ def feasible_seconds():
     return float(os.getenv("FEASIBLE_SECONDS", "180"))
 
 
+def warm_start():
+    """Start from the saved best timetable when it matches the dataset exactly and passes the validator (WARM_START=false disables)."""
+    return os.getenv("WARM_START", "true").lower() != "false"
+
+
 def prune_rooms():
     """Rooms kept per slot when optimising (0 = keep all). Smaller is faster and uses less memory."""
     try:

@@ -324,6 +324,7 @@ export interface SolverJob {
   job_id: string;
   status: "RUNNING" | "DONE" | "INFEASIBLE" | "UNKNOWN" | "FAILED_VALIDATION" | "ERROR" | "STALE";
   phase?: "optimising" | "done";
+  warm_start?: boolean;
   solver_status?: string;
   soft_total?: number;
   sessions?: number;

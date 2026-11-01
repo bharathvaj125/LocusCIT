@@ -56,7 +56,9 @@ export function Overview({ onNav }: { onNav: (n: NavRouteId) => void }) {
   ];
 
   const solverPhase = p.job?.phase === "optimising"
-    ? { text: `Valid timetable found and already usable (soft penalty ${p.job.soft_total}). Now improving it`, tone: "saffron" as const }
+    ? { text: p.job.warm_start
+        ? `Started from the saved best timetable for this dataset, re-checked by the official validator (soft penalty ${p.job.soft_total}). Confirming nothing better exists`
+        : "Valid timetable found and already usable. Now improving it", tone: "saffron" as const }
     : { text: "Searching for a clash-free timetable", tone: "lagoon" as const };
 
   return (

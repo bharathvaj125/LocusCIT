@@ -92,20 +92,28 @@ def test_faculty_and_club_have_no_approval_authority(client, faculty, club, admi
 
 
 # ------------------------------------------------------------------------------ moving classes
-def _auditorium_class(client, who):
+def _displaceable_class(client, who):
+    """A regular class that an institute event can push out: whether one exists depends on the generated timetable."""
+    rooms = {r["id"]: r for r in client.get("/api/reference", headers=who).json()["data"]["rooms"]}
     for c in client.get("/api/venue-board", headers=who).json()["data"]["classes"]:
-        if c["room_id"] == "AUD" and c["day"] in ("MON", "TUE", "WED", "THU", "FRI"):
-            return c
-    pytest.skip("no class in the auditorium on this timetable")
+        room = rooms.get(c["room_id"])
+        if not room or c["day"] not in ("MON", "TUE", "WED", "THU", "FRI") or len(c["groups"]) > 1 and room["capacity"] < 120:
+            continue
+        ask = dict(room=c["room_id"], attendance=min(room["capacity"], 60), duration_periods=c["end"] - c["start"] + 1,
+                   windows=[{"day": c["day"], "from_period": c["start"], "to_period": c["end"]}])
+        probe = submit(client, who, "Probe", [room["type"]], cat="institute_event", **ask)
+        client.post(f"/api/bookings/{probe['id']}/cancel", headers=who)
+        if probe["overrides"]:
+            return c, room["type"], ask
+    pytest.skip("no class on this timetable can be relocated by an institute event")
 
 
 def test_a_booking_that_moves_classes_needs_an_admin_other_than_the_requester(client, admin, admin2, coordinator, ready):
-    c = _auditorium_class(client, admin)
+    c, rtype, ask = _displaceable_class(client, admin)
     before = classes(client, admin)
-    s = submit(client, admin, "Convocation rehearsal", ["auditorium"], room="AUD", attendance=300, cat="institute_event",
-               duration_periods=c["end"] - c["start"] + 1,
-               windows=[{"day": c["day"], "from_period": c["start"], "to_period": c["end"]}])
-    assert s["overrides"] and s["routing"]["approver"] == "admin" and s["affected_classes"]
+    s = submit(client, admin, "Convocation rehearsal", [rtype], cat="institute_event", **ask)
+    assert s["overrides"]
+    assert s["routing"]["approver"] == "admin" and s["affected_classes"]
     assert classes(client, admin) == before                                        # proposed only, nothing moved yet
     assert decide(client, coordinator, s["id"]).status_code == 403                 # a coordinator is never enough
     own = decide(client, admin, s["id"])
@@ -123,23 +131,19 @@ def test_a_booking_that_moves_classes_needs_an_admin_other_than_the_requester(cl
 
 
 def test_only_an_institute_level_request_may_move_classes(client, club, coordinator, faculty, admin, ready):
-    c = _auditorium_class(client, admin)
+    c, rtype, ask = _displaceable_class(client, admin)
     before = classes(client, admin)
     for who, cat in ((club, "club_event"), (coordinator, "department_event"), (faculty, "guest_lecture")):
-        s = submit(client, who, f"Wants the auditorium {cat}", ["auditorium"], room="AUD", attendance=300, cat=cat,
-                   duration_periods=c["end"] - c["start"] + 1,
-                   windows=[{"day": c["day"], "from_period": c["start"], "to_period": c["end"]}])
+        s = submit(client, who, f"Wants the room {cat}", [rtype], cat=cat, **ask)
         assert s["overrides"] == []                                               # classes are never offered up
         assert s["proposed"]["status"] in ("alternative_offered", "rejected")
     assert classes(client, admin) == before
 
 
 def test_a_rejected_class_moving_request_changes_nothing(client, admin, admin2, ready):
-    c = _auditorium_class(client, admin)
+    c, rtype, ask = _displaceable_class(client, admin)
     before = classes(client, admin)
-    s = submit(client, admin, "Guest convocation", ["auditorium"], room="AUD", attendance=300, cat="institute_event",
-               duration_periods=c["end"] - c["start"] + 1,
-               windows=[{"day": c["day"], "from_period": c["start"], "to_period": c["end"]}])
+    s = submit(client, admin, "Guest convocation", [rtype], cat="institute_event", **ask)
     r = decide(client, admin2, s["id"], "reject")
     assert r.status_code == 200 and find(client, admin, s["id"])["status"] == "REJECTED"
     assert classes(client, admin) == before
