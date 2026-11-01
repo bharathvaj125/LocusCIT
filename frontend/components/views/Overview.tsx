@@ -74,9 +74,9 @@ export function Overview({ onNav }: { onNav: (n: NavRouteId) => void }) {
       {/* pipeline */}
       <motion.div variants={item}>
         <Card className="overflow-hidden">
-          <div className="relative bg-lagoon-900 text-raised px-6 md:px-8 py-6">
+          <div className="relative bg-deep text-onbrand px-6 md:px-8 py-6">
             <div className="absolute inset-0 opacity-30 pointer-events-none overflow-hidden" aria-hidden>
-              <div className="wave-drift absolute -bottom-2 left-0 w-[200%]"><svg viewBox="0 0 1200 120" preserveAspectRatio="none" className="w-full h-24"><path d="M0 60 Q 150 10 300 60 T 600 60 T 900 60 T 1200 60 V120 H0Z" fill="#1F8A96" /></svg></div>
+              <div className="wave-drift absolute -bottom-2 left-0 w-[200%]"><svg viewBox="0 0 1200 120" preserveAspectRatio="none" className="w-full h-24"><path d="M0 60 Q 150 10 300 60 T 600 60 T 900 60 T 1200 60 V120 H0Z" fill="#2F4FA6" /></svg></div>
             </div>
             <div className="relative flex flex-wrap items-center justify-between gap-3">
               <div>

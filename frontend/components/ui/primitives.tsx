@@ -9,12 +9,12 @@ import { TONES, Tone } from "@/lib/dept";
 /* ------------------------------------------------------------------ Button */
 type ButtonVariant = "primary" | "secondary" | "ghost" | "success" | "danger" | "sunrise";
 const BUTTON: Record<ButtonVariant, string> = {
-  primary: "bg-lagoon-700 text-raised hover:bg-lagoon-900 shadow-[0_1px_0_rgba(255,255,255,0.15)_inset]",
-  secondary: "bg-raised text-ink-900 border border-line hover:border-line-strong hover:bg-white",
+  primary: "bg-lagoon-700 text-onprimary hover:brightness-110 shadow-[0_1px_0_rgba(255,255,255,0.15)_inset]",
+  secondary: "bg-raised text-ink-900 border border-line hover:border-line-strong hover:bg-sunk",
   ghost: "text-ink-600 hover:bg-sunk hover:text-ink-900",
-  success: "bg-mangrove-500 text-raised hover:bg-mangrove-600",
+  success: "bg-mangrove-500 text-onprimary hover:brightness-110",
   danger: "bg-raised text-sunrise-600 border border-sunrise-500/60 hover:bg-sunrise-50",
-  sunrise: "bg-sunrise-500 text-raised hover:bg-sunrise-600",
+  sunrise: "bg-lagoon-500 text-deep hover:brightness-110",   // the accent call to action is gold (the name is kept for existing screens)
 };
 
 export interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "onDrag" | "onDragStart" | "onDragEnd" | "onAnimationStart"> {
@@ -43,7 +43,7 @@ export function Button({ variant = "primary", size = "md", icon, loading, classN
 
 /* -------------------------------------------------------------- Chip / Tag */
 export function Chip({ tone = "lagoon", children, className, dot }: { tone?: Tone | "ink"; children: React.ReactNode; className?: string; dot?: boolean }) {
-  const style = tone === "ink" ? "bg-ink-900 text-raised" : cn(TONES[tone].soft, TONES[tone].text);
+  const style = tone === "ink" ? "bg-deep text-onbrand" : cn(TONES[tone].soft, TONES[tone].text);
   return (
     <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap", style, className)}>
       {dot && <span className={cn("w-1.5 h-1.5 rounded-full", tone === "ink" ? "bg-raised" : TONES[tone].dot)} />}
@@ -200,7 +200,7 @@ export function Drawer({ open, onClose, title, eyebrow, children, footer, width 
     <AnimatePresence>
       {open && (
         <>
-          <motion.div className="fixed inset-0 z-40 bg-ink-900/30 backdrop-blur-[2px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
+          <motion.div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
           <motion.aside
             role="dialog" aria-modal="true" aria-label={typeof title === "string" ? title : "Details"}
             className="fixed right-0 top-0 bottom-0 z-50 bg-raised border-l border-line shadow-pop flex flex-col max-w-full"
@@ -266,7 +266,7 @@ export function Banner({ tone = "lagoon", children, onClose }: { tone?: Tone; ch
 export function StepDot({ state, n }: { state: "done" | "active" | "todo"; n: number }) {
   return (
     <span className={cn("w-8 h-8 rounded-full flex items-center justify-center text-[13px] font-bold shrink-0 transition-colors",
-      state === "done" ? "bg-mangrove-500 text-raised" : state === "active" ? "bg-lagoon-700 text-raised ring-4 ring-lagoon-200" : "bg-sunk text-ink-400")}>
+      state === "done" ? "bg-mangrove-500 text-onprimary" : state === "active" ? "bg-lagoon-700 text-onprimary ring-4 ring-lagoon-200" : "bg-sunk text-ink-400")}>
       {state === "done" ? <Check className="w-4 h-4" /> : n}
     </span>
   );

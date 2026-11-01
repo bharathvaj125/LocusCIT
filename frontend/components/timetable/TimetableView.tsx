@@ -46,10 +46,10 @@ function SessionBlock({ s, dim, linked, onHover, onOpen, tall }: {
       <span className={cn("absolute left-0 top-0 bottom-0 w-[5px]", tone.bar)} />
       <span className="flex items-center gap-1.5 flex-wrap">
         <span className={cn("font-mono text-[10.5px] font-medium tracking-wide", tone.text)}>{s.course_id}</span>
-        {s.kind === "lab" && <span className="font-mono text-[9px] px-1 rounded bg-plum-500 text-raised">{s.duration}H LAB</span>}
-        {s.kind === "tutorial" && <span className="font-mono text-[9px] px-1 rounded bg-ink-900/80 text-raised">TUT</span>}
-        {s.basket_slot && <span className="font-mono text-[9px] px-1 rounded bg-saffron-500 text-ink-900">{s.basket_slot}</span>}
-        {s.week7?.moved && <span className="font-mono text-[9px] px-1 rounded bg-saffron-500 text-ink-900" title={`Moved for Week 7 because of ${s.week7.displaced_by ?? "an institute event"}`}>MOVED W7</span>}
+        {s.kind === "lab" && <span className="font-mono text-[9px] px-1 rounded bg-plum-500 text-onbrand">{s.duration}H LAB</span>}
+        {s.kind === "tutorial" && <span className="font-mono text-[9px] px-1 rounded bg-deep/80 text-onbrand">TUT</span>}
+        {s.basket_slot && <span className="font-mono text-[9px] px-1 rounded bg-saffron-500 text-deep">{s.basket_slot}</span>}
+        {s.week7?.moved && <span className="font-mono text-[9px] px-1 rounded bg-saffron-500 text-deep" title={`Moved for Week 7 because of ${s.week7.displaced_by ?? "an institute event"}`}>MOVED W7</span>}
         {s.is_underutilized && <span title="Room is under 40% full" className="w-1.5 h-1.5 rounded-full bg-saffron-500" />}
       </span>
       <span className="font-display text-[14px] font-semibold leading-tight line-clamp-2">{s.course_title}</span>
@@ -133,7 +133,7 @@ export function TimetableView({ sessions, loading, entities, pivot, onPivot, sel
           <button onClick={() => cycle(1)} aria-label="Next" className="p-2 rounded-lg hover:bg-sunk cursor-pointer"><ChevronRight className="w-4 h-4" /></button>
         </div>
         <div className="flex items-center gap-3 text-xs text-ink-600 ml-auto flex-wrap">
-          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-lagoon-500" />CSE</span>
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-teal-500" />CSE</span>
           <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-indigo-500" />ECE</span>
           <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-saffron-500" />EE</span>
           <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-sunrise-500" />ME</span>
@@ -167,7 +167,7 @@ export function TimetableView({ sessions, loading, entities, pivot, onPivot, sel
               <div />
               {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((p) => (
                 <div key={p} style={{ gridColumn: colOf(p), gridRow: 1 }} className="px-1 pb-1">
-                  <p className="font-mono text-[11px] font-medium tracking-wider text-lagoon-700">P{p}{(p === 2 || p === 6) && <span className="ml-1 text-plum-500">LAB</span>}</p>
+                  <p className="font-mono text-[11px] font-medium tracking-wider text-lagoon-700">P{p}{(p === 2 || p === 6) && <span className="ml-1 text-plum-600">LAB</span>}</p>
                   <p className="font-mono text-[10px] text-ink-400">{PERIOD_CLOCK[p]}</p>
                 </div>
               ))}

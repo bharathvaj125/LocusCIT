@@ -60,10 +60,11 @@ class ParseBody(BaseModel):
 class DecisionBody(BaseModel):
     action: str
     reason: str | None = Field(default=None, max_length=500)
+    expect: dict | None = None          # the slot the approver was looking at; refused if it has changed since
 
 
 def _now_iso():
-    return datetime.now(IST).isoformat(timespec="seconds")
+    return datetime.now(IST).isoformat(timespec="milliseconds")
 
 
 def _week_base():
@@ -121,6 +122,83 @@ def reconcile_after_timetable_change():
             D.place_existing({"status": "approved", **p}, s["request"])
     from .api_negotiation import void_stale
     void_stale()
+    reconcile_pending()
+
+
+def _inside(req, p):
+    return any(w["day"] == p["day"] and w["from_period"] <= p["start_period"] and p["end_period"] <= w["to_period"]
+               for w in req["windows"])
+
+
+def _proposal_wording(dec):
+    """The engine only proposes here; a person approves, so word the reason as a proposal."""
+    for old, new in (("Approved. ", "Fits the rules and can be approved. "), ("Alternative offered. ", "Only an alternative fits. ")):
+        if dec["reason"].startswith(old):
+            dec["reason"] = new + dec["reason"][len(old):]
+    return dec
+
+
+def _slot_text(p):
+    return f"{p['room_id']} {p['day']} P{p['start_period']}-P{p['end_period']}"
+
+
+def _movable(s):
+    """A request the engine may re-decide: an ordinary one, not a manual choice, a class move or a move offer."""
+    return not (s.get("manual") or s.get("overrides") or s.get("negotiation_id"))
+
+
+def reconcile_pending():
+    """Call with WS.lock held whenever who holds what may have changed.
+
+    Requests nobody has confirmed yet (waiting for an approver, or an alternative still waiting for its requester) are
+    decided again together, in the official order (category, then earlier submission), on top of everything already
+    confirmed. So a higher-priority request takes the slot it needs; a lower one that loses its slot is moved to
+    another slot inside its own windows, else offered an alternative outside them, else rejected with the reason.
+    Confirmed bookings are never touched here: changing those goes through the move-offer and approval process."""
+    live = [s for s in WS.submissions.values() if s.get("placement") and s["status"] in ("PENDING_APPROVAL", "ALTERNATIVE_OFFERED")]
+    redo = [s for s in live if _movable(s)]
+    if not redo:
+        return []
+    D = _decider(exclude={s["id"] for s in redo})
+    ordered = sorted(live, key=lambda s: D.sort_key(s["request"]))
+    changed = []
+    for i, s in enumerate(ordered):
+        req, old = s["request"], s["placement"]
+        if not _movable(s):
+            if not D.check_slot(req, old["room_id"], old["day"], old["start_period"], old["end_period"]):
+                D.place_existing({"status": "approved", **old}, req)
+            continue
+        if s["status"] == "ALTERNATIVE_OFFERED" and not D.check_slot(req, old["room_id"], old["day"], old["start_period"], old["end_period"]):
+            D.place_existing({"status": "alternative_offered", **old}, req)       # nobody with priority needs it: the offer stands
+            continue
+        later = [x["request"] for x in ordered[i + 1:] if _movable(x)]
+        dec = _proposal_wording(D.decide(req, allow_displace=False, pending=later))
+        new = {k: dec[k] for k in ("room_id", "day", "start_period", "end_period")} if dec["status"] != "rejected" else None
+        if new == old and dec["status"] == s["proposed"]["status"] and s["status"] == "PENDING_APPROVAL":
+            continue
+        why = ""
+        if old and new != old:
+            holders = sorted({x for k, x in D.week.blockers(req, old["room_id"], old["day"], old["start_period"], old["end_period"])
+                              if k in ("event", "class")})
+            if holders:
+                why = (f" Recalculated: {_slot_text(old)} is now held by "
+                       f"{', '.join(D.label(x) for x in holders)}, which has priority or was requested first.")
+        s["proposed"] = dec
+        s["decision_reason"] = dec["reason"] + why
+        s["recalculated_at"] = time.time()
+        if dec["status"] == "rejected":
+            s.update(status="REJECTED", placement=None, decided_by=None, decided_role="system", decided_at=time.time())
+            from .api_negotiation import on_reject
+            on_reject(s)
+        else:
+            s["placement"] = new
+            s["status"] = "PENDING_APPROVAL"          # a changed offer goes back to an approver; nothing is confirmed silently
+            s.pop("decided_by", None)
+        changed.append(s["id"])
+        db.log("system", "booking_recalculated", f"{s['id']} -> {dec['status']}")
+    if changed:
+        WS.revision += 1
+    return changed
 
 
 def _request_dict(user, d, sid, window_list):
@@ -218,7 +296,8 @@ def _official_hard_many(subs, extra_overrides=()):
     keys = ("request_id", "status", "day", "start_period", "end_period", "room_id", "reason")
     decisions = [{k: v for k, v in d.items() if k in keys} for d in (WS.bookings or {}).get("decisions", [])]
     for sub in subs:
-        decisions.append({"request_id": sub["request"]["id"], "status": "approved", **sub["placement"], "reason": "check"})
+        decisions.append({"request_id": sub["request"]["id"], "status": "approved" if _inside(sub["request"], sub["placement"])
+                          else "alternative_offered", **sub["placement"], "reason": "check"})
     fest = {"bookings": decisions, "session_overrides": list((WS.bookings or {}).get("overrides", [])) + list(extra_overrides)}
     rep = official_validator().run(data, timetable_export(TEAM, data["dataset_id"], WS.schedule, fest_week=fest))
     ids = [sub["request"]["id"] for sub in subs] + [o["session_id"] for o in extra_overrides]
@@ -286,7 +365,7 @@ def submit(draft: Draft, user=Depends(current_user)):
     wins = draft.windows if draft.day_mode != "all" else draft.windows
     groups = [[w] for w in draft.windows] if draft.day_mode == "all" and len(draft.windows) > 1 else [list(wins)]
     series = uuid.uuid4().hex[:6] if len(groups) > 1 else None
-    out = []
+    made = []
     with WS.lock:
         D = _decider()
         for wl in groups:
@@ -299,11 +378,7 @@ def submit(draft: Draft, user=Depends(current_user)):
                 proposal = _displacement_proposal(req)    # institute-level requests only; nothing is applied yet
                 if proposal:
                     dec, moves = proposal
-            # the engine only proposes here; a person approves, so word the reason as a proposal
-            for old, new in (("Approved. ", "Fits the rules and can be approved. "),
-                             ("Alternative offered. ", "Only an alternative fits. ")):
-                if dec["reason"].startswith(old):
-                    dec["reason"] = new + dec["reason"][len(old):]
+            _proposal_wording(dec)
             sub = {"id": sid, "requester_username": user["username"], "requester": req["requester"],
                    "role": user["role"], "department": user["department"], "title": draft.title,
                    "request": req, "proposed": dec, "created_at": time.time(), "manual": False,
@@ -314,7 +389,9 @@ def submit(draft: Draft, user=Depends(current_user)):
             else:
                 sub["placement"] = {k: dec[k] for k in ("day", "start_period", "end_period", "room_id")}
             WS.submissions[sid] = sub
-            out.append(view_for(user, sub, _public_sub(sub)))
+            made.append(sub)
+        reconcile_pending()           # earlier or higher-priority requests that are still unconfirmed keep their slots
+        out = [view_for(user, s, _public_sub(s)) for s in made]
         WS.revision += 1
     db.log(user["username"], "booking_submit", ",".join(s["id"] for s in out))
     return ok({"submissions": out})
@@ -337,9 +414,15 @@ def decide(sid: str, body: DecisionBody, user=Depends(current_user)):
         act = body.action
         if act not in ("approve", "reject", "offer_alternative"):
             return fail(422, "INVALID_INPUT", "action must be approve, reject or offer_alternative")
+        cur = sub.get("placement")
+        if act != "reject" and body.expect and cur and any(body.expect.get(k) != cur.get(k) for k in ("room_id", "day", "start_period")):
+            return fail(409, "STALE_PROPOSAL", "This request was recalculated after you opened it (a request with higher priority "
+                                               f"or an earlier one now holds that slot). It is now {_slot_text(cur)}; check it and decide again.")
         if sub.get("negotiation_id") and act in ("approve", "offer_alternative"):
             from .api_negotiation import apply_negotiation
-            return apply_negotiation(sub, user, body.reason)
+            res = apply_negotiation(sub, user, body.reason)
+            reconcile_pending()
+            return res
         if act == "reject":
             sub.update(status="REJECTED", decided_by=user["username"], decided_role=user["role"],
                        decision_reason=body.reason or "The approver declined this request and gave no further reason.")
@@ -377,6 +460,7 @@ def decide(sid: str, body: DecisionBody, user=Depends(current_user)):
             sub.update(status="APPROVED" if act == "approve" else "ALTERNATIVE_OFFERED", decided_by=user["username"],
                        decided_role=user["role"], decision_reason=body.reason or sub["proposed"]["reason"])
         sub["decided_at"] = time.time()
+        reconcile_pending()
         WS.revision += 1
     db.log(user["username"], f"booking_{act}", f"{sid} (requested by {sub['requester_username']})")
     return ok(view_for(user, sub, _public_sub(sub)))
@@ -384,14 +468,37 @@ def decide(sid: str, body: DecisionBody, user=Depends(current_user)):
 
 @router.post("/bookings/{sid}/respond")
 def respond(sid: str, accept: bool = Body(..., embed=True), user=Depends(current_user)):
+    """The requester accepts or declines an offered alternative. Nothing outside the requested windows is confirmed
+    until it is accepted, and an accepted slot is checked again against the live state and the official validator."""
     with WS.lock:
         sub = WS.submissions.get(sid)
         if not sub or sub["requester_username"] != user["username"]:
             return fail(404, "INVALID_INPUT", "Unknown booking")
         if sub["status"] != "ALTERNATIVE_OFFERED":
             return fail(409, "INVALID_INPUT", "There is no alternative to respond to")
-        sub["status"] = "APPROVED" if accept else "WITHDRAWN"
+        p, req = sub["placement"], sub["request"]
+        if accept:
+            problems = _decider(exclude=(sid,)).check_slot(req, p["room_id"], p["day"], p["start_period"], p["end_period"])
+            if problems:
+                sub["status"] = "NEEDS_REVIEW"
+                sub["decision_reason"] = "The offered slot is no longer free: " + "; ".join(m for _, m in problems)
+                WS.revision += 1
+                return fail(409, "CONSTRAINT_VIOLATION", sub["decision_reason"] + ". Nothing was booked.",
+                            details=[{"rule": r, "detail": m} for r, m in problems])
+            hard = _official_hard_many([sub])
+            if hard:
+                return fail(500, "CONSTRAINT_VIOLATION", "Official validator rejected the placement", details=hard)
+            sub.update(status="APPROVED", decision_reason=f"{sub['decision_reason']} You accepted this alternative.")
+        else:
+            sub.update(status="REJECTED", placement=None, decided_by=user["username"], decided_role=user["role"],
+                       decided_at=time.time(), declined_alternative=dict(p),
+                       decision_reason=(f"You declined the alternative offered ({_slot_text(p)}), so nothing is booked. "
+                                        "The decision is kept; submit a new request if you still need a venue."))
+            from .api_negotiation import on_reject
+            on_reject(sub)
+        reconcile_pending()
         WS.revision += 1
+    db.log(user["username"], "booking_alternative_" + ("accepted" if accept else "declined"), sid)
     return ok(_public_sub(sub))
 
 
@@ -407,6 +514,7 @@ def cancel(sid: str, user=Depends(current_user)):
         WS.app_overrides = [o for o in (WS.app_overrides or []) if o.get("displaced_by") != sid]   # classes move back
         from .api_negotiation import on_cancel
         on_cancel(sub)
+        reconcile_pending()
         WS.revision += 1
     return ok(_public_sub(sub))
 
@@ -430,6 +538,10 @@ def manual_event(ev: ManualEvent, user=Depends(current_user)):
            "requested_room": ev.room_id, "mandatory_for_groups": ev.mandatory_for_groups, "series_id": None, "raw_text": ""}
     with WS.lock:
         D = _decider()
+        for o in WS.submissions.values():
+            # a request still waiting that outranks this event (or was made first) keeps the slot it was given
+            if o.get("placement") and o["status"] in ("PENDING_APPROVAL", "ALTERNATIVE_OFFERED") and D.sort_key(o["request"]) <= D.sort_key(req):
+                D.place_existing({"status": "approved", **o["placement"]}, o["request"])
         groups = {g["id"] for g in WS.dataset["student_groups"]}
         problems = [("H13", f"Unknown student group {g}") for g in ev.mandatory_for_groups if g not in groups]
         found = D.check_slot(req, ev.room_id, ev.day, ev.start_period, ev.end_period)
@@ -471,6 +583,7 @@ def manual_event(ev: ManualEvent, user=Depends(current_user)):
                     return fail(500, "CONSTRAINT_VIOLATION", "Official validator rejected the class moves", details=hard)
             sub["status"] = "PENDING_APPROVAL"
         WS.submissions[sid] = sub
+        reconcile_pending()
         WS.revision += 1
     db.log(user["username"], "manual_event", sid)
     return ok(view_for(user, sub, _public_sub(sub)))

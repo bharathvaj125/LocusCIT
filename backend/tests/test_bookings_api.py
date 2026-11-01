@@ -44,13 +44,18 @@ def test_prompt_injection_cannot_raise_priority(client, club, ready):
 def test_cannot_approve_own_and_conflicting_slot_is_blocked(client, club, coordinator, admin, admin2, ready):
     a = submit(client, club, title="First").json()["data"]["submissions"][0]
     b = submit(client, club, title="Second").json()["data"]["submissions"][0]
-    assert a["placement"] == b["placement"]                                     # both asked for the same room and time
+    assert a["placement"] != b["placement"]                                     # same ask, but the later one is given a different slot at once
     assert client.post(f"/api/bookings/{a['id']}/decision", headers=club, json={"action": "approve"}).status_code == 403
     assert client.post(f"/api/bookings/{a['id']}/decision", headers=coordinator, json={"action": "approve"}).status_code == 403
     ok = client.post(f"/api/bookings/{a['id']}/decision", headers=admin, json={"action": "approve"})
     assert ok.status_code == 200 and ok.json()["data"]["status"] == "APPROVED"
-    clash = client.post(f"/api/bookings/{b['id']}/decision", headers=admin2, json={"action": "approve"})
-    assert clash.status_code == 409 and "H4" in clash.json()["errors"][0]["rule_ids"]
+    steal = {"title": "Took it", "room_id": b["placement"]["room_id"], "day": b["placement"]["day"], "start_period": b["placement"]["start_period"],
+             "end_period": b["placement"]["end_period"], "attendance": 10, "requested_category": "institute_event"}
+    assert client.post("/api/events/manual", headers=admin, json=steal).status_code == 200       # an institute event takes b's slot
+    b = next(s for s in client.get("/api/bookings", headers=club).json()["data"]["submitted"] if s["id"] == b["id"])
+    assert b["status"] == "PENDING_APPROVAL" and b["placement"] != {k: steal[k] for k in ("room_id", "day", "start_period", "end_period")}
+    clash = client.post(f"/api/bookings/{b['id']}/decision", headers=admin2, json={"action": "approve", "expect": {"room_id": steal["room_id"], "day": steal["day"], "start_period": steal["start_period"]}})
+    assert clash.status_code == 409 and clash.json()["errors"][0]["code"] == "STALE_PROPOSAL"        # approving the old view is refused
     assert client.post(f"/api/bookings/{b['id']}/decision", headers=admin2, json={"action": "reject", "reason": "taken"}).status_code == 200
     assert client.post(f"/api/bookings/{b['id']}/decision", headers=admin2, json={"action": "approve"}).status_code == 409
 

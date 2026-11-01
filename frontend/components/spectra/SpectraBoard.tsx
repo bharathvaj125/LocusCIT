@@ -236,7 +236,7 @@ function Board() {
                 onMouseEnter={() => setHover(e.id)} onMouseLeave={() => setHover(null)}
                 initial={{ scaleX: 0.6, opacity: 0 }} animate={{ scaleX: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 300, damping: 26 }}
                 title={`${e.title} · ${e.requester} · ${periodRange(e.start, e.end)}${e.status === "pending_approval" ? " · pending: not confirmed until an Admin approves" : e.status !== "approved" ? ` · ${e.status.replace(/_/g, " ")}` : ""}`}
-                className={cn("z-[3] origin-left rounded-[6px] px-2 flex items-center overflow-hidden text-[11px] font-semibold text-raised shadow-card cursor-default", tone.bar,
+                className={cn("z-[3] origin-left rounded-[6px] px-2 flex items-center overflow-hidden text-[11px] font-semibold text-onbrand shadow-card cursor-default", tone.bar,
                   e.status === "alternative_offered" && "opacity-80", e.status === "pending_approval" && "opacity-60 outline-2 outline-dashed -outline-offset-2 outline-ink-900/60", hover === e.id && "ring-2 ring-ink-900/30")}>
                 <span className="truncate">{e.status === "pending_approval" ? "Pending · " : ""}{e.title}</span>
               </motion.div>
@@ -246,7 +246,7 @@ function Board() {
         {rooms.length === 0 && <p className="text-sm text-ink-600 py-4 text-center">No rooms to show.</p>}
       </Card>
       {tip && (
-        <div role="tooltip" style={{ left: tip.x, top: tip.y }} className="fixed z-[80] -translate-x-1/2 -translate-y-full -mt-2 max-w-[260px] rounded-xl bg-ink-900 text-raised text-xs leading-snug px-3 py-2 shadow-pop pointer-events-none">
+        <div role="tooltip" style={{ left: tip.x, top: tip.y }} className="fixed z-[80] -translate-x-1/2 -translate-y-full -mt-2 max-w-[260px] rounded-xl bg-deep border border-line text-onbrand text-xs leading-snug px-3 py-2 shadow-pop pointer-events-none">
           <span className="font-semibold">Why it is closed: </span>{tip.text}
         </div>
       )}
@@ -311,7 +311,7 @@ function ManualDrawer({ open, onClose, canAutoBook }: { open: boolean; onClose: 
         <fieldset><legend className="text-xs font-semibold text-ink-600 mb-1.5">Needs</legend>
           <div className="flex flex-wrap gap-2">{FEATURES.map((n) => (
             <button type="button" key={n} onClick={() => setNeeds((s) => (s.includes(n) ? s.filter((x) => x !== n) : [...s, n]))} aria-pressed={needs.includes(n)}
-              className={cn("px-3 py-1.5 rounded-full text-xs font-semibold border cursor-pointer", needs.includes(n) ? "bg-lagoon-700 text-raised border-lagoon-700" : "bg-raised text-ink-600 border-line hover:border-line-strong")}>{n.replace(/_/g, " ")}</button>
+              className={cn("px-3 py-1.5 rounded-full text-xs font-semibold border cursor-pointer", needs.includes(n) ? "bg-lagoon-700 text-onprimary border-lagoon-700" : "bg-raised text-ink-600 border-line hover:border-line-strong")}>{n.replace(/_/g, " ")}</button>
           ))}</div></fieldset>
         {problem && (
           <div className="rounded-xl bg-sunrise-50 text-sunrise-600 p-3.5 text-sm space-y-1" role="alert">

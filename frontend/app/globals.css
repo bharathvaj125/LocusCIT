@@ -1,27 +1,38 @@
 @import "tailwindcss";
 
-/* Locus design tokens: warm paper, ink and Chilika lagoon (see the Figma file "LocusCIT - Design System and Screens") */
+/* Locus design tokens. The look comes from the emblem: polished gold on black, with the navy of the institute seal.
+   Light mode is warm paper with navy ink and gold accents; dark mode is navy-black with gold. Components use the
+   token names only, so both modes come from the variables below (dark overrides further down).
+   The old brand name "lagoon" is kept for the primary scale: 900 deep, 700 primary (navy / gold in dark), 500 accent gold. */
 @theme {
   --color-paper: #F4EFE6;
   --color-raised: #FBF8F2;
   --color-sunk: #EBE4D6;
 
-  --color-ink-900: #0E2230;
-  --color-ink-600: #44586A;
-  --color-ink-400: #7B8A97;
+  --color-ink-900: #101A2E;
+  --color-ink-600: #46526A;
+  --color-ink-400: #5F6A82;
   --color-line: #D9D1C0;
   --color-line-strong: #BFB59E;
 
-  --color-lagoon-900: #0A3D4A;
-  --color-lagoon-700: #0E6270;
-  --color-lagoon-500: #1F8A96;
-  --color-lagoon-200: #BFE0DF;
-  --color-lagoon-50: #E6F3F1;
+  --color-deep: #0A1020;        /* side rail, sign-in panel, hero: dark in both modes */
+  --color-onbrand: #FBF8F2;     /* text on deep and on coloured fills: cream in both modes */
+  --color-onprimary: #FBF8F2;   /* text on the primary fill */
 
-  --color-sunrise-600: #C9431D;
+  --color-lagoon-900: #0A1020;
+  --color-lagoon-700: #1C2F66;
+  --color-lagoon-500: #C9962E;
+  --color-lagoon-200: #D9CCA8;
+  --color-lagoon-50: #ECEFF7;
+
+  --color-teal-700: #0E6270;    /* computer-science colour in timetables (was the old brand teal) */
+  --color-teal-500: #1F8A96;
+  --color-teal-50: #E6F3F1;
+
+  --color-sunrise-600: #B23A17;
   --color-sunrise-500: #E4572E;
   --color-sunrise-50: #FCE9E2;
-  --color-saffron-600: #B97E12;
+  --color-saffron-600: #8F5F08;
   --color-saffron-500: #E9A93A;
   --color-saffron-50: #FBF0D9;
   --color-mangrove-600: #1F6445;
@@ -41,11 +52,60 @@
   --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --shadow-card: 0 1px 0 rgba(14, 34, 48, 0.04), 0 8px 24px -12px rgba(14, 34, 48, 0.18);
-  --shadow-pop: 0 2px 4px rgba(14, 34, 48, 0.06), 0 24px 48px -16px rgba(14, 34, 48, 0.32);
+  --shadow-card: 0 1px 0 rgba(10, 16, 32, 0.04), 0 8px 24px -12px rgba(10, 16, 32, 0.18);
+  --shadow-pop: 0 2px 4px rgba(10, 16, 32, 0.06), 0 24px 48px -16px rgba(10, 16, 32, 0.32);
+}
+
+/* ------------------------------------------------------------------ dark mode */
+:root[data-theme="dark"] {
+  --color-paper: #0B0F1A;
+  --color-raised: #121829;
+  --color-sunk: #1A2236;
+
+  --color-ink-900: #EDE8DA;
+  --color-ink-600: #AEB5C5;
+  --color-ink-400: #7F89A0;
+  --color-line: #263049;
+  --color-line-strong: #36435F;
+
+  --color-deep: #060912;
+  --color-onprimary: #0B0F1A;
+
+  --color-lagoon-900: #F4EBD0;
+  --color-lagoon-700: #E0B24A;
+  --color-lagoon-500: #E9C468;
+  --color-lagoon-200: #A89A72;
+  --color-lagoon-50: #1B2542;
+
+  --color-teal-700: #5FD0DA;
+  --color-teal-500: #2BA3AF;
+  --color-teal-50: #0F2D31;
+
+  --color-sunrise-600: #FF8A66;
+  --color-sunrise-500: #F26A3F;
+  --color-sunrise-50: #3A1F19;
+  --color-saffron-600: #E9B24F;
+  --color-saffron-500: #E9A93A;
+  --color-saffron-50: #33290F;
+  --color-mangrove-600: #5FC79A;
+  --color-mangrove-500: #3FA877;
+  --color-mangrove-50: #12301F;
+  --color-indigo-600: #8FA6E8;
+  --color-indigo-500: #5F7ED1;
+  --color-indigo-50: #1A2342;
+  --color-plum-600: #B79AE0;
+  --color-plum-500: #7A58B8;
+  --color-plum-50: #271B3D;
+  --color-stone-600: #C2B79D;
+  --color-stone-500: #9A8F78;
+  --color-stone-50: #25221B;
+
+  --shadow-card: 0 1px 0 rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
+  --shadow-pop: 0 2px 4px rgba(0, 0, 0, 0.4), 0 24px 48px -16px rgba(0, 0, 0, 0.7);
 }
 
 html { color-scheme: light; }
+html[data-theme="dark"] { color-scheme: dark; }
 body {
   background: var(--color-paper);
   color: var(--color-ink-900);
@@ -55,7 +115,7 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
-::selection { background: var(--color-lagoon-200); color: var(--color-lagoon-900); }
+::selection { background: color-mix(in srgb, var(--color-lagoon-500) 38%, transparent); color: var(--color-ink-900); }
 
 /* a faint dot grid fading down the page: gives it a printed-timetable feel */
 body::before {
@@ -65,10 +125,11 @@ body::before {
   pointer-events: none;
   z-index: 0;
   opacity: 0.4;
-  background-image: radial-gradient(rgba(14, 34, 48, 0.07) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(16, 26, 46, 0.07) 1px, transparent 1px);
   background-size: 22px 22px;
   mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), transparent 55%);
 }
+html[data-theme="dark"] body::before { background-image: radial-gradient(rgba(233, 196, 104, 0.09) 1px, transparent 1px); }
 
 :focus-visible { outline: 2px solid var(--color-lagoon-500); outline-offset: 2px; border-radius: 6px; }
 * { scrollbar-width: thin; scrollbar-color: var(--color-line-strong) transparent; }
@@ -76,14 +137,14 @@ body::before {
 @keyframes drift { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 @keyframes shimmer { 100% { transform: translateX(100%); } }
-@keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(46, 125, 91, 0.45); } 100% { box-shadow: 0 0 0 10px rgba(46, 125, 91, 0); } }
+@keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(201, 150, 46, 0.45); } 100% { box-shadow: 0 0 0 10px rgba(201, 150, 46, 0); } }
 .wave-drift { animation: drift 18s linear infinite; }
 .wave-drift-slow { animation: drift 30s linear infinite; }
 .bob { animation: bob 5s ease-in-out infinite; }
 .seal-pulse { animation: pulse-ring 2.4s ease-out infinite; }
 .skeleton { position: relative; overflow: hidden; background: var(--color-sunk); border-radius: 12px; }
 .skeleton::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent); animation: shimmer 1.4s infinite; }
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-raised) 70%, transparent), transparent); animation: shimmer 1.4s infinite; }
 .tabular { font-variant-numeric: tabular-nums; }
 
 @media (prefers-reduced-motion: reduce) {

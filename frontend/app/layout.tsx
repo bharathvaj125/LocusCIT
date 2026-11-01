@@ -12,11 +12,15 @@ export const metadata: Metadata = {
     "Timetables, exams and venue bookings for the Chilika Institute of Technology: generated, validated and explained.",
 };
 
-export const viewport: Viewport = { themeColor: "#0A3D4A", width: "device-width", initialScale: 1 };
+export const viewport: Viewport = { themeColor: "#0A1020", width: "device-width", initialScale: 1 };
+
+// Sets the colour theme before the first paint, so a dark page never flashes white.
+const THEME_SCRIPT = `try{var c=localStorage.getItem("locus_theme");var d=c==="dark"||((c!=="light")&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.setAttribute("data-theme",d?"dark":"light")}catch(e){}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${fraunces.variable} ${manrope.variable} ${jetbrains.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${fraunces.variable} ${manrope.variable} ${jetbrains.variable}`}>
+      <head><script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} /></head>
       <body className="min-h-screen font-sans antialiased">{children}</body>
     </html>
   );

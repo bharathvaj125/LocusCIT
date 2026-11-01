@@ -21,27 +21,67 @@ import { NavRouteId, ReferenceData, ScheduledSession, SessionUser } from "@/lib/
 import { NAV_ROUTES, ROLE_CONFIGS } from "@/lib/uiConfig";
 import { Skeleton } from "@/components/ui/primitives";
 
+import { AnimatePresence } from "framer-motion";
+import { IntroReveal } from "@/components/intro/IntroReveal";
+
 type Pivot = "group" | "faculty" | "room";
 
 export function MainDashboardView({ initialNav = "overview" }: { initialNav?: NavRouteId }) {
   const [session, setSession] = useState<StoredSession | null>(null);
   const [ready, setReady] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [showIntro, setShowIntro] = useState(false);
+  const [introKey, setIntroKey] = useState(1);
 
   useEffect(() => {
     setSession(loadSession());
+    let seen = false;
+    try { seen = sessionStorage.getItem("locus_intro_seen") === "true"; } catch { /* storage blocked: show it */ }
+    setShowIntro(!seen);          // decided together with `ready`, so there is no frame of the sign-in page before the intro
     setReady(true);
-    return onUnauthorized(() => { setSession(null); setNotice("Your session ended. Please sign in again."); });
+
+    const handleReplay = () => {
+      try {
+        sessionStorage.removeItem("locus_intro_seen");
+      } catch {
+        // ignore
+      }
+      setIntroKey((k) => k + 1);
+      setShowIntro(true);
+    };
+
+    window.addEventListener("replay_intro", handleReplay);
+    const unauth = onUnauthorized(() => { setSession(null); setNotice("Your session ended. Please sign in again."); });
+
+    return () => {
+      window.removeEventListener("replay_intro", handleReplay);
+      unauth();
+    };
   }, []);
 
-  if (!ready) return <div className="min-h-screen" />;
-  if (!session) return <LoginScreen notice={notice} onSignedIn={(s) => { setNotice(null); setSession(s); }} />;
   return (
-    <ToastProvider>
-      <AppProvider key={session.user.username} user={session.user}>
-        <Workspace initialNav={initialNav} onSession={setSession} onSignOut={() => { logout(); setSession(null); }} />
-      </AppProvider>
-    </ToastProvider>
+    <>
+      <AnimatePresence mode="wait">
+        {ready && showIntro && (
+          <IntroReveal
+            key={introKey}
+            onComplete={() => setShowIntro(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {!ready || showIntro ? (
+        <div className="min-h-screen bg-[#05070d]" aria-hidden />
+      ) : !session ? (
+        <LoginScreen notice={notice} onSignedIn={(s) => { setNotice(null); setSession(s); }} />
+      ) : (
+        <ToastProvider>
+          <AppProvider key={session.user.username} user={session.user}>
+            <Workspace initialNav={initialNav} onSession={setSession} onSignOut={() => { logout(); setSession(null); }} />
+          </AppProvider>
+        </ToastProvider>
+      )}
+    </>
   );
 }
 

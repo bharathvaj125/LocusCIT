@@ -48,7 +48,7 @@ function EventBlock({ e, showRoom, onOpen }: { e: Week7Event; showRoom: boolean;
       <span className={cn("absolute left-0 top-0 bottom-0 w-[5px]", tone.bar)} />
       <span className="flex items-center gap-1.5 flex-wrap">
         <span className={cn("font-mono text-[10px] font-medium tracking-wide uppercase", tone.text)}>{CATEGORY_LABEL[e.category] || "Event"}</span>
-        {alt && <span className="font-mono text-[9px] px-1 rounded bg-ink-900/80 text-raised">ALTERNATIVE</span>}
+        {alt && <span className="font-mono text-[9px] px-1 rounded bg-deep/80 text-onbrand">ALTERNATIVE</span>}
       </span>
       <span className="font-display text-[14px] font-semibold leading-tight line-clamp-2">{e.title}</span>
       <span className="text-[11px] text-ink-600 flex items-center gap-1.5 truncate">

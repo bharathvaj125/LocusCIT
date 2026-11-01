@@ -89,7 +89,7 @@ export function ExportsDeck() {
       <Card className="p-6 space-y-3">
         <h2 className="font-display text-xl font-semibold flex items-center gap-2"><Terminal className="w-5 h-5 text-mangrove-500" />Check them with the official validator</h2>
         {([["base", base], ["after", after]] as const).map(([id, cmd]) => (
-          <div key={id} className="flex items-center gap-2 rounded-xl bg-ink-900 text-lagoon-200 pl-4 pr-2 py-2.5">
+          <div key={id} className="flex items-center gap-2 rounded-xl bg-deep text-lagoon-200 pl-4 pr-2 py-2.5">
             <code className="font-mono text-xs overflow-x-auto whitespace-nowrap flex-1">{cmd}</code>
             <button onClick={() => copy(cmd, id)} aria-label="Copy command" className="p-2 rounded-lg hover:bg-lagoon-700/50 cursor-pointer shrink-0">{copied === id ? <Check className="w-4 h-4 text-mangrove-500" /> : <Copy className="w-4 h-4" />}</button>
           </div>

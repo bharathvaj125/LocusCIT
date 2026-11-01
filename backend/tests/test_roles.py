@@ -161,14 +161,20 @@ def test_two_conflicting_approvals_at_the_same_time_cannot_both_win(client, club
     win = [{"day": "WED", "from_period": 6, "to_period": 7}]
     a = submit(client, club, "Race A", ["classroom"], room="CR-101", windows=win)
     b = submit(client, faculty, "Race B", ["classroom"], room="CR-101", windows=win)
-    assert a["placement"] == b["placement"]
+    assert a["placement"] != b["placement"]                      # the later request was given another slot when it was submitted
     with ThreadPoolExecutor(max_workers=2) as ex:
         ra, rb = ex.map(lambda args: decide(client, *args), [(admin, a["id"]), (admin2, b["id"])])
-    assert sorted([ra.status_code, rb.status_code]) == [200, 409]
+    assert sorted([ra.status_code, rb.status_code]) == [200, 200]
     held = [e for e in client.get("/api/venue-board", headers=admin).json()["data"]["events"]
-            if e["room_id"] == a["placement"]["room_id"] and e["day"] == "WED" and e["status"] == "approved"
-            and e["start"] <= a["placement"]["end_period"] and e["end"] >= a["placement"]["start_period"]]
-    assert len(held) == 1
+            if e["id"] in (a["id"], b["id"]) and e["status"] == "approved"]
+    for i, x in enumerate(held):                                 # nothing is booked twice
+        for y in held[i + 1:]:
+            assert not (x["room_id"] == y["room_id"] and x["day"] == y["day"] and x["start"] <= y["end"] and y["start"] <= x["end"])
+    # and one booking approved twice at the same moment succeeds exactly once
+    c = submit(client, club, "Race C", ["classroom"], room="CR-103", windows=[{"day": "THU", "from_period": 6, "to_period": 7}])
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        r1, r2 = ex.map(lambda args: decide(client, *args), [(admin, c["id"]), (admin2, c["id"])])
+    assert sorted([r1.status_code, r2.status_code]) == [200, 409]
 
 
 def test_every_approval_is_rechecked_against_the_current_schedule(client, club, admin, admin2, ready):
@@ -176,10 +182,12 @@ def test_every_approval_is_rechecked_against_the_current_schedule(client, club, 
     p = s["placement"]
     steal = {"title": "Took it", "room_id": p["room_id"], "day": p["day"], "start_period": p["start_period"],
              "end_period": p["end_period"], "attendance": 10}
+    steal["requested_category"] = "institute_event"
     assert client.post("/api/events/manual", headers=admin, json=steal).status_code == 200
-    r = decide(client, admin2, s["id"])
-    assert r.status_code == 409 and "H4" in r.json()["errors"][0]["rule_ids"]
-    assert find(client, admin, s["id"])["status"] == "PENDING_APPROVAL"
+    r = client.post(f"/api/bookings/{s['id']}/decision", headers=admin2, json={"action": "approve", "expect": p})
+    assert r.status_code == 409 and r.json()["errors"][0]["code"] == "STALE_PROPOSAL"     # the view the approver had is out of date
+    now = find(client, admin, s["id"])
+    assert now["status"] == "PENDING_APPROVAL" and now["placement"] != p                  # recalculated, still waiting for a person
 
 
 # ------------------------------------------------------------------------------ shared campus view and boundaries
