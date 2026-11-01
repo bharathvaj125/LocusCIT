@@ -402,9 +402,11 @@ export async function submitBooking(draft: DraftSubmission): Promise<Submission[
 export async function decideSubmission(
   id: string,
   action: "approve" | "reject" | "offer_alternative",
-  reason?: string
+  reason?: string,
+  expect?: { room_id: string; day: string; start_period: number } | null
 ): Promise<Submission> {
-  return request(`/api/bookings/${encodeURIComponent(id)}/decision`, { method: "POST", body: { action, reason } });
+  // `expect` is the slot the approver was looking at; the server refuses if the request was recalculated since
+  return request(`/api/bookings/${encodeURIComponent(id)}/decision`, { method: "POST", body: { action, reason, expect: expect ?? undefined } });
 }
 
 export interface SlotOption { room_id: string; day: DayOfWeek; start_period: number; end_period: number; kind: "inside_window" | "alternative" }

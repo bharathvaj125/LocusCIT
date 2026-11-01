@@ -151,8 +151,8 @@ export function ApprovalsDeck({ onOpenChanges }: { onOpenChanges: () => void }) 
                     <input value={reasons[s.id] || ""} onChange={(e) => setReasons({ ...reasons, [s.id]: e.target.value })} placeholder="Reason, shown to the requester (optional)" aria-label="Reason"
                       className="flex-1 min-w-[220px] h-10 px-3 rounded-xl bg-paper border border-line text-sm" />
                     <Button variant="danger" size="sm" icon={<X className="w-4 h-4" />} disabled={busy === s.id} onClick={() => act(s.id, () => decideSubmission(s.id, "reject", reasons[s.id]), "Rejected")}>Reject</Button>
-                    {!s.affected_classes?.length && <Button variant="secondary" size="sm" disabled={busy === s.id} onClick={() => act(s.id, () => decideSubmission(s.id, "offer_alternative", reasons[s.id]), "Offered an alternative for")}>Offer as alternative</Button>}
-                    <Button variant="success" size="sm" icon={<Check className="w-4 h-4" />} loading={busy === s.id} onClick={() => act(s.id, () => decideSubmission(s.id, "approve", reasons[s.id]), "Approved")}>Approve</Button>
+                    {!s.affected_classes?.length && <Button variant="secondary" size="sm" disabled={busy === s.id} onClick={() => act(s.id, () => decideSubmission(s.id, "offer_alternative", reasons[s.id], s.placement), "Offered an alternative for")}>Offer as alternative</Button>}
+                    <Button variant="success" size="sm" icon={<Check className="w-4 h-4" />} loading={busy === s.id} onClick={() => act(s.id, () => decideSubmission(s.id, "approve", reasons[s.id], s.placement), "Approved")}>Approve</Button>
                   </div>
                   )}
                 </Card>

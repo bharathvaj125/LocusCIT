@@ -36,8 +36,8 @@ Optional header `If-Match: <revision>` on writes: a stale value returns 409 `STA
 | `GET /bookings` | any (scoped) | dataset requests with decisions, plus `submitted` bookings |
 | `POST /bookings/parse` | any | `{text}` returns an editable draft with `assumptions`, `ambiguous_fields`, `follow_up`, `security_flags` |
 | `POST /bookings/submit` | any | structured draft; role and category come from the token, never from the body |
-| `POST /bookings/{id}/decision` | approver | `{action: approve, reject or offer_alternative, reason?}`; never your own request |
-| `POST /bookings/{id}/respond` | requester | `{accept: bool}` for an offered alternative |
+| `POST /bookings/{id}/decision` | approver | `{action: approve, reject or offer_alternative, reason?, expect?}`; never your own request. `expect` is the `{room_id, day, start_period}` the approver was looking at: if the request was recalculated since, the answer is `409 STALE_PROPOSAL` and nothing changes. Approving a proposal that is outside the requested windows yields `ALTERNATIVE_OFFERED`, never `APPROVED` |
+| `POST /bookings/{id}/respond` | requester | `{accept: bool}` for an offered alternative. Accept re-checks the slot and the official validator (`409` if it was lost, status `NEEDS_REVIEW`); decline closes the request as `REJECTED` and keeps `declined_alternative`. Requests still unconfirmed are recalculated in official priority order after every change (`recalculated_at`, reason starts "Recalculated") |
 | `POST /bookings/{id}/cancel` | requester / admin | |
 | `POST /bookings/suggest` | any | dry run of a draft: `{outcome, reason, options: [{room_id, day, start_period, end_period, kind: inside_window or alternative}], message}`; changes nothing |
 | `GET /bookings/{id}/negotiation-options` | requester / admin | whether a voluntary move offer is possible for a request that only got an alternative or a rejection |

@@ -239,7 +239,10 @@ def booking(T):
     a = data(call("/api/bookings/submit", draft("Conflict A", 90, "THU", 10, 11, room="SH-1", types=["seminar_hall"]), T["club"], "POST"))["submissions"][0]
     b = data(call("/api/bookings/submit", draft("Conflict B", 90, "THU", 10, 11, room="SH-1", types=["seminar_hall"]), T["faculty"], "POST"))["submissions"][0]
     print("      A:", a["proposed"]["status"], a["proposed"].get("room_id"), "| B:", b["proposed"]["status"], b["proposed"].get("room_id"))
-    print("      NOTE both pending requests propose the same slot; the clash is caught when the second is approved (409), see next check")
+    pa, pb = a["proposed"], b["proposed"]
+    check("R4", "overlapping pending requests never share a slot (the later one is recalculated at once)",
+          (pa.get("room_id"), pa.get("day"), pa.get("start_period")) != (pb.get("room_id"), pb.get("day"), pb.get("start_period")),
+          {"A": [pa.get("room_id"), pa["status"]], "B": [pb.get("room_id"), pb["status"]]})
     res = []
     def go(x, tok):
         res.append(call(f"/api/bookings/{x['id']}/decision", {"action": "approve"}, tok, "POST")[0])
@@ -248,7 +251,7 @@ def booking(T):
     [t.join() for t in th]
     ok_ = [x for x in (call("/api/bookings", tok=T["admin"])[1].get("data") or {}).get("submitted", []) if x["id"] in (a["id"], b["id"]) and x["status"] == "APPROVED"]
     slots = {(x["placement"]["room_id"], x["placement"]["day"], x["placement"]["start_period"]) for x in ok_}
-    check("P7", "two simultaneous approvals of conflicting bookings: exactly one wins, no double booking", len(ok_) == 1 == len(slots) and sorted(res) == [200, 409], f"codes={res} approved={len(ok_)} distinct={len(slots)}")
+    check("P7", "two simultaneous approvals of overlapping requests: no double booking", len(ok_) == len(slots) and set(res) <= {200, 409}, f"codes={res} approved={len(ok_)} distinct={len(slots)}")
     codes = []
     c = data(call("/api/bookings/submit", draft("Dup", 30, "FRI", 10, 11), T["club"], "POST"))["submissions"][0]
     def dd():
