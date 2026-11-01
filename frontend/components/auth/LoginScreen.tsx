@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Image from "next/image";
 import { motion } from "framer-motion";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, Loader2, Sparkles } from "lucide-react";
 import { describeError, health, login } from "@/lib/api";
 import { StoredSession } from "@/lib/session";
 import { DEMO_ACCOUNTS } from "@/lib/uiConfig";
@@ -50,11 +51,32 @@ export function LoginScreen({ onSignedIn, notice }: { onSignedIn: (s: StoredSess
   return (
     <div className="relative z-[1] min-h-screen grid lg:grid-cols-[1.05fr_1fr]">
       <section className="relative hidden lg:flex flex-col justify-between bg-lagoon-900 text-raised p-12 overflow-hidden">
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="w-11 h-11 rounded-full bg-sunrise-500 flex items-center justify-center shadow-[0_8px_20px_-6px_rgba(228,87,46,0.8)]">
-            <svg width="24" height="24" viewBox="0 0 22 22" fill="none" aria-hidden><path d="M3 12c2.5-4 5-4 8 0s5.5 4 8 0" stroke="#FBF8F2" strokeWidth="2.4" strokeLinecap="round" /><circle cx="11" cy="6" r="2" fill="#FBF8F2" /></svg>
+        <div className="relative z-10 flex items-center justify-between">
+          <div className="flex items-center gap-3.5">
+            <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-amber-400/20 to-lagoon-800 p-1 border border-amber-500/30 flex items-center justify-center shadow-[0_4px_16px_rgba(233,169,58,0.3)]">
+              <Image src="/locus_app_transparent.png" alt="Locus Logo" width={42} height={42} className="object-contain" priority />
+            </div>
+            <div className="leading-tight">
+              <div className="font-display text-3xl font-semibold tracking-[-0.02em] flex items-center gap-2">
+                Locus
+                <span className="text-xs font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">CIT</span>
+              </div>
+              <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-lagoon-200/80">Chilika Institute of Technology</div>
+            </div>
           </div>
-          <div className="leading-tight"><div className="font-display text-3xl font-semibold tracking-[-0.02em]">Locus</div><div className="font-mono text-[10px] uppercase tracking-[0.18em] text-lagoon-200/80">Chilika Institute of Technology</div></div>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("replay_intro"));
+              }
+            }}
+            className="flex items-center gap-2 text-xs font-mono text-amber-300/90 hover:text-amber-200 bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/30 px-3.5 py-1.5 rounded-full transition-all cursor-pointer"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+            <span>Play Intro Reveal</span>
+          </button>
         </div>
         <div className="relative z-10 space-y-9">
           <h1 className="font-display text-[56px] leading-[1.02] font-semibold tracking-[-0.03em] max-w-[560px]">
@@ -75,8 +97,25 @@ export function LoginScreen({ onSignedIn, notice }: { onSignedIn: (s: StoredSess
 
       <section className="flex items-center justify-center p-6 md:p-12">
         <div className="w-full max-w-[460px] space-y-8">
-          <div className="lg:hidden flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-sunrise-500" /><div className="font-display text-3xl font-semibold tracking-[-0.02em]">Locus</div>
+          <div className="lg:hidden flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400/20 to-lagoon-800 p-1 border border-amber-500/30 flex items-center justify-center shadow-[0_4px_14px_rgba(233,169,58,0.25)]">
+                <Image src="/locus_app_transparent.png" alt="Locus Logo" width={32} height={32} className="object-contain" priority />
+              </div>
+              <div className="font-display text-2xl font-bold tracking-[-0.02em]">Locus</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  window.dispatchEvent(new CustomEvent("replay_intro"));
+                }
+              }}
+              className="flex items-center gap-1.5 text-xs font-mono text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 py-1.5 rounded-full cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              <span>Intro</span>
+            </button>
           </div>
           <div className="space-y-2">
             <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-lagoon-700">Sign in</p>
