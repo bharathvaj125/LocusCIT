@@ -53,7 +53,7 @@ Optional header `If-Match: <revision>` on writes: a stale value returns 409 `STA
 | `GET /proposals`, `GET /proposals/{id}` | admin | moved sessions with old and new slot and reason, `moved_count`, `proven_minimum` |
 | `POST /proposals/{id}/approve`, `/reject` | admin | approve is blocked for the requester (403) and for stale proposals (409) |
 | `GET /faculty/my-sessions` | faculty / coordinator | |
-| `POST /faculty/change-request` | faculty / coordinator | `{text}` or `{kind, session_id, avoid_slots, allow_slots, days, periods}`; may answer `NEEDS_INFO` |
+| `POST /faculty/change-request` | faculty / coordinator | `{text}` or `{kind, session_id, avoid_slots, allow_slots, days, periods}`; may answer `NEEDS_INFO`. Text can ask to **move** a class, **mark leave**, or add an **extra** session (`understood.intent` = `move` / `unavailable` / `extra`; an extra carries `understood.extra_session`). Every outcome is a PENDING proposal for an Admin; the proposal lists `moved` and, for extras, `added` (`{session_id, new:{day,start_period,room_id}}`) |
 | `GET /faculty/change-requests` and `/{id}` | requester / admin | |
 | `GET /explain/session/{id}`, `GET /explain/booking/{id}` | any (booking: own only) | facts and rule ids |
 | `GET /exports/schedule`, `GET /exports/schedule-after` | admin | official schema, re-validated before returning |

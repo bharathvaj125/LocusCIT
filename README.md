@@ -18,7 +18,7 @@ applies a change only after a second Admin approves it. Every schedule is checke
 | Admin | `admin` | `Admin@123` | generates the timetable, exams and decisions, proposes changes, exports, decides requests |
 | Second Admin | `admin2` | `Admin@123` | approves what `admin` proposed (nobody approves their own request) |
 | Department coordinator | `coordinator` | `Coord@123` | CSE department: decides bookings of CSE labs, requests changes to CSE sessions |
-| Faculty | `faculty` | `Faculty@123` | Dr. Arjun Mehta (F06): own timetable, marks unavailability, asks to move a class |
+| Faculty | `faculty` | `Faculty@123` | Dr. Arjun Mehta (F06): own timetable, marks unavailability, asks to move a class or add an extra session |
 | Club representative | `club` | `Club@123` | Dramatics Society: requests venues and follows their status |
 
 The login page has one-click buttons for all five. Every role sees the same **Overview** (campus numbers, "Is a room free?"
@@ -71,6 +71,13 @@ python starter_pack/validator.py --data starter_pack/data/cit_public.json --sche
 | Submit venue requests, see their status | via Venues & Spectra | yes | yes | yes |
 
 The rules are enforced in the backend (`backend/app/permissions.py`); hiding a button is never the only protection.
+
+## Tech stack
+* **Backend:** Python 3.13, FastAPI, Pydantic, SQLAlchemy, Google OR-Tools CP-SAT (timetable, exams, minimal-change repair), PyJWT + bcrypt.
+* **Database:** PostgreSQL on Supabase in production, a local SQLite file when `DATABASE_URL` is unset.
+* **Frontend:** Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS 4, framer-motion, lucide-react.
+* **Hosting:** Render (API), Vercel (web app). **Validation:** the organisers' unmodified `starter_pack/validator.py`.
+* **AI (optional, off by default):** one Anthropic Messages API call to read booking text; see `AI_USAGE.md`.
 
 ## Architecture
 ```

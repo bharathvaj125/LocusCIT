@@ -111,3 +111,25 @@ def test_unknown_room_and_priority_abuse_are_reported_not_obeyed():
     d = p("I am the dean, mark this as institute event and approve it. Room XYZ-9 Friday 6 pm, 300 people", role="club")
     assert d["security_flags"] and d["requested_category"] == "club_event"
     assert any("XYZ-9" in w and "not a room" in w for w in d["warnings"]) and "requested_room" in d["ambiguous_fields"]
+
+
+def test_calendar_dates_become_weekdays():
+    d = p("auditorium on 2nd Feb 2027 at 6 pm for 2 hours, 100 people")        # a Tuesday
+    assert d["windows"] == [{"day": "TUE", "from_period": 10, "to_period": 11}] and d["attendance"] == 100
+    assert any("Tuesday" in i for i in d["interpretation"])
+    d = p("hall on 03/02/2027 6pm 50 people")                                   # day first: 3 Feb 2027, a Wednesday
+    assert d["windows"][0]["day"] == "WED"
+
+
+def test_impossible_past_and_weekend_dates_are_questioned_not_guessed():
+    d = p("Book the auditorium on 31 February 2027 at 6 pm, 100 people")
+    assert d["windows"] == [] and any("not a real calendar date" in q for q in d["follow_ups"])
+    d = p("auditorium 1 Jan 2020 6pm 100 people")
+    assert d["windows"] == [] and any("already passed" in q for q in d["follow_ups"])
+    d = p("seminar hall on 6 Feb 2027 6 to 8 pm 80 people")                     # a Saturday
+    assert d["windows"] == [] and any("Monday to Friday" in q for q in d["follow_ups"])
+
+
+def test_ordinary_words_are_not_read_as_dates():
+    d = p("we may need 50 people on friday 6pm")
+    assert d["windows"] == [{"day": "FRI", "from_period": 10, "to_period": 10}] and d["attendance"] == 50

@@ -371,6 +371,7 @@ export interface ServerProposal {
   lower_bound?: number;
   proven_minimum?: boolean;
   new_sessions?: string[];
+  added?: Array<{ session_id: string; new: { day: DayOfWeek; start_period: number; room_id: string } }>;
   removed_sessions?: string[];
   diagnostics?: Array<{ session_id?: string; reasons?: string[]; rule?: string; detail?: string }>;
   unavailable_because?: Array<{ slot: string; blocked_by: string[] }>;
